@@ -48,7 +48,7 @@
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto p-4">
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
 
     <!-- VISTA CHOFER (MÓVIL) -->
     <section id="viewDriver" class="block space-y-4">
@@ -64,9 +64,8 @@
         </div>
       </div>
 
-      <!-- PANEL DE RUTA CARGADA PARA CHOFER -->
+      <!-- PANEL DE RUTA CARGADA -->
       <div id="driverRouteContainer" class="hidden space-y-4">
-        <!-- HEADER DE RUTA & GPS -->
         <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-3">
           <div>
             <h3 class="font-bold text-gray-800 text-lg" id="driverRouteTitle">Ruta #</h3>
@@ -99,6 +98,22 @@
 
     <!-- VISTA ADMINISTRADOR -->
     <section id="viewAdmin" class="hidden space-y-4">
+
+      <!-- TARJETA DE ARCHIVO ACTIVO -->
+      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-300 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
+        <div class="space-y-0.5">
+          <div class="flex items-center gap-2">
+            <span class="bg-emerald-600 text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded">Archivo Activo</span>
+            <h4 id="activeFileName" class="font-bold text-emerald-900 text-base">---</h4>
+          </div>
+          <p id="activeFileMeta" class="text-xs text-emerald-700 font-medium">---</p>
+        </div>
+        <button onclick="clearCurrentDayData()" class="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow flex items-center justify-center gap-2 transition">
+          <i class="fa-solid fa-trash-can"></i> Borrar datos para nuevo día
+        </button>
+      </div>
+
+      <!-- CARGAR NUEVO ARCHIVO -->
       <div class="bg-white p-5 rounded-xl shadow space-y-3">
         <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
           <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar Archivo de Rutas (CSV)
@@ -115,7 +130,7 @@
         <div id="csvStatus" class="text-sm font-medium"></div>
       </div>
 
-      <!-- MAPA ADMIN -->
+      <!-- MAPA MONITOREO ADMIN -->
       <div class="bg-white p-4 rounded-xl shadow space-y-3">
         <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
           <h3 class="font-bold text-gray-800">Monitoreo General de Rutas</h3>
@@ -136,7 +151,7 @@
   </main>
 
   <script>
-    // FIREBASE
+    // FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
       authDomain: "courier-4ecda.firebaseapp.com",
@@ -150,16 +165,14 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // COLORES DE ESTADO
     const STATUS_COLORS = {
-      'PENDIENTE': '#EAB308', // Amarillo
-      'ENTREGADO': '#22C55E', // Verde
-      'CERRADO': '#EF4444',   // Rojo
-      'PARCIAL': '#F97316',   // Anaranjado
-      'OTRO MOTIVO': '#A855F7' // Morado
+      'PENDIENTE': '#EAB308',
+      'ENTREGADO': '#22C55E',
+      'CERRADO': '#EF4444',
+      'PARCIAL': '#F97316',
+      'OTRO MOTIVO': '#A855F7'
     };
 
-    // PALETA DE COLORES DE VENDEDORES (Para los bordes/anillos)
     const VENDOR_PALETTE = ['#3B82F6', '#EC4899', '#10B981', '#6366F1', '#D97706', '#06B6D4', '#E11D48', '#8B5CF6', '#14B8A6', '#F59E0B'];
     const vendorColorMap = {};
 
@@ -173,7 +186,6 @@
       return vendorColorMap[vendKey];
     }
 
-    // ICONO CON ETIQUETA #SEC Y ANILLO VENDEDOR
     function createCustomMarkerIcon(sec, status, vendedor) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
       const vendorColor = getVendorColor(vendedor);
@@ -209,7 +221,6 @@
       });
     }
 
-    // GLOBALES MAPA Y RUTA
     let currentRouteCode = null;
     let currentClientsData = [];
     let driverUnsubscribe = null;
@@ -221,6 +232,19 @@
 
     let driverMap = null;
     let driverMapMarkers = [];
+
+    // MONITOREAR METADATOS DEL ARCHIVO ACTIVO
+    db.collection('meta').doc('active_file').onSnapshot(doc => {
+      const card = document.getElementById('activeFileCard');
+      if (doc && doc.exists) {
+        const data = doc.data();
+        document.getElementById('activeFileName').innerText = data.fileName || 'Archivo cargado';
+        document.getElementById('activeFileMeta').innerText = `Subido el ${data.uploadDate || ''} · ${data.totalClients || 0} clientes en ${data.totalRoutes || 0} rutas.`;
+        card.classList.remove('hidden');
+      } else {
+        card.classList.add('hidden');
+      }
+    });
 
     function switchTab(tab) {
       document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
@@ -242,7 +266,6 @@
       }
     }
 
-    // LECTOR CSV
     function parseCSV(text) {
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
       if (lines.length === 0) return [];
@@ -320,7 +343,9 @@
       statusDiv.className = "text-sm font-bold text-indigo-600";
       statusDiv.innerText = "⏳ Procesando archivo y guardando en la nube...";
 
+      const file = fileInput.files[0];
       const reader = new FileReader();
+
       reader.onload = async (e) => {
         try {
           const parsedClients = parseCSV(e.target.result);
@@ -355,19 +380,45 @@
             }, { merge: true });
           }
 
+          // REGISTRAR METADATOS DEL ARCHIVO
+          const nowStr = new Date().toLocaleString();
+          await db.collection('meta').doc('active_file').set({
+            fileName: file.name,
+            uploadDate: nowStr,
+            totalClients: parsedClients.length,
+            totalRoutes: routeKeys.length
+          });
+
           statusDiv.className = "text-sm font-bold text-emerald-600";
           statusDiv.innerText = `✅ ¡Éxito! Se guardaron ${parsedClients.length} clientes en las rutas (${routeKeys.join(', ')}).`;
 
+          fileInput.value = ''; // Limpiar selector
           loadAvailableRoutesInSelect();
         } catch (err) {
           statusDiv.className = "text-sm font-bold text-red-600";
           statusDiv.innerText = `Error: ${err.message}`;
         }
       };
-      reader.readAsText(fileInput.files[0], 'UTF-8');
+      reader.readAsText(file, 'UTF-8');
     }
 
-    // CARGAR RUTA EN MÓVIL (CHOFER)
+    async function clearCurrentDayData() {
+      if (!confirm("¿Estás seguro de borrar las rutas y el archivo actual del día? Esta acción no se puede deshacer.")) return;
+
+      const snapshot = await db.collection('routes').get();
+      const batch = db.batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+
+      await db.collection('meta').doc('active_file').delete();
+
+      document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Seleccionar Ruta --</option>';
+      if (adminMapMarkers) adminMapMarkers.forEach(m => adminMap.removeLayer(m));
+      adminMapMarkers = [];
+
+      alert("✅ Datos del día eliminados correctamente. Puedes subir un nuevo archivo CSV.");
+    }
+
     function loadDriverRoute() {
       let code = document.getElementById('inputRouteCode').value.trim();
       if (!code) return alert("Ingresa un código de ruta.");
@@ -376,7 +427,6 @@
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
-      // Inicializar mapa chofer si no existe
       if (!driverMap) {
         driverMap = L.map('driverMap').setView([-16.3988, -71.5350], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(driverMap);
@@ -420,7 +470,6 @@
         let statusKey = c.estado || 'PENDIENTE';
         if (!STATUS_COLORS[statusKey]) statusKey = 'PENDIENTE';
 
-        // 1. Tarjeta en la lista
         const card = document.createElement('div');
         card.className = "border rounded-xl p-4 bg-gray-50 space-y-2 shadow-sm";
         card.innerHTML = `
@@ -449,7 +498,6 @@
         `;
         listContainer.appendChild(card);
 
-        // 2. Marcador en Mapa Chofer
         if (c.lat && c.lon) {
           const markerIcon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor);
           const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
@@ -494,7 +542,6 @@
       });
     }
 
-    // TRANSMISIÓN GPS CHOFER
     function toggleGPSTracking() {
       const btn = document.getElementById('btnToggleGPS');
       const statusText = document.getElementById('gpsStatusText');
@@ -535,7 +582,6 @@
       );
     }
 
-    // ADMIN MAP & MONITOREO
     async function loadAvailableRoutesInSelect() {
       const select = document.getElementById('selectAdminRoute');
       select.innerHTML = '<option value="">-- Seleccionar Ruta --</option>';
@@ -568,7 +614,6 @@
         const legendDiv = document.getElementById('vendorLegend');
         legendDiv.innerHTML = '';
 
-        // Generar Leyenda de Vendedores
         const vendorsUsed = {};
 
         clients.forEach(c => {
@@ -593,7 +638,6 @@
           bounds.push([c.lat, c.lon]);
         });
 
-        // Mostrar Leyenda
         Object.keys(vendorsUsed).forEach(v => {
           legendDiv.innerHTML += `
             <span class="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border">
@@ -606,7 +650,6 @@
         if (bounds.length > 0) adminMap.fitBounds(bounds, { padding: [30, 30] });
       });
 
-      // RASTREO CAMIÓN EN VIVO ADMIN
       db.collection('tracking').doc(code).onSnapshot(doc => {
         if (!doc.exists) return;
         const data = doc.data();
