@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seguimiento de Rutas</title>
+
+<!-- SDKs de Firebase Compatibles para Web -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<style>
+:root{
+  --bg:#f7f8fa; --card:#fff; --text:#1a1d21; --muted:#6b7280; --border:#e5e7eb;
+  --blue:#2563eb; --green:#16a34a; --red:#dc2626; --yellow:#ca8a04; --purple:#7c3aed; --gray:#9ca3af;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#14161a; --card:#1e2126; --text:#eef0f2; --muted:#9aa1ab; --border:#2c3036; } }
+:root[data-theme="dark"]{ --bg:#14161a; --card:#1e2126; --text:#eef0f2; --muted:#9aa1ab; --border:#2c3036; }
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;min-height:100%;}
+header{position:sticky;top:0;padding-top:calc(12px + env(safe-area-inset-top,0px));background:var(--card);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:10;}
+header b{font-size:15px;}
+.wrap{max-width:900px;margin:0 auto;padding:16px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
+button{font:inherit;border:none;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600;}
+.btn-primary{background:var(--blue);color:#fff;width:100%;padding:14px;font-size:16px;}
+.btn-lg{width:100%;padding:20px;font-size:17px;margin-bottom:10px;}
+input,select{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:16px;margin-bottom:10px;}
+.muted{color:var(--muted);font-size:13px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;}
+.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;color:#fff;}
+.client{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
+.client h4{margin:0 0 4px;font-size:15px;}
+.statusbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
+.statusbtns button{padding:9px 4px;font-size:12px;color:#fff;}
+#map{border-radius:10px;margin-top:8px;overflow:hidden;}
+.maplegend{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;}
+.maplegend span{display:flex;align-items:center;gap:4px;}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+td,th{padding:6px 4px;border-bottom:1px solid var(--border);text-align:left;}
+a.link{color:var(--blue);}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+<header><button id="backBtn" onclick="landing()" style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 12px;">← Menú</button><span id="who" class="muted"></span></header>
+<div class="wrap" id="app"></div>
+
+<script>
+// CONFIGURACIÓN DE TU PROYECTO FIREBASE
+const firebaseConfig = {
+  apiKey: "AIzaSyACncLaclSsdaufRdZxoiBkmfCFfGdoZiE",
+  authDomain: "courier-4ecda.firebaseapp.com",
+  projectId: "courier-4ecda",
+  storageBucket: "courier-4ecda.firebasestorage.app",
+  messagingSenderId: "226032355815",
+  appId: "1:226032355815:web:0e7e78e217ca77363a1542",
+  measurementId: "G-899HW8W4XJ"
+};
+
+// Inicialización de Firebase Firestore
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.firestore();
+let app = document.getElementById('app');
+
+const STATUS = {
+  pendiente:{label:'Pendiente', color:'#9ca3af'},
+  entregado:{label:'Entregado', color:'#16a34a'},
+  cerrado:{label:'Cerrado', color:'#dc2626'},
+  repaso:{label:'Repaso', color:'#ca8a04'},
+  rechazado:{label:'Rechazado', color:'#7c3aed'}
+};
+
+function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function haversine(a,b,c,d){const R=6371,dLat=(c-a)*Math.PI/180,dLon=(d-b)*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+function optimize(clients){
+  if(!clients.length) return clients;
+  let left = clients.slice(), route=[left.shift()];
+  while(left.length){
+    let last = route[route.length-1], bi=0, bd=Infinity;
+    left.forEach((c,i)=>{const d=haversine(last.lat,last.lon,c.lat,c.lon); if(d<bd){bd=d;bi=i;}});
+    route.push(left.splice(bi,1)[0]);
+  }
+  return route;
+}
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const headers = lines[0].split(';').map(h=>h.trim().toUpperCase());
+  const idx = n => headers.indexOf(n);
+  const out = [];
+  for(let i=1;i<lines.length;i++){
+    const c = lines[i].split(';');
+    const tpt = (c[idx('TPT')]||'').trim();
+    if(!tpt || tpt==='0') continue;
+    out.push({
+      sec:c[idx('SEC')], vendedor:c[idx('VENDEDOR')], code:c[idx('NAME')],
+      telefono:c[idx('TELEFONO')], tpt, razonSocial:c[idx('RAZON SOCIAL')],
+      domicilio:c[idx('DOMICILIO')], subtotal:c[idx('Subtotal Final')],
+      lon:parseFloat(c[idx('X')]), lat:parseFloat(c[idx('Y')]),
+      estado:'pendiente', obs:''
+    });
+  }
+  const groups = {};
+  out.forEach(r=>{ (groups[r.tpt] = groups[r.tpt]||[]).push(r); });
+  return groups;
+}
+
+function landing(){
+  document.getElementById('who').textContent = '';
+  app.innerHTML = `
+    <div class="card">
+      <h3>¿Quién eres?</h3>
+      <button class="btn-lg" style="background:var(--blue);color:#fff" onclick="renderDriverLogin()">Soy Transportista</button>
+      <button class="btn-lg" style="background:var(--text);color:var(--bg)" onclick="renderAdmin()">Panel Administrador</button>
+    </div>`;
+}
+
+function renderDriverLogin(){
+  const saved = localStorage.getItem('rt_code')||'';
+  app.innerHTML = `
+    <div class="card">
+      <h3>Ingresa tu código de ruta</h3>
+      <p class="muted">Ejemplo: T14, T22</p>
+      <input id="codeInput" placeholder="T22" value="${esc(saved)}" style="text-transform:uppercase">
+      <button class="btn-primary" onclick="loginDriver()">Entrar</button>
+      <p id="loginMsg" class="muted"></p>
+    </div>`;
+}
+
+async function loginDriver(){
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if(!code) return;
+  document.getElementById('loginMsg').textContent = 'Buscando ruta...';
+  try{
+    const doc = await db.doc('routes/'+code).get();
+    if(!doc || !doc.exists){ document.getElementById('loginMsg').textContent = 'Código no encontrado. Verifica con tu administrador.'; return; }
+    localStorage.setItem('rt_code', code);
+    renderDriver(code, doc.data());
+  }catch(e){ document.getElementById('loginMsg').textContent = 'No se pudo conectar. Reintenta.'; }
+}
+
+async function renderDriver(code, data){
+  document.getElementById('who').textContent = code;
+  let clients = optimize(data.clients);
+  window._clients = clients; window._code = code;
+  app.innerHTML = `
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <b>Ruta ${esc(code)}</b>
+        <span id="trkBtn" class="pill" style="background:var(--muted)">📍 Conectando GPS...</span>
+      </div>
+      <div class="row" id="counts" style="margin-top:8px"></div>
+      <div id="dmap"></div>
+      <p class="muted">Toca un punto del mapa para marcar la entrega.</p>
+    </div>
+    <div id="modalCard" class="hidden" style="border:2px solid var(--blue);border-radius:12px;padding:14px;margin-top:10px;"></div>`;
+  refreshCounts();
+  drawDriverMap();
+  startTracking(code);
+}
+
+function refreshCounts(){
+  const counts = {}; Object.keys(STATUS).forEach(s=>counts[s]=0);
+  window._clients.forEach(c=>counts[c.estado]=(counts[c.estado]||0)+1);
+  document.getElementById('counts').innerHTML = Object.entries(counts).map(([k,v])=>`<span class="pill" style="background:${STATUS[k].color}">${STATUS[k].label}: ${v}</span>`).join('');
+}
+
+function drawDriverMap(){
+  const pts = window._clients.map((c,i)=>({lat:c.lat, lon:c.lon, color:STATUS[c.estado].color, ring:colorForVendedor(c.vendedor), label:c.sec, title:'#'+c.sec+' · '+c.razonSocial+' — '+STATUS[c.estado].label, idx:i}))
+    .filter(p=>p.lat&&p.lon);
+  renderMapSVG('dmap', pts, 'driver');
+}
+
+function openClientModal(i){
+  const c = window._clients[i];
+  const card = document.getElementById('modalCard');
+  card.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h4>${i+1}. ${esc(c.razonSocial)}</h4>
+      <button onclick="closeModal()" style="background:none;color:var(--muted);font-size:18px;padding:2px 8px">✕</button>
+    </div>
+    <div class="muted">${esc(c.domicilio)}</div>
+    <div class="muted">Vendedor: ${esc(c.vendedor)} · S/ ${esc(c.subtotal)}</div>
+    <span class="pill" style="background:${STATUS[c.estado].color};margin-top:6px">${STATUS[c.estado].label}</span>
+    <div class="statusbtns" style="margin-top:12px">
+      <button style="background:${STATUS.entregado.color}" onclick="setStatus('${window._code}',${i},'entregado')">Entregado</button>
+      <button style="background:${STATUS.cerrado.color}" onclick="setStatus('${window._code}',${i},'cerrado')">Cerrado</button>
+      <button style="background:${STATUS.repaso.color}" onclick="setStatus('${window._code}',${i},'repaso')">Repaso</button>
+      <button style="background:${STATUS.rechazado.color}" onclick="toggleMotivo()">Rechazo</button>
+    </div>
+    <div id="motivoBox" class="hidden" style="margin-top:10px">
+      <p class="muted">Motivo del rechazo:</p>
+      <div class="statusbtns" style="grid-template-columns:repeat(2,1fr)">
+        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','No abrió / no había nadie')">No abrió</button>
+        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','No quiso recibir')">No quiso recibir</button>
+        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','Sin efectivo/pago')">Sin efectivo</button>
+        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','Otro motivo')">Otro</button>
+      </div>
+    </div>`;
+  card.classList.remove('hidden');
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function toggleMotivo(){ document.getElementById('motivoBox').classList.toggle('hidden'); }
+function closeModal(){ document.getElementById('modalCard').classList.add('hidden'); }
+
+async function setStatus(code, i, status, motivo){
+  window._clients[i].estado = status;
+  if(motivo) window._clients[i].obs = motivo;
+  try{
+    await db.doc('routes/'+code).update({clients: window._clients});
+  }catch(e){ }
+  localStorage.setItem('rt_'+code, JSON.stringify(window._clients));
+  refreshCounts();
+  drawDriverMap();
+  closeModal();
+}
+
+let watchId = null;
+function startTracking(code){
+  const btn = document.getElementById('trkBtn');
+  if(!navigator.geolocation){ if(btn){btn.textContent='📍 GPS no disponible'; btn.style.background='var(--red)';} return; }
+  watchId = navigator.geolocation.watchPosition(async pos=>{
+    if(btn){ btn.textContent='📍 Ubicación activa'; btn.style.background='var(--green)'; }
+    try{
+      await db.doc('tracking/'+code).set({code, lat:pos.coords.latitude, lng:pos.coords.longitude, updatedAt: Date.now()});
+    }catch(e){}
+  }, err=>{ if(btn){ btn.textContent='📍 Permite la ubicación'; btn.style.background='var(--red)'; } }, {enableHighAccuracy:true, maximumAge:10000});
+}
+
+// ---------- ADMIN ----------
+async function renderAdmin(){
+  document.getElementById('who').textContent = 'Admin';
+  app.innerHTML = `
+    <div class="card">
+      <h3>1. Sube el CSV del día</h3>
+      <input type="file" id="csvFile" accept=".csv">
+      <button class="btn-primary" onclick="handleCSV()">Procesar y publicar rutas</button>
+      <p id="csvMsg" class="muted"></p>
+    </div>
+    <div id="dash"></div>`;
+}
+
+function handleCSV(){
+  const f = document.getElementById('csvFile').files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = async e=>{
+    const groups = parseCSV(e.target.result);
+    const codes = Object.keys(groups).map(t=>'T'+t);
+    document.getElementById('csvMsg').textContent = 'Publicando '+codes.length+' rutas...';
+    for(const tpt of Object.keys(groups)){
+      const code = 'T'+tpt;
+      try{ await db.doc('routes/'+code).set({code, tpt, clients: groups[tpt], updatedAt: Date.now()}); }catch(err){}
+    }
+    document.getElementById('csvMsg').innerHTML = '✅ Publicado: '+codes.join(', ');
+    loadDashboard(codes);
+  };
+  reader.readAsText(f, 'ISO-8859-1');
+}
+
+const PALETTE = ['#e6194b','#3cb44b','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#008080','#e6beff','#9a6324','#808000','#fabebe','#000075'];
+const vendColorMap = {};
+function colorForVendedor(v){
+  if(!(v in vendColorMap)) vendColorMap[v] = PALETTE[Object.keys(vendColorMap).length % PALETTE.length];
+  return vendColorMap[v];
+}
+
+async function loadDashboard(codes){
+  const dash = document.getElementById('dash');
+  dash.innerHTML = `
+    <div class="card">
+      <h3>2. Elegir ruta a visualizar</h3>
+      <select id="routeSel" onchange="showRoute(this.value)">
+        ${codes.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+      <div id="map"></div>
+      <div class="maplegend" id="vendLegend"></div>
+      <p class="muted">Número = secuencia (SEC) del cliente. Color = vendedor. Toca un punto para abrirlo en Google Maps.</p>
+    </div>
+    <div class="card" id="summary"><h3>Resumen</h3><table id="sumTable"></table></div>`;
+  if(codes.length) showRoute(codes[0]);
+  refreshSummary(codes);
+  setInterval(()=>refreshSummary(codes), 15000);
+}
+
+const mapViewState = {}, lastRender = {};
+function renderMapSVG(elId, points, mode){
+  lastRender[elId] = {points, mode};
+  const el = document.getElementById(elId);
+  if(!points.length){ el.innerHTML = '<p class="muted">Esta ruta no tiene coordenadas.</p>'; return; }
+  const lats = points.map(p=>p.lat), lons = points.map(p=>p.lon);
+  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLon=Math.min(...lons), maxLon=Math.max(...lons);
+  const W=600,H=340,pad=30;
+  const x = lon => maxLon===minLon ? W/2 : pad+(lon-minLon)/(maxLon-minLon)*(W-2*pad);
+  const y = lat => maxLat===minLat ? H/2 : H-pad-(lat-minLat)/(maxLat-minLat)*(H-2*pad);
+  let inner = '';
+  points.forEach(p=>{
+    const cx=x(p.lon), cy=y(p.lat);
+    const click = mode==='driver' ? `openClientModal(${p.idx})` : `window.open('https://www.google.com/maps?q=${p.lat},${p.lon}','_blank')`;
+    if(p.truck){
+      inner += `<text x="${cx}" y="${cy+5}" font-size="20" text-anchor="middle" style="cursor:pointer" onclick="${click}">🚚</text>`;
+    } else {
+      inner += `<g class="mk" data-cx="${cx}" data-cy="${cy}" transform="translate(${cx},${cy})" style="cursor:pointer" onclick="${click}">
+        <circle r="10" fill="${p.color}" stroke="${p.ring||'#fff'}" stroke-width="3"><title>${esc(p.title)}</title></circle>
+        ${p.label!==undefined?`<text y="3.5" font-size="9" font-weight="700" text-anchor="middle" fill="#fff" style="pointer-events:none">${esc(p.label)}</text>`:''}
+      </g>`;
+    }
+  });
+  el.style.position='relative';
+  el.innerHTML = `<button onclick="resetMapZoom('${elId}')" style="position:absolute;top:6px;right:6px;z-index:5;background:var(--card);border:1px solid var(--border);padding:4px 8px;font-size:12px;border-radius:6px;">⤢ Restablecer</button>
+    <svg id="${elId}_svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:340px;background:var(--bg);display:block;touch-action:none" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+  attachMapInteraction(elId, W, H);
+}
+
+function resetMapZoom(elId){
+  delete mapViewState[elId];
+  const r = lastRender[elId];
+  if(r) renderMapSVG(elId, r.points, r.mode);
+}
+
+function attachMapInteraction(elId, W, H){
+  const svg = document.getElementById(elId+'_svg');
+  if(!svg) return;
+  let vb = mapViewState[elId] || {x:0,y:0,w:W,h:H};
+  mapViewState[elId] = vb;
+  const rescaleMarkers = ()=>{
+    const scale = vb.w / W;
+    svg.querySelectorAll('.mk').forEach(g=>{
+      g.setAttribute('transform', `translate(${g.dataset.cx},${g.dataset.cy}) scale(${scale})`);
+    });
+  };
+  const apply = ()=>{ svg.setAttribute('viewBox', vb.x+' '+vb.y+' '+vb.w+' '+vb.h); rescaleMarkers(); };
+  apply();
+  const toPt = (cx,cy)=>{
+    const r = svg.getBoundingClientRect();
+    return { x: vb.x + (cx-r.left)/r.width*vb.w, y: vb.y + (cy-r.top)/r.height*vb.h };
+  };
+  const zoomAt = (cx,cy,factor)=>{
+    const pt = toPt(cx,cy);
+    const nw = Math.min(W*3, Math.max(W*0.08, vb.w*factor));
+    const nh = Math.min(H*3, Math.max(H*0.08, vb.h*factor));
+    vb.x = pt.x - (pt.x-vb.x)*(nw/vb.w);
+    vb.y = pt.y - (pt.y-vb.y)*(nh/vb.h);
+    vb.w = nw; vb.h = nh;
+    apply();
+  };
+  svg.onwheel = e=>{ e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY<0?0.85:1.15); };
+  let dragging=false, last=null, moved=false;
+  svg.onpointerdown = e=>{ last={x:e.clientX,y:e.clientY}; dragging=true; moved=false; };
+  svg.onpointermove = e=>{
+    if(!dragging) return;
+    const dx=e.clientX-last.x, dy=e.clientY-last.y;
+    if(!moved && Math.hypot(dx,dy)<5) return;
+    if(!moved){ moved=true; svg.setPointerCapture(e.pointerId); }
+    const r = svg.getBoundingClientRect();
+    vb.x -= dx/r.width*vb.w;
+    vb.y -= dy/r.height*vb.h;
+    last = {x:e.clientX,y:e.clientY};
+    apply();
+  };
+  svg.onpointerup = ()=>{ dragging=false; moved=false; };
+  svg.onpointercancel = ()=>{ dragging=false; moved=false; };
+  let pinchDist=null;
+  svg.ontouchstart = e=>{ if(e.touches.length===2){ pinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); } };
+  svg.ontouchmove = e=>{
+    if(e.touches.length===2 && pinchDist){
+      e.preventDefault();
+      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      const cx = (e.touches[0].clientX+e.touches[1].clientX)/2, cy = (e.touches[0].clientY+e.touches[1].clientY)/2;
+      zoomAt(cx, cy, pinchDist/d);
+      pinchDist = d;
+    }
+  };
+  svg.ontouchend = ()=>{ pinchDist=null; };
+}
+
+async function showRoute(code){
+  let doc; try{ doc = await db.doc('routes/'+code).get(); }catch(e){ return; }
+  if(!doc || !doc.exists) return;
+  const clients = doc.data().clients;
+  const pts = [];
+  clients.forEach(c=>{
+    if(!c.lat||!c.lon) return;
+    pts.push({lat:c.lat, lon:c.lon, color:STATUS[c.estado].color, ring:colorForVendedor(c.vendedor), label:c.sec, title:'#'+c.sec+' · Vend. '+c.vendedor+' · '+c.razonSocial+' — '+STATUS[c.estado].label});
+  });
+  try{
+    const trk = await db.doc('tracking/'+code).get();
+    if(trk && trk.exists){
+      const t = trk.data();
+      pts.push({lat:t.lat, lon:t.lng, truck:true, title:'Camión '+code});
+    }
+  }catch(e){}
+  renderMapSVG('map', pts, 'admin');
+  const vendorsHere = {}; clients.forEach(c=>vendorsHere[c.vendedor]=colorForVendedor(c.vendedor));
+  document.getElementById('vendLegend').innerHTML = Object.entries(vendorsHere)
+    .map(([v,c])=>`<span><i class="dot" style="background:${c}"></i>Vendedor ${esc(v)}</span>`).join('') +
+    Object.values(STATUS).map(s=>`<span><i class="dot" style="background:${s.color}"></i>${s.label}</span>`).join('');
+}
+
+async function refreshSummary(codes){
+  const rows = [];
+  for(const code of codes){
+    try{
+      const doc = await db.doc('routes/'+code).get();
+      if(!doc||!doc.exists) continue;
+      const clients = doc.data().clients;
+      const c = {}; Object.keys(STATUS).forEach(s=>c[s]=0);
+      clients.forEach(cl=>c[cl.estado]=(c[cl.estado]||0)+1);
+      rows.push({code, total:clients.length, ...c});
+    }catch(e){}
+  }
+  const t = document.getElementById('sumTable');
+  if(!t) return;
+  t.innerHTML = `<tr><th>Ruta</th><th>Total</th>${Object.values(STATUS).map(s=>`<th>${s.label}</th>`).join('')}</tr>` +
+    rows.map(r=>`<tr><td><b>${r.code}</b></td><td>${r.total}</td>${Object.keys(STATUS).map(s=>`<td>${r[s]}</td>`).join('')}</tr>`).join('');
+}
+
+landing();
+</script>
+</body>
+</html>
