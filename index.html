@@ -1,425 +1,557 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Seguimiento de Rutas</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Seguimiento de Rutas - Courier</title>
 
-<!-- SDKs de Firebase Compatibles para Web -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Leaflet Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<style>
-:root{
-  --bg:#f7f8fa; --card:#fff; --text:#1a1d21; --muted:#6b7280; --border:#e5e7eb;
-  --blue:#2563eb; --green:#16a34a; --red:#dc2626; --yellow:#ca8a04; --purple:#7c3aed; --gray:#9ca3af;
-  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#14161a; --card:#1e2126; --text:#eef0f2; --muted:#9aa1ab; --border:#2c3036; } }
-:root[data-theme="dark"]{ --bg:#14161a; --card:#1e2126; --text:#eef0f2; --muted:#9aa1ab; --border:#2c3036; }
-*{box-sizing:border-box;}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;min-height:100%;}
-header{position:sticky;top:0;padding-top:calc(12px + env(safe-area-inset-top,0px));background:var(--card);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:10;}
-header b{font-size:15px;}
-.wrap{max-width:900px;margin:0 auto;padding:16px;}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
-button{font:inherit;border:none;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600;}
-.btn-primary{background:var(--blue);color:#fff;width:100%;padding:14px;font-size:16px;}
-.btn-lg{width:100%;padding:20px;font-size:17px;margin-bottom:10px;}
-input,select{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:16px;margin-bottom:10px;}
-.muted{color:var(--muted);font-size:13px;}
-.row{display:flex;gap:8px;flex-wrap:wrap;}
-.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;color:#fff;}
-.client{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
-.client h4{margin:0 0 4px;font-size:15px;}
-.statusbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
-.statusbtns button{padding:9px 4px;font-size:12px;color:#fff;}
-#map{border-radius:10px;margin-top:8px;overflow:hidden;}
-.maplegend{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;}
-.maplegend span{display:flex;align-items:center;gap:4px;}
-.dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
-table{width:100%;border-collapse:collapse;font-size:14px;}
-td,th{padding:6px 4px;border-bottom:1px solid var(--border);text-align:left;}
-a.link{color:var(--blue);}
-.hidden{display:none;}
-</style>
+  <!-- Firebase JS SDK (Compat Mode) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    #map { height: 480px; width: 100%; border-radius: 12px; }
+    .status-pending { background-color: #FEF08A; color: #854D0E; }
+    .status-delivered { background-color: #BBF7D0; color: #166534; }
+    .status-failed { background-color: #FECACA; color: #991B1B; }
+    .status-absent { background-color: #E2E8F0; color: #475569; }
+  </style>
 </head>
-<body>
-<header><button id="backBtn" onclick="landing()" style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 12px;">← Menú</button><span id="who" class="muted"></span></header>
-<div class="wrap" id="app"></div>
+<body class="bg-gray-100 min-h-screen text-gray-800">
 
-<script>
-// CONFIGURACIÓN DE TU PROYECTO FIREBASE
-const firebaseConfig = {
-  apiKey: "AIzaSyACncLaclSsdaufRdZxoiBkmfCFfGdoZiE",
-  authDomain: "courier-4ecda.firebaseapp.com",
-  projectId: "courier-4ecda",
-  storageBucket: "courier-4ecda.firebasestorage.app",
-  messagingSenderId: "226032355815",
-  appId: "1:226032355815:web:0e7e78e217ca77363a1542",
-  measurementId: "G-899HW8W4XJ"
-};
-
-// Inicialización de Firebase Firestore
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.firestore();
-let app = document.getElementById('app');
-
-const STATUS = {
-  pendiente:{label:'Pendiente', color:'#9ca3af'},
-  entregado:{label:'Entregado', color:'#16a34a'},
-  cerrado:{label:'Cerrado', color:'#dc2626'},
-  repaso:{label:'Repaso', color:'#ca8a04'},
-  rechazado:{label:'Rechazado', color:'#7c3aed'}
-};
-
-function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function haversine(a,b,c,d){const R=6371,dLat=(c-a)*Math.PI/180,dLon=(d-b)*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
-function optimize(clients){
-  if(!clients.length) return clients;
-  let left = clients.slice(), route=[left.shift()];
-  while(left.length){
-    let last = route[route.length-1], bi=0, bd=Infinity;
-    left.forEach((c,i)=>{const d=haversine(last.lat,last.lon,c.lat,c.lon); if(d<bd){bd=d;bi=i;}});
-    route.push(left.splice(bi,1)[0]);
-  }
-  return route;
-}
-function parseCSV(text){
-  const lines = text.split(/\r?\n/).filter(l=>l.trim());
-  const headers = lines[0].split(';').map(h=>h.trim().toUpperCase());
-  const idx = n => headers.indexOf(n);
-  const out = [];
-  for(let i=1;i<lines.length;i++){
-    const c = lines[i].split(';');
-    const tpt = (c[idx('TPT')]||'').trim();
-    if(!tpt || tpt==='0') continue;
-    out.push({
-      sec:c[idx('SEC')], vendedor:c[idx('VENDEDOR')], code:c[idx('NAME')],
-      telefono:c[idx('TELEFONO')], tpt, razonSocial:c[idx('RAZON SOCIAL')],
-      domicilio:c[idx('DOMICILIO')], subtotal:c[idx('Subtotal Final')],
-      lon:parseFloat(c[idx('X')]), lat:parseFloat(c[idx('Y')]),
-      estado:'pendiente', obs:''
-    });
-  }
-  const groups = {};
-  out.forEach(r=>{ (groups[r.tpt] = groups[r.tpt]||[]).push(r); });
-  return groups;
-}
-
-function landing(){
-  document.getElementById('who').textContent = '';
-  app.innerHTML = `
-    <div class="card">
-      <h3>¿Quién eres?</h3>
-      <button class="btn-lg" style="background:var(--blue);color:#fff" onclick="renderDriverLogin()">Soy Transportista</button>
-      <button class="btn-lg" style="background:var(--text);color:var(--bg)" onclick="renderAdmin()">Panel Administrador</button>
-    </div>`;
-}
-
-function renderDriverLogin(){
-  const saved = localStorage.getItem('rt_code')||'';
-  app.innerHTML = `
-    <div class="card">
-      <h3>Ingresa tu código de ruta</h3>
-      <p class="muted">Ejemplo: T14, T22</p>
-      <input id="codeInput" placeholder="T22" value="${esc(saved)}" style="text-transform:uppercase">
-      <button class="btn-primary" onclick="loginDriver()">Entrar</button>
-      <p id="loginMsg" class="muted"></p>
-    </div>`;
-}
-
-async function loginDriver(){
-  const code = document.getElementById('codeInput').value.trim().toUpperCase();
-  if(!code) return;
-  document.getElementById('loginMsg').textContent = 'Buscando ruta...';
-  try{
-    const doc = await db.doc('routes/'+code).get();
-    if(!doc || !doc.exists){ document.getElementById('loginMsg').textContent = 'Código no encontrado. Verifica con tu administrador.'; return; }
-    localStorage.setItem('rt_code', code);
-    renderDriver(code, doc.data());
-  }catch(e){ document.getElementById('loginMsg').textContent = 'No se pudo conectar. Reintenta.'; }
-}
-
-async function renderDriver(code, data){
-  document.getElementById('who').textContent = code;
-  let clients = optimize(data.clients);
-  window._clients = clients; window._code = code;
-  app.innerHTML = `
-    <div class="card">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <b>Ruta ${esc(code)}</b>
-        <span id="trkBtn" class="pill" style="background:var(--muted)">📍 Conectando GPS...</span>
+  <!-- ENCABEZADO -->
+  <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <h1 class="text-xl font-bold flex items-center gap-2">
+        <i class="fa-solid fa-truck-fast"></i> Courier Tracker
+      </h1>
+      <div class="flex gap-2">
+        <button onclick="switchTab('driver')" id="btnTabDriver" class="px-3 py-1.5 rounded-lg bg-indigo-900 text-white text-sm font-semibold hover:bg-indigo-800">
+          <i class="fa-solid fa-mobile-screen"></i> Modo Chofer
+        </button>
+        <button onclick="switchTab('admin')" id="btnTabAdmin" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500">
+          <i class="fa-solid fa-map-location-dot"></i> Vista Admin
+        </button>
       </div>
-      <div class="row" id="counts" style="margin-top:8px"></div>
-      <div id="dmap"></div>
-      <p class="muted">Toca un punto del mapa para marcar la entrega.</p>
     </div>
-    <div id="modalCard" class="hidden" style="border:2px solid var(--blue);border-radius:12px;padding:14px;margin-top:10px;"></div>`;
-  refreshCounts();
-  drawDriverMap();
-  startTracking(code);
-}
+  </header>
 
-function refreshCounts(){
-  const counts = {}; Object.keys(STATUS).forEach(s=>counts[s]=0);
-  window._clients.forEach(c=>counts[c.estado]=(counts[c.estado]||0)+1);
-  document.getElementById('counts').innerHTML = Object.entries(counts).map(([k,v])=>`<span class="pill" style="background:${STATUS[k].color}">${STATUS[k].label}: ${v}</span>`).join('');
-}
+  <main class="max-w-6xl mx-auto p-4">
 
-function drawDriverMap(){
-  const pts = window._clients.map((c,i)=>({lat:c.lat, lon:c.lon, color:STATUS[c.estado].color, ring:colorForVendedor(c.vendedor), label:c.sec, title:'#'+c.sec+' · '+c.razonSocial+' — '+STATUS[c.estado].label, idx:i}))
-    .filter(p=>p.lat&&p.lon);
-  renderMapSVG('dmap', pts, 'driver');
-}
-
-function openClientModal(i){
-  const c = window._clients[i];
-  const card = document.getElementById('modalCard');
-  card.innerHTML = `
-    <div class="row" style="justify-content:space-between;align-items:center">
-      <h4>${i+1}. ${esc(c.razonSocial)}</h4>
-      <button onclick="closeModal()" style="background:none;color:var(--muted);font-size:18px;padding:2px 8px">✕</button>
-    </div>
-    <div class="muted">${esc(c.domicilio)}</div>
-    <div class="muted">Vendedor: ${esc(c.vendedor)} · S/ ${esc(c.subtotal)}</div>
-    <span class="pill" style="background:${STATUS[c.estado].color};margin-top:6px">${STATUS[c.estado].label}</span>
-    <div class="statusbtns" style="margin-top:12px">
-      <button style="background:${STATUS.entregado.color}" onclick="setStatus('${window._code}',${i},'entregado')">Entregado</button>
-      <button style="background:${STATUS.cerrado.color}" onclick="setStatus('${window._code}',${i},'cerrado')">Cerrado</button>
-      <button style="background:${STATUS.repaso.color}" onclick="setStatus('${window._code}',${i},'repaso')">Repaso</button>
-      <button style="background:${STATUS.rechazado.color}" onclick="toggleMotivo()">Rechazo</button>
-    </div>
-    <div id="motivoBox" class="hidden" style="margin-top:10px">
-      <p class="muted">Motivo del rechazo:</p>
-      <div class="statusbtns" style="grid-template-columns:repeat(2,1fr)">
-        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','No abrió / no había nadie')">No abrió</button>
-        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','No quiso recibir')">No quiso recibir</button>
-        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','Sin efectivo/pago')">Sin efectivo</button>
-        <button style="background:var(--purple)" onclick="setStatus('${window._code}',${i},'rechazado','Otro motivo')">Otro</button>
+    <!-- VISTA CHOFER (MÓVIL) -->
+    <section id="viewDriver" class="block space-y-4">
+      <div class="bg-white p-5 rounded-xl shadow">
+        <h2 class="text-lg font-bold mb-3 flex items-center gap-2 text-indigo-700">
+          <i class="fa-solid fa-id-card"></i> Acceso a Ruta de Reparto
+        </h2>
+        <div class="flex gap-2">
+          <input type="text" id="inputRouteCode" placeholder="Ingresa tu código de ruta (ej: 14)" class="flex-1 border rounded-lg px-3 py-2 text-lg uppercase font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+          <button onclick="loadDriverRoute()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">
+            Cargar
+          </button>
+        </div>
       </div>
-    </div>`;
-  card.classList.remove('hidden');
-  card.scrollIntoView({behavior:'smooth', block:'center'});
-}
-function toggleMotivo(){ document.getElementById('motivoBox').classList.toggle('hidden'); }
-function closeModal(){ document.getElementById('modalCard').classList.add('hidden'); }
 
-async function setStatus(code, i, status, motivo){
-  window._clients[i].estado = status;
-  if(motivo) window._clients[i].obs = motivo;
-  try{
-    await db.doc('routes/'+code).update({clients: window._clients});
-  }catch(e){ }
-  localStorage.setItem('rt_'+code, JSON.stringify(window._clients));
-  refreshCounts();
-  drawDriverMap();
-  closeModal();
-}
+      <!-- PANEL DE RUTA CARGADA -->
+      <div id="driverRouteContainer" class="hidden space-y-4">
+        <!-- BARRA GPS Y ESTADÍSTICAS -->
+        <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-3">
+          <div>
+            <h3 class="font-bold text-gray-800 text-lg" id="driverRouteTitle">Ruta #</h3>
+            <p class="text-sm text-gray-500" id="driverStats">0 Pendientes / 0 Entregados</p>
+          </div>
+          <button id="btnToggleGPS" onclick="toggleGPSTracking()" class="w-full md:w-auto px-4 py-2.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center justify-center gap-2 shadow">
+            <i class="fa-solid fa-location-crosshairs"></i> Activar Transmisión GPS
+          </button>
+        </div>
 
-let watchId = null;
-function startTracking(code){
-  const btn = document.getElementById('trkBtn');
-  if(!navigator.geolocation){ if(btn){btn.textContent='📍 GPS no disponible'; btn.style.background='var(--red)';} return; }
-  watchId = navigator.geolocation.watchPosition(async pos=>{
-    if(btn){ btn.textContent='📍 Ubicación activa'; btn.style.background='var(--green)'; }
-    try{
-      await db.doc('tracking/'+code).set({code, lat:pos.coords.latitude, lng:pos.coords.longitude, updatedAt: Date.now()});
-    }catch(e){}
-  }, err=>{ if(btn){ btn.textContent='📍 Permite la ubicación'; btn.style.background='var(--red)'; } }, {enableHighAccuracy:true, maximumAge:10000});
-}
+        <div id="gpsStatusText" class="text-xs text-center font-medium text-gray-500 hidden">
+          📡 GPS inactivo
+        </div>
 
-// ---------- ADMIN ----------
-async function renderAdmin(){
-  document.getElementById('who').textContent = 'Admin';
-  app.innerHTML = `
-    <div class="card">
-      <h3>1. Sube el CSV del día</h3>
-      <input type="file" id="csvFile" accept=".csv">
-      <button class="btn-primary" onclick="handleCSV()">Procesar y publicar rutas</button>
-      <p id="csvMsg" class="muted"></p>
-    </div>
-    <div id="dash"></div>`;
-}
+        <!-- LISTA DE CLIENTES -->
+        <div class="bg-white p-4 rounded-xl shadow">
+          <h4 class="font-bold text-gray-700 mb-3 border-b pb-2">Clientes en la Ruta</h4>
+          <div id="driverClientsList" class="space-y-3">
+            <!-- Render dinámico de clientes -->
+          </div>
+        </div>
+      </div>
+    </section>
 
-function handleCSV(){
-  const f = document.getElementById('csvFile').files[0];
-  if(!f) return;
-  const reader = new FileReader();
-  reader.onload = async e=>{
-    const groups = parseCSV(e.target.result);
-    const codes = Object.keys(groups).map(t=>'T'+t);
-    document.getElementById('csvMsg').textContent = 'Publicando '+codes.length+' rutas...';
-    for(const tpt of Object.keys(groups)){
-      const code = 'T'+tpt;
-      try{ await db.doc('routes/'+code).set({code, tpt, clients: groups[tpt], updatedAt: Date.now()}); }catch(err){}
+    <!-- VISTA ADMINISTRADOR (MAPA + CARGAR CSV) -->
+    <section id="viewAdmin" class="hidden space-y-4">
+      <!-- CARGAR CSV -->
+      <div class="bg-white p-5 rounded-xl shadow space-y-3">
+        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar Archivo de Rutas (CSV)
+        </h2>
+        <p class="text-xs text-gray-500">
+          Soporta archivos separados por <code>;</code> o <code>,</code>. Mapea columnas <b>TPT</b>, <b>SEC</b>, <b>RAZON SOCIAL</b>, <b>Y (Latitud)</b>, <b>X (Longitud)</b> automáticamente.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-3 items-center">
+          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+          <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow whitespace-nowrap">
+            Procesar y Guardar
+          </button>
+        </div>
+        <div id="csvStatus" class="text-sm font-medium"></div>
+      </div>
+
+      <!-- SELECCIONAR RUTA Y MAPA -->
+      <div class="bg-white p-4 rounded-xl shadow space-y-3">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
+          <h3 class="font-bold text-gray-800">Monitoreo en Tiempo Real</h3>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <label class="text-xs font-bold text-gray-600">Filtrar Ruta:</label>
+            <select id="selectAdminRoute" onchange="onAdminRouteSelect()" class="border rounded-lg px-3 py-1.5 font-bold text-gray-700 outline-none w-full sm:w-auto">
+              <option value="">-- Seleccionar Ruta --</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="map"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JAVASCRIPT PRINCIPAL -->
+  <script>
+    // 1. CONFIGURACIÓN FIREBASE
+    const firebaseConfig = {
+      apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
+      authDomain: "courier-4ecda.firebaseapp.com",
+      projectId: "courier-4ecda",
+      storageBucket: "courier-4ecda.firebasestorage.app",
+      messagingSenderId: "226032355815",
+      appId: "1:226032355815:web:0e7e78e217ca77363a1542",
+      measurementId: "G-899HW8W4XJ"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
     }
-    document.getElementById('csvMsg').innerHTML = '✅ Publicado: '+codes.join(', ');
-    loadDashboard(codes);
-  };
-  reader.readAsText(f, 'ISO-8859-1');
-}
+    const db = firebase.firestore();
 
-const PALETTE = ['#e6194b','#3cb44b','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#008080','#e6beff','#9a6324','#808000','#fabebe','#000075'];
-const vendColorMap = {};
-function colorForVendedor(v){
-  if(!(v in vendColorMap)) vendColorMap[v] = PALETTE[Object.keys(vendColorMap).length % PALETTE.length];
-  return vendColorMap[v];
-}
+    // VARIABLES GLOBALES
+    let currentRouteCode = null;
+    let currentClientsData = [];
+    let driverUnsubscribe = null;
+    let gpsWatchId = null;
+    let map = null;
+    let mapMarkers = [];
+    let truckMarker = null;
+    let adminTrackingUnsubscribe = null;
 
-async function loadDashboard(codes){
-  const dash = document.getElementById('dash');
-  dash.innerHTML = `
-    <div class="card">
-      <h3>2. Elegir ruta a visualizar</h3>
-      <select id="routeSel" onchange="showRoute(this.value)">
-        ${codes.map(c=>`<option value="${c}">${c}</option>`).join('')}
-      </select>
-      <div id="map"></div>
-      <div class="maplegend" id="vendLegend"></div>
-      <p class="muted">Número = secuencia (SEC) del cliente. Color = vendedor. Toca un punto para abrirlo en Google Maps.</p>
-    </div>
-    <div class="card" id="summary"><h3>Resumen</h3><table id="sumTable"></table></div>`;
-  if(codes.length) showRoute(codes[0]);
-  refreshSummary(codes);
-  setInterval(()=>refreshSummary(codes), 15000);
-}
-
-const mapViewState = {}, lastRender = {};
-function renderMapSVG(elId, points, mode){
-  lastRender[elId] = {points, mode};
-  const el = document.getElementById(elId);
-  if(!points.length){ el.innerHTML = '<p class="muted">Esta ruta no tiene coordenadas.</p>'; return; }
-  const lats = points.map(p=>p.lat), lons = points.map(p=>p.lon);
-  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLon=Math.min(...lons), maxLon=Math.max(...lons);
-  const W=600,H=340,pad=30;
-  const x = lon => maxLon===minLon ? W/2 : pad+(lon-minLon)/(maxLon-minLon)*(W-2*pad);
-  const y = lat => maxLat===minLat ? H/2 : H-pad-(lat-minLat)/(maxLat-minLat)*(H-2*pad);
-  let inner = '';
-  points.forEach(p=>{
-    const cx=x(p.lon), cy=y(p.lat);
-    const click = mode==='driver' ? `openClientModal(${p.idx})` : `window.open('https://www.google.com/maps?q=${p.lat},${p.lon}','_blank')`;
-    if(p.truck){
-      inner += `<text x="${cx}" y="${cy+5}" font-size="20" text-anchor="middle" style="cursor:pointer" onclick="${click}">🚚</text>`;
-    } else {
-      inner += `<g class="mk" data-cx="${cx}" data-cy="${cy}" transform="translate(${cx},${cy})" style="cursor:pointer" onclick="${click}">
-        <circle r="10" fill="${p.color}" stroke="${p.ring||'#fff'}" stroke-width="3"><title>${esc(p.title)}</title></circle>
-        ${p.label!==undefined?`<text y="3.5" font-size="9" font-weight="700" text-anchor="middle" fill="#fff" style="pointer-events:none">${esc(p.label)}</text>`:''}
-      </g>`;
+    // INICIALIZACIÓN MAPA LEAFLET
+    function initMap() {
+      if (!map) {
+        map = L.map('map').setView([-16.3988, -71.5350], 13); // Arequipa por defecto
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+      }
     }
-  });
-  el.style.position='relative';
-  el.innerHTML = `<button onclick="resetMapZoom('${elId}')" style="position:absolute;top:6px;right:6px;z-index:5;background:var(--card);border:1px solid var(--border);padding:4px 8px;font-size:12px;border-radius:6px;">⤢ Restablecer</button>
-    <svg id="${elId}_svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:340px;background:var(--bg);display:block;touch-action:none" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
-  attachMapInteraction(elId, W, H);
-}
 
-function resetMapZoom(elId){
-  delete mapViewState[elId];
-  const r = lastRender[elId];
-  if(r) renderMapSVG(elId, r.points, r.mode);
-}
-
-function attachMapInteraction(elId, W, H){
-  const svg = document.getElementById(elId+'_svg');
-  if(!svg) return;
-  let vb = mapViewState[elId] || {x:0,y:0,w:W,h:H};
-  mapViewState[elId] = vb;
-  const rescaleMarkers = ()=>{
-    const scale = vb.w / W;
-    svg.querySelectorAll('.mk').forEach(g=>{
-      g.setAttribute('transform', `translate(${g.dataset.cx},${g.dataset.cy}) scale(${scale})`);
-    });
-  };
-  const apply = ()=>{ svg.setAttribute('viewBox', vb.x+' '+vb.y+' '+vb.w+' '+vb.h); rescaleMarkers(); };
-  apply();
-  const toPt = (cx,cy)=>{
-    const r = svg.getBoundingClientRect();
-    return { x: vb.x + (cx-r.left)/r.width*vb.w, y: vb.y + (cy-r.top)/r.height*vb.h };
-  };
-  const zoomAt = (cx,cy,factor)=>{
-    const pt = toPt(cx,cy);
-    const nw = Math.min(W*3, Math.max(W*0.08, vb.w*factor));
-    const nh = Math.min(H*3, Math.max(H*0.08, vb.h*factor));
-    vb.x = pt.x - (pt.x-vb.x)*(nw/vb.w);
-    vb.y = pt.y - (pt.y-vb.y)*(nh/vb.h);
-    vb.w = nw; vb.h = nh;
-    apply();
-  };
-  svg.onwheel = e=>{ e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY<0?0.85:1.15); };
-  let dragging=false, last=null, moved=false;
-  svg.onpointerdown = e=>{ last={x:e.clientX,y:e.clientY}; dragging=true; moved=false; };
-  svg.onpointermove = e=>{
-    if(!dragging) return;
-    const dx=e.clientX-last.x, dy=e.clientY-last.y;
-    if(!moved && Math.hypot(dx,dy)<5) return;
-    if(!moved){ moved=true; svg.setPointerCapture(e.pointerId); }
-    const r = svg.getBoundingClientRect();
-    vb.x -= dx/r.width*vb.w;
-    vb.y -= dy/r.height*vb.h;
-    last = {x:e.clientX,y:e.clientY};
-    apply();
-  };
-  svg.onpointerup = ()=>{ dragging=false; moved=false; };
-  svg.onpointercancel = ()=>{ dragging=false; moved=false; };
-  let pinchDist=null;
-  svg.ontouchstart = e=>{ if(e.touches.length===2){ pinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); } };
-  svg.ontouchmove = e=>{
-    if(e.touches.length===2 && pinchDist){
-      e.preventDefault();
-      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-      const cx = (e.touches[0].clientX+e.touches[1].clientX)/2, cy = (e.touches[0].clientY+e.touches[1].clientY)/2;
-      zoomAt(cx, cy, pinchDist/d);
-      pinchDist = d;
+    // CAMBIO DE PESTAÑA (CHOFER / ADMIN)
+    function switchTab(tab) {
+      document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
+      document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
+      
+      if (tab === 'admin') {
+        setTimeout(() => {
+          initMap();
+          map.invalidateSize();
+          loadAvailableRoutesInSelect();
+        }, 100);
+      }
     }
-  };
-  svg.ontouchend = ()=>{ pinchDist=null; };
-}
 
-async function showRoute(code){
-  let doc; try{ doc = await db.doc('routes/'+code).get(); }catch(e){ return; }
-  if(!doc || !doc.exists) return;
-  const clients = doc.data().clients;
-  const pts = [];
-  clients.forEach(c=>{
-    if(!c.lat||!c.lon) return;
-    pts.push({lat:c.lat, lon:c.lon, color:STATUS[c.estado].color, ring:colorForVendedor(c.vendedor), label:c.sec, title:'#'+c.sec+' · Vend. '+c.vendedor+' · '+c.razonSocial+' — '+STATUS[c.estado].label});
-  });
-  try{
-    const trk = await db.doc('tracking/'+code).get();
-    if(trk && trk.exists){
-      const t = trk.data();
-      pts.push({lat:t.lat, lon:t.lng, truck:true, title:'Camión '+code});
+    // -------------------------------------------------------------
+    // LECTOR DE CSV ESTRUCTURADO (PROCESAMIENTO DE RUTA)
+    // -------------------------------------------------------------
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+      if (lines.length === 0) return [];
+
+      // Detección automática del separador (; o , o \t)
+      const firstLine = lines[0];
+      let delimiter = ';';
+      const countSemicolon = (firstLine.match(/;/g) || []).length;
+      const countComma = (firstLine.match(/,/g) || []).length;
+      if (countComma > countSemicolon) delimiter = ',';
+
+      function parseRow(rowStr) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < rowStr.length; i++) {
+          const char = rowStr[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === delimiter && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      }
+
+      const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
+
+      // Helper para buscar índices por variaciones de nombre de columna
+      const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
+
+      const idxTpt = getIndex(['TPT', 'RUTA', 'TRANSPORTISTA', 'CHOFER', 'CODIGO']);
+      const idxSec = getIndex(['SEC', 'SECUENCIA', 'ORDEN']);
+      const idxVend = getIndex(['VENDEDOR', 'VEND']);
+      const idxName = getIndex(['RAZON SOCIAL', 'NAME', 'CLIENTE', 'NOMBRE']);
+      const idxTel = getIndex(['TELEFONO', 'TEL', 'CELULAR']);
+      const idxDom = getIndex(['DOMICILIO', 'DIRECCION', 'ADDRESS']);
+      const idxSub = getIndex(['SUBTOTAL FINAL', 'SUBTOTAL', 'MONTO']);
+      const idxY = getIndex(['Y', 'LAT', 'LATITUD']);
+      const idxX = getIndex(['X', 'LON', 'LONGITUD']);
+      const idxEstado = getIndex(['ESTADO', 'STATUS']);
+
+      const clients = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseRow(lines[i]);
+        if (cols.length < 2) continue;
+
+        const tpt = idxTpt !== -1 ? cols[idxTpt] : 'DEFAULT';
+        if (!tpt) continue;
+
+        let lat = idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) : NaN;
+        let lon = idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) : NaN;
+
+        if (isNaN(lat) || isNaN(lon)) {
+          lat = 0;
+          lon = 0;
+        }
+
+        clients.push({
+          tpt: tpt.toString().trim(),
+          sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
+          vendedor: idxVend !== -1 ? cols[idxVend] : '',
+          name: idxName !== -1 ? cols[idxName] : 'Cliente ' + i,
+          telefono: idxTel !== -1 ? cols[idxTel] : '',
+          domicilio: idxDom !== -1 ? cols[idxDom] : '',
+          subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
+          lat: lat,
+          lon: lon,
+          estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toUpperCase() : 'PENDIENTE',
+          horaEntrega: '',
+          observacion: ''
+        });
+      }
+      return clients;
     }
-  }catch(e){}
-  renderMapSVG('map', pts, 'admin');
-  const vendorsHere = {}; clients.forEach(c=>vendorsHere[c.vendedor]=colorForVendedor(c.vendedor));
-  document.getElementById('vendLegend').innerHTML = Object.entries(vendorsHere)
-    .map(([v,c])=>`<span><i class="dot" style="background:${c}"></i>Vendedor ${esc(v)}</span>`).join('') +
-    Object.values(STATUS).map(s=>`<span><i class="dot" style="background:${s.color}"></i>${s.label}</span>`).join('');
-}
 
-async function refreshSummary(codes){
-  const rows = [];
-  for(const code of codes){
-    try{
-      const doc = await db.doc('routes/'+code).get();
-      if(!doc||!doc.exists) continue;
-      const clients = doc.data().clients;
-      const c = {}; Object.keys(STATUS).forEach(s=>c[s]=0);
-      clients.forEach(cl=>c[cl.estado]=(c[cl.estado]||0)+1);
-      rows.push({code, total:clients.length, ...c});
-    }catch(e){}
-  }
-  const t = document.getElementById('sumTable');
-  if(!t) return;
-  t.innerHTML = `<tr><th>Ruta</th><th>Total</th>${Object.values(STATUS).map(s=>`<th>${s.label}</th>`).join('')}</tr>` +
-    rows.map(r=>`<tr><td><b>${r.code}</b></td><td>${r.total}</td>${Object.keys(STATUS).map(s=>`<td>${r[s]}</td>`).join('')}</tr>`).join('');
-}
+    // CARGAR Y GUARDAR CSV EN FIRESTORE
+    async function processAndUploadCSV() {
+      const fileInput = document.getElementById('inputCsvFile');
+      const statusDiv = document.getElementById('csvStatus');
 
-landing();
-</script>
+      if (!fileInput.files || fileInput.files.length === 0) {
+        statusDiv.className = "text-sm font-bold text-red-600";
+        statusDiv.innerText = "Por favor selecciona un archivo .csv";
+        return;
+      }
+
+      statusDiv.className = "text-sm font-bold text-indigo-600";
+      statusDiv.innerText = "⏳ Procesando archivo y guardando en la nube...";
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = async (e) => {
+        try {
+          const content = e.target.result;
+          const parsedClients = parseCSV(content);
+
+          if (parsedClients.length === 0) {
+            statusDiv.className = "text-sm font-bold text-red-600";
+            statusDiv.innerText = "No se pudieron extraer datos del archivo.";
+            return;
+          }
+
+          // Agrupar clientes por código de ruta (TPT)
+          const routesMap = {};
+          parsedClients.forEach(client => {
+            if (!routesMap[client.tpt]) routesMap[client.tpt] = [];
+            routesMap[client.tpt].push(client);
+          });
+
+          // Guardar cada ruta en Firestore
+          const routeKeys = Object.keys(routesMap);
+          for (const code of routeKeys) {
+            const clientsGroup = routesMap[code];
+            clientsGroup.sort((a, b) => a.sec - b.sec);
+
+            await db.collection('routes').doc(code).set({
+              code: code,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              clients: clientsGroup
+            }, { merge: true });
+          }
+
+          statusDiv.className = "text-sm font-bold text-emerald-600";
+          statusDiv.innerText = `✅ ¡Éxito! Se guardaron ${parsedClients.length} clientes en ${routeKeys.length} rutas (${routeKeys.join(', ')}).`;
+
+          loadAvailableRoutesInSelect();
+        } catch (err) {
+          console.error(err);
+          statusDiv.className = "text-sm font-bold text-red-600";
+          statusDiv.innerText = `Error al procesar: ${err.message}`;
+        }
+      };
+
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    // -------------------------------------------------------------
+    // LÓGICA MÓVIL DE CHOFER
+    // -------------------------------------------------------------
+    function loadDriverRoute() {
+      const code = document.getElementById('inputRouteCode').value.trim();
+      if (!code) {
+        alert("Ingresa un código de ruta válido.");
+        return;
+      }
+
+      currentRouteCode = code;
+      const container = document.getElementById('driverRouteContainer');
+      const title = document.getElementById('driverRouteTitle');
+      title.innerText = `Ruta #${currentRouteCode}`;
+
+      container.classList.remove('hidden');
+
+      if (driverUnsubscribe) driverUnsubscribe();
+
+      // Escuchar cambios en tiempo real
+      driverUnsubscribe = db.collection('routes').doc(currentRouteCode).onSnapshot(doc => {
+        if (!doc.exists) {
+          document.getElementById('driverClientsList').innerHTML = `<p class="text-red-500 font-bold p-3 text-center">No existe la ruta #${currentRouteCode}. Asegúrate de haber subido el archivo CSV en la pestaña Admin.</p>`;
+          document.getElementById('driverStats').innerText = "0 clientes";
+          return;
+        }
+
+        const data = doc.data();
+        currentClientsData = data.clients || [];
+        renderDriverClients(currentClientsData);
+      });
+    }
+
+    function renderDriverClients(clients) {
+      const listContainer = document.getElementById('driverClientsList');
+      listContainer.innerHTML = '';
+
+      let pendingCount = 0;
+      let deliveredCount = 0;
+
+      clients.forEach((c, index) => {
+        if (c.estado === 'ENTREGADO') deliveredCount++;
+        else pendingCount++;
+
+        let badgeClass = 'status-pending';
+        if (c.estado === 'ENTREGADO') badgeClass = 'status-delivered';
+        if (c.estado === 'NO ENTREGADO') badgeClass = 'status-failed';
+        if (c.estado === 'AUSENTE') badgeClass = 'status-absent';
+
+        const card = document.createElement('div');
+        card.className = "border rounded-xl p-4 bg-gray-50 space-y-2 shadow-sm";
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <span class="font-bold text-indigo-700 text-sm">#${c.sec} · ${c.name}</span>
+            <span class="status-badge ${badgeClass}">${c.estado || 'PENDIENTE'}</span>
+          </div>
+          <p class="text-xs text-gray-600"><i class="fa-solid fa-location-dot text-red-500"></i> ${c.domicilio}</p>
+          <p class="text-xs text-gray-500"><i class="fa-solid fa-phone text-emerald-500"></i> ${c.telefono || 'Sin teléfono'} | S/ ${c.subtotal}</p>
+
+          <div class="flex flex-wrap gap-2 pt-2 border-t">
+            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
+              <i class="fa-brands fa-waze"></i> Waze
+            </a>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
+              <i class="fa-solid fa-map-pin"></i> Maps
+            </a>
+            <select onchange="updateClientStatus(${index}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
+              <option value="PENDIENTE" ${c.estado === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+              <option value="ENTREGADO" ${c.estado === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+              <option value="NO ENTREGADO" ${c.estado === 'NO ENTREGADO' ? 'selected' : ''}>❌ NO ENTREGADO</option>
+              <option value="AUSENTE" ${c.estado === 'AUSENTE' ? 'selected' : ''}>🏠 AUSENTE</option>
+            </select>
+          </div>
+        `;
+        listContainer.appendChild(card);
+      });
+
+      document.getElementById('driverStats').innerText = `${pendingCount} Pendientes / ${deliveredCount} Entregados`;
+    }
+
+    async function updateClientStatus(index, newStatus) {
+      if (!currentRouteCode || !currentClientsData[index]) return;
+
+      currentClientsData[index].estado = newStatus;
+      if (newStatus === 'ENTREGADO') {
+        currentClientsData[index].horaEntrega = new Date().toLocaleTimeString();
+      }
+
+      await db.collection('routes').doc(currentRouteCode).update({
+        clients: currentClientsData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // TRANSMISIÓN GPS DEL CHOFER
+    function toggleGPSTracking() {
+      const btn = document.getElementById('btnToggleGPS');
+      const statusText = document.getElementById('gpsStatusText');
+
+      if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+        btn.innerHTML = `<i class="fa-solid fa-location-crosshairs"></i> Activar Transmisión GPS`;
+        btn.className = "w-full md:w-auto px-4 py-2.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center justify-center gap-2 shadow";
+        statusText.classList.add('hidden');
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        alert("Tu dispositivo no soporta geolocalización.");
+        return;
+      }
+
+      statusText.classList.remove('hidden');
+      statusText.innerText = "📡 Buscando señal GPS...";
+
+      gpsWatchId = navigator.geolocation.watchPosition(
+        position => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+
+          db.collection('tracking').doc(currentRouteCode).set({
+            code: currentRouteCode,
+            lat: lat,
+            lng: lng,
+            timestamp: Date.now(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          statusText.innerText = `📡 Transmitiendo GPS en vivo (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+          btn.innerHTML = `<i class="fa-solid fa-circle-stop"></i> Detener GPS`;
+          btn.className = "w-full md:w-auto px-4 py-2.5 rounded-xl font-bold bg-rose-600 text-white hover:bg-rose-700 flex items-center justify-center gap-2 shadow";
+        },
+        error => {
+          statusText.innerText = `⚠️ Error GPS: ${error.message}`;
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      );
+    }
+
+    // -------------------------------------------------------------
+    // VISTA Y MONITOREO DE ADMINISTRADOR
+    // -------------------------------------------------------------
+    async function loadAvailableRoutesInSelect() {
+      const select = document.getElementById('selectAdminRoute');
+      select.innerHTML = '<option value="">-- Seleccionar Ruta --</option>';
+
+      const snapshot = await db.collection('routes').get();
+      snapshot.forEach(doc => {
+        const option = document.createElement('option');
+        option.value = doc.id;
+        option.innerText = `Ruta #${doc.id}`;
+        select.appendChild(option);
+      });
+    }
+
+    function onAdminRouteSelect() {
+      const code = document.getElementById('selectAdminRoute').value;
+      if (!code) return;
+
+      // Limpiar marcadores anteriores
+      mapMarkers.forEach(m => map.removeLayer(m));
+      mapMarkers = [];
+      if (truckMarker) {
+        map.removeLayer(truckMarker);
+        truckMarker = null;
+      }
+
+      // Escuchar clientes de la ruta
+      db.collection('routes').doc(code).onSnapshot(doc => {
+        if (!doc.exists) return;
+        const clients = doc.data().clients || [];
+
+        mapMarkers.forEach(m => map.removeLayer(m));
+        mapMarkers = [];
+
+        const bounds = [];
+
+        clients.forEach(c => {
+          if (!c.lat || !c.lon) return;
+
+          let color = '#EAB308'; // Pendiente (Amarillo)
+          if (c.estado === 'ENTREGADO') color = '#22C55E'; // Verde
+          if (c.estado === 'NO ENTREGADO') color = '#EF4444'; // Rojo
+          if (c.estado === 'AUSENTE') color = '#64748B'; // Gris
+
+          const marker = L.circleMarker([c.lat, c.lon], {
+            radius: 8,
+            fillColor: color,
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+          }).addTo(map);
+
+          marker.bindPopup(`
+            <b>#${c.sec} · ${c.name}</b><br>
+            ${c.domicilio}<br>
+            <b>Estado:</b> ${c.estado || 'PENDIENTE'}
+          `);
+
+          mapMarkers.push(marker);
+          bounds.push([c.lat, c.lon]);
+        });
+
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [30, 30] });
+        }
+      });
+
+      // Escuchar GPS del camión en tiempo real
+      if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
+      adminTrackingUnsubscribe = db.collection('tracking').doc(code).onSnapshot(doc => {
+        if (!doc.exists) return;
+        const data = doc.data();
+        if (!data.lat || !data.lng) return;
+
+        if (!truckMarker) {
+          const truckIcon = L.divIcon({
+            html: '<div style="background:#4F46E5;color:white;padding:6px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><i class="fa-solid fa-truck"></i></div>',
+            className: '',
+            iconSize: [30, 30]
+          });
+          truckMarker = L.marker([data.lat, data.lng], { icon: truckIcon }).addTo(map);
+        } else {
+          truckMarker.setLatLng([data.lat, data.lng]);
+        }
+      });
+    }
+  </script>
 </body>
 </html>
