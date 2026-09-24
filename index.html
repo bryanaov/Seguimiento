@@ -20,7 +20,7 @@
   <style>
     .map-container { height: 380px; width: 100%; border-radius: 12px; }
     .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; }
-    .status-PENDIENTE { background-color: #FEF08A; color: #854D0E; }
+    .status-PENDIENTE { background-color: #E5E7EB; color: #374151; }
     .status-ENTREGADO { background-color: #BBF7D0; color: #166534; }
     .status-CERRADO { background-color: #FECACA; color: #991B1B; }
     .status-PARCIAL { background-color: #FFEDD5; color: #9A3412; }
@@ -65,7 +65,7 @@
         </div>
       </div>
 
-      <!-- PANEL DE RUTA CARGADA PARA CHOFER -->
+      <!-- PANEL DE RUTA CARGADA -->
       <div id="driverRouteContainer" class="hidden space-y-4">
         <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-3">
           <div>
@@ -120,7 +120,7 @@
           <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar Archivo de Rutas (CSV)
         </h2>
         <p class="text-xs text-gray-500">
-          Soporta separadores <code>;</code> o <code>,</code>. Mapea columnas <b>TPT</b>, <b>SEC</b>, <b>VENDEDOR</b>, <b>RAZON SOCIAL</b>, <b>Y (Lat)</b>, <b>X (Lon)</b>.
+          Soporta separadores <code>;</code> o <code>,</code>. Mapea columnas <b>TPT</b>, <b>SEC</b>, <b>RAZON SOCIAL</b>, <b>Y (Lat)</b>, <b>X (Lon)</b>.
         </p>
         <div class="flex flex-col sm:flex-row gap-3 items-center">
           <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
@@ -132,11 +132,12 @@
       </div>
 
       <!-- PANEL DE CLAVES ASIGNADAS A CHOFERES -->
-      <div class="bg-white p-4 rounded-xl shadow space-y-2">
+      <div class="bg-white p-4 rounded-xl shadow space-y-2 border-l-4 border-amber-500">
         <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
           <i class="fa-solid fa-key text-amber-500"></i> Claves de Acceso Asignadas a Choferes
         </h3>
-        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold">
+        <p class="text-xs text-gray-500">Comparte este PIN con cada chofer para que puedan acceder solo a su ruta:</p>
+        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
           <span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>
         </div>
       </div>
@@ -153,8 +154,6 @@
           </div>
         </div>
 
-        <div id="vendorLegend" class="flex flex-wrap gap-2 text-xs font-bold pt-1"></div>
-
         <div id="adminMap" class="map-container" style="height: 480px;"></div>
       </div>
     </section>
@@ -163,7 +162,7 @@
 
   <script>
     // CONFIGURACIÓN DE SEGURIDAD
-    const ADMIN_PASSWORD = "admin123"; // Contraseña para acceder a la Vista Admin
+    const ADMIN_PASSWORD = "bra151106"; // Nueva Contraseña Administrador
     let isAdminAuthenticated = false;
 
     // FIREBASE CONFIG
@@ -180,30 +179,17 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    // MAPA DE COLORES DE ESTADO
     const STATUS_COLORS = {
-      'PENDIENTE': '#EAB308',
-      'ENTREGADO': '#22C55E',
-      'CERRADO': '#EF4444',
-      'PARCIAL': '#F97316',
-      'OTRO MOTIVO': '#A855F7'
+      'PENDIENTE': '#6B7280',    // Gris Predeterminado
+      'ENTREGADO': '#22C55E',    // Verde
+      'CERRADO': '#EF4444',      // Rojo
+      'PARCIAL': '#F97316',      // Anaranjado
+      'OTRO MOTIVO': '#A855F7'  // Morado
     };
 
-    const VENDOR_PALETTE = ['#3B82F6', '#EC4899', '#10B981', '#6366F1', '#D97706', '#06B6D4', '#E11D48', '#8B5CF6', '#14B8A6', '#F59E0B'];
-    const vendorColorMap = {};
-
-    function getVendorColor(vendedor) {
-      if (!vendedor) return '#6B7280';
-      const vendKey = vendedor.toString().trim();
-      if (!vendorColorMap[vendKey]) {
-        const keys = Object.keys(vendorColorMap);
-        vendorColorMap[vendKey] = VENDOR_PALETTE[keys.length % VENDOR_PALETTE.length];
-      }
-      return vendorColorMap[vendKey];
-    }
-
-    function createCustomMarkerIcon(sec, status, vendedor) {
+    function createCustomMarkerIcon(sec, status) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
-      const vendorColor = getVendorColor(vendedor);
       
       return L.divIcon({
         className: 'custom-map-marker',
@@ -214,7 +200,7 @@
               height: 18px; 
               border-radius: 50%; 
               background-color: ${statusColor}; 
-              border: 3px solid ${vendorColor}; 
+              border: 2px solid #ffffff; 
               box-shadow: 0 2px 5px rgba(0,0,0,0.4);
               flex-shrink: 0;
             "></div>
@@ -237,7 +223,7 @@
     }
 
     let currentRouteCode = null;
-    let currentDocId = null; // ID exacto del documento en Firestore
+    let currentDocId = null;
     let currentClientsData = [];
     let driverUnsubscribe = null;
     let gpsWatchId = null;
@@ -249,7 +235,6 @@
     let driverMap = null;
     let driverMapMarkers = [];
 
-    // ACCESO CONTROLADO DE ADMINISTRADOR
     function requestAdminAccess() {
       if (isAdminAuthenticated) {
         switchTab('admin');
@@ -264,7 +249,6 @@
       }
     }
 
-    // METADATOS DEL ARCHIVO ACTIVO
     db.collection('meta').doc('active_file').onSnapshot(doc => {
       const card = document.getElementById('activeFileCard');
       if (doc && doc.exists) {
@@ -398,7 +382,7 @@
             const group = routesMap[code];
             group.sort((a, b) => a.sec - b.sec);
 
-            // Generar clave PIN estática de 4 dígitos basada en el nombre de la ruta
+            // Generar clave PIN estática de 4 dígitos para cada ruta
             let hash = 0;
             for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
             const generatedPin = Math.abs(hash % 9000 + 1000).toString();
@@ -423,7 +407,7 @@
           statusDiv.innerText = `✅ ¡Éxito! Se guardaron ${parsedClients.length} clientes en las rutas (${routeKeys.join(', ')}).`;
 
           fileInput.value = '';
-          loadAvailableRoutesInSelect();
+          await loadAvailableRoutesInSelect();
         } catch (err) {
           statusDiv.className = "text-sm font-bold text-red-600";
           statusDiv.innerText = `Error: ${err.message}`;
@@ -433,7 +417,7 @@
     }
 
     async function clearCurrentDayData() {
-      if (!confirm("¿Estás seguro de borrar las rutas y el archivo actual del día?")) return;
+      if (!confirm("¿Estás seguro de borrar las rutas del día?")) return;
 
       const snapshot = await db.collection('routes').get();
       const batch = db.batch();
@@ -450,7 +434,6 @@
       alert("✅ Datos eliminados correctamente.");
     }
 
-    // INGRESO Y CARGA DE RUTA CHOFER
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
       let inputPin = document.getElementById('inputRoutePin').value.trim();
@@ -458,7 +441,6 @@
       if (!inputCode) return alert("Ingresa tu código de ruta.");
       if (!inputPin) return alert("Ingresa tu clave de acceso (PIN).");
 
-      // Buscar si existe el documento directamente o con prefijo T
       let docRef = db.collection('routes').doc(inputCode);
       let docSnap = await docRef.get();
 
@@ -474,12 +456,11 @@
 
       const routeData = docSnap.data();
 
-      // Validar Clave PIN
       if (routeData.pin && routeData.pin !== inputPin) {
         return alert("🔒 Clave de acceso incorrecta para esta ruta.");
       }
 
-      currentDocId = docRef.id; // Guardar ID exacto de Firestore
+      currentDocId = docRef.id;
       currentRouteCode = routeData.code || inputCode;
 
       document.getElementById('driverRouteContainer').classList.remove('hidden');
@@ -493,7 +474,6 @@
 
       if (driverUnsubscribe) driverUnsubscribe();
 
-      // Escuchar cambios en la ruta exacta
       driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
           currentClientsData = doc.data().clients || [];
@@ -548,7 +528,7 @@
         listContainer.appendChild(card);
 
         if (c.lat && c.lon) {
-          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor);
+          const markerIcon = createCustomMarkerIcon(c.sec, statusKey);
           const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
 
           marker.bindPopup(`
@@ -585,7 +565,6 @@
         currentClientsData[index].horaEntrega = new Date().toLocaleTimeString();
       }
 
-      // Guardar en el ID exacto de la base de datos
       await db.collection('routes').doc(currentDocId).update({
         clients: currentClientsData,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -639,6 +618,11 @@
       keysDiv.innerHTML = '';
 
       const snapshot = await db.collection('routes').get();
+      if (snapshot.empty) {
+        keysDiv.innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
+        return;
+      }
+
       snapshot.forEach(doc => {
         const data = doc.data();
         const routeId = doc.id;
@@ -647,11 +631,10 @@
         option.innerText = `Ruta #${routeId}`;
         select.appendChild(option);
 
-        // Mostrar claves de choferes en el panel admin
         if (data.pin) {
           keysDiv.innerHTML += `
-            <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-2.5 py-1 rounded-lg">
-              Ruta <b>#${routeId}</b> 🔑 Clave: <u class="text-indigo-900 font-extrabold">${data.pin}</u>
+            <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg shadow-sm">
+              Ruta <b>#${routeId}</b> 🔑 Clave: <u class="text-indigo-900 font-extrabold text-sm">${data.pin}</u>
             </span>
           `;
         }
@@ -674,20 +657,14 @@
         adminMapMarkers = [];
 
         const bounds = [];
-        const legendDiv = document.getElementById('vendorLegend');
-        legendDiv.innerHTML = '';
-
-        const vendorsUsed = {};
 
         clients.forEach(c => {
-          if (c.vendedor) vendorsUsed[c.vendedor] = getVendorColor(c.vendedor);
-
           if (!c.lat || !c.lon) return;
 
           let statusKey = c.estado || 'PENDIENTE';
           let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-          const icon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor);
+          const icon = createCustomMarkerIcon(c.sec, statusKey);
           const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
 
           marker.bindPopup(`
@@ -699,15 +676,6 @@
 
           adminMapMarkers.push(marker);
           bounds.push([c.lat, c.lon]);
-        });
-
-        Object.keys(vendorsUsed).forEach(v => {
-          legendDiv.innerHTML += `
-            <span class="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border">
-              <span style="width:10px; height:10px; border-radius:50%; background:${vendorsUsed[v]}"></span>
-              Vendedor ${v}
-            </span>
-          `;
         });
 
         if (bounds.length > 0) adminMap.fitBounds(bounds, { padding: [30, 30] });
