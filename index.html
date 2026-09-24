@@ -79,49 +79,49 @@
           </div>
         </div>
 
-        <!-- RESUMEN DE PROGRESO Y CONTADORES -->
+        <!-- RESUMEN DE PROGRESO CHOFER -->
         <div class="bg-white p-4 rounded-xl shadow space-y-3">
           <div class="flex justify-between items-center border-b pb-2">
             <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
               <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen y Avance de Ruta
             </h4>
-            <span id="progressPercentageText" class="text-xs font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full">0% completado</span>
+            <span id="driverProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full">0% completado</span>
           </div>
 
           <div class="space-y-1">
             <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden flex">
-              <div id="progressBarFill" class="bg-emerald-500 h-3 transition-all duration-500" style="width: 0%"></div>
+              <div id="driverProgressBarFill" class="bg-emerald-500 h-3 transition-all duration-500" style="width: 0%"></div>
             </div>
             <div class="flex justify-between text-[11px] font-bold text-gray-500">
-              <span id="progressCompletedCount">Visitados: 0</span>
-              <span id="progressRemainingCount">Falta por visitar: 0 (100%)</span>
+              <span id="driverCompletedCount">Visitados: 0</span>
+              <span id="driverRemainingCount">Falta por visitar: 0 (100%)</span>
             </div>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-1">
             <div class="bg-gray-100 p-2 rounded-lg border">
               <span class="block text-gray-500 text-[10px]">⏳ PENDIENTES</span>
-              <span id="countPendiente" class="text-base text-gray-800">0</span>
+              <span id="driverCountPendiente" class="text-base text-gray-800">0</span>
             </div>
             <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
               <span class="block text-emerald-600 text-[10px]">✅ ENTREGADOS</span>
-              <span id="countEntregado" class="text-base text-emerald-700">0</span>
+              <span id="driverCountEntregado" class="text-base text-emerald-700">0</span>
             </div>
             <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
               <span class="block text-rose-600 text-[10px]">❌ CERRADOS</span>
-              <span id="countCerrado" class="text-base text-rose-700">0</span>
+              <span id="driverCountCerrado" class="text-base text-rose-700">0</span>
             </div>
             <div class="bg-orange-50 p-2 rounded-lg border border-orange-200">
               <span class="block text-orange-600 text-[10px]">🟧 PARCIAL</span>
-              <span id="countParcial" class="text-base text-orange-700">0</span>
+              <span id="driverCountParcial" class="text-base text-orange-700">0</span>
             </div>
             <div class="bg-purple-50 p-2 rounded-lg border border-purple-200">
               <span class="block text-purple-600 text-[10px]">🟣 OTRO MOTIVO</span>
-              <span id="countOtro" class="text-base text-purple-700">0</span>
+              <span id="driverCountOtro" class="text-base text-purple-700">0</span>
             </div>
             <div class="bg-blue-50 p-2 rounded-lg border border-blue-200">
               <span class="block text-blue-600 text-[10px]">🔵 REPASO</span>
-              <span id="countRepaso" class="text-base text-blue-700">0</span>
+              <span id="driverCountRepaso" class="text-base text-blue-700">0</span>
             </div>
           </div>
         </div>
@@ -212,14 +212,66 @@
         </div>
       </div>
 
+      <!-- RESUMEN Y AVANCE EN VISTA ADMIN -->
+      <div class="bg-white p-4 rounded-xl shadow space-y-3 border-l-4 border-indigo-600">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen y Avance <span id="adminScopeLabel" class="text-xs text-indigo-600 font-bold">(General Día)</span>
+          </h4>
+          <span id="adminProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full">0% completado</span>
+        </div>
+
+        <div class="space-y-1">
+          <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden flex">
+            <div id="adminProgressBarFill" class="bg-emerald-500 h-3 transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[11px] font-bold text-gray-500">
+            <span id="adminCompletedCount">Visitados / Atendidos: 0</span>
+            <span id="adminRemainingCount">Falta por visitar (Gris): 0 (100%)</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-1">
+          <div class="bg-gray-100 p-2 rounded-lg border">
+            <span class="block text-gray-500 text-[10px]">⏳ PENDIENTES</span>
+            <span id="adminCountPendiente" class="text-base text-gray-800">0</span>
+          </div>
+          <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+            <span class="block text-emerald-600 text-[10px]">✅ ENTREGADOS</span>
+            <span id="adminCountEntregado" class="text-base text-emerald-700">0</span>
+          </div>
+          <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
+            <span class="block text-rose-600 text-[10px]">❌ CERRADOS</span>
+            <span id="adminCountCerrado" class="text-base text-rose-700">0</span>
+          </div>
+          <div class="bg-orange-50 p-2 rounded-lg border border-orange-200">
+            <span class="block text-orange-600 text-[10px]">🟧 PARCIAL</span>
+            <span id="adminCountParcial" class="text-base text-orange-700">0</span>
+          </div>
+          <div class="bg-purple-50 p-2 rounded-lg border border-purple-200">
+            <span class="block text-purple-600 text-[10px]">🟣 OTRO MOTIVO</span>
+            <span id="adminCountOtro" class="text-base text-purple-700">0</span>
+          </div>
+          <div class="bg-blue-50 p-2 rounded-lg border border-blue-200">
+            <span class="block text-blue-600 text-[10px]">🔵 REPASO</span>
+            <span id="adminCountRepaso" class="text-base text-blue-700">0</span>
+          </div>
+        </div>
+      </div>
+
       <!-- MAPA MONITOREO ADMIN -->
       <div class="bg-white p-4 rounded-xl shadow space-y-3">
         <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
-          <h3 class="font-bold text-gray-800">Monitoreo General de Rutas</h3>
+          <div class="flex items-center gap-2">
+            <h3 class="font-bold text-gray-800">Monitoreo General de Rutas</h3>
+            <span class="text-[11px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS Multicamión Activo
+            </span>
+          </div>
           <div class="flex items-center gap-2 w-full sm:w-auto">
             <label class="text-xs font-bold text-gray-600">Filtrar Ruta:</label>
             <select id="selectAdminRoute" onchange="onAdminRouteSelect()" class="border rounded-lg px-3 py-1.5 font-bold text-gray-700 outline-none w-full sm:w-auto">
-              <option value="">-- Seleccionar Ruta --</option>
+              <option value="">-- Todas las Rutas (Vista General) --</option>
             </select>
           </div>
         </div>
@@ -298,8 +350,9 @@
 
     let adminMap = null;
     let adminMapMarkers = [];
-    let adminTruckMarker = null;
-    let adminTrackingUnsubscribe = null;
+    let allTruckMarkers = {}; // Almacena marcadores GPS de todos los choferes
+    let adminGlobalTrackingUnsubscribe = null;
+    let adminRouteUnsubscribe = null;
 
     let driverMap = null;
     let driverMapMarkers = [];
@@ -344,6 +397,8 @@
           }
           adminMap.invalidateSize();
           loadAvailableRoutesInSelect();
+          startAdminGlobalTracking();
+          loadAdminGeneralSummary();
         }, 100);
       } else {
         setTimeout(() => {
@@ -479,6 +534,7 @@
 
           fileInput.value = '';
           await loadAvailableRoutesInSelect();
+          loadAdminGeneralSummary();
         } catch (err) {
           statusDiv.className = "text-sm font-bold text-red-600";
           statusDiv.innerText = `Error: ${err.message}`;
@@ -497,7 +553,7 @@
 
       await db.collection('meta').doc('active_file').delete();
 
-      document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Seleccionar Ruta --</option>';
+      document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
       document.getElementById('routeKeysList').innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
       if (adminMapMarkers) adminMapMarkers.forEach(m => adminMap.removeLayer(m));
       adminMapMarkers = [];
@@ -550,17 +606,15 @@
       driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
           currentClientsData = doc.data().clients || [];
-          updateRouteSummaryStats(currentClientsData);
+          updateDriverSummaryStats(currentClientsData);
           populateVendorFilterDropdown(currentClientsData);
           applyDriverFilters();
         }
       });
 
-      // ACTIVACIÓN AUTOMÁTICA DE GPS AL INGRESAR
       startGPSTrackingAuto();
     }
 
-    // ACTIVACIÓN AUTOMÁTICA GPS
     function startGPSTrackingAuto() {
       if (!navigator.geolocation) return;
 
@@ -573,7 +627,6 @@
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
 
-          // Guardar rastreo con ambas claves (ID exacto y nombre de ruta)
           const payload = {
             code: currentRouteCode,
             lat: lat,
@@ -595,7 +648,42 @@
       );
     }
 
-    function updateRouteSummaryStats(clients) {
+    // RESUMEN MÓVIL CHOFER
+    function updateDriverSummaryStats(clients) {
+      const stats = calculateStats(clients);
+
+      document.getElementById('driverCountPendiente').innerText = stats.pendientes;
+      document.getElementById('driverCountEntregado').innerText = stats.entregados;
+      document.getElementById('driverCountCerrado').innerText = stats.cerrados;
+      document.getElementById('driverCountParcial').innerText = stats.parciales;
+      document.getElementById('driverCountOtro').innerText = stats.otros;
+      document.getElementById('driverCountRepaso').innerText = stats.repasos;
+
+      document.getElementById('driverProgressPct').innerText = `${stats.pctAvance}% completado`;
+      document.getElementById('driverProgressBarFill').style.width = `${stats.pctAvance}%`;
+      document.getElementById('driverCompletedCount').innerText = `Visitados / Atendidos: ${stats.atendidos} de ${stats.total}`;
+      document.getElementById('driverRemainingCount').innerText = `Falta por visitar (Gris): ${stats.pendientes} (${stats.pctFalta}%)`;
+    }
+
+    // RESUMEN ADMIN (ESPECÍFICO O GLOBAL)
+    function updateAdminSummaryStats(clients, label) {
+      const stats = calculateStats(clients);
+
+      document.getElementById('adminScopeLabel').innerText = label ? `(${label})` : '(General Día)';
+      document.getElementById('adminCountPendiente').innerText = stats.pendientes;
+      document.getElementById('adminCountEntregado').innerText = stats.entregados;
+      document.getElementById('adminCountCerrado').innerText = stats.cerrados;
+      document.getElementById('adminCountParcial').innerText = stats.parciales;
+      document.getElementById('adminCountOtro').innerText = stats.otros;
+      document.getElementById('adminCountRepaso').innerText = stats.repasos;
+
+      document.getElementById('adminProgressPct').innerText = `${stats.pctAvance}% completado`;
+      document.getElementById('adminProgressBarFill').style.width = `${stats.pctAvance}%`;
+      document.getElementById('adminCompletedCount').innerText = `Visitados / Atendidos: ${stats.atendidos} de ${stats.total}`;
+      document.getElementById('adminRemainingCount').innerText = `Falta por visitar (Gris): ${stats.pendientes} (${stats.pctFalta}%)`;
+    }
+
+    function calculateStats(clients) {
       const total = clients.length;
       let pendientes = 0, entregados = 0, cerrados = 0, parciales = 0, otros = 0, repasos = 0;
 
@@ -614,17 +702,7 @@
       const pctAvance = total > 0 ? Math.round((atendidos / total) * 100) : 0;
       const pctFalta = 100 - pctAvance;
 
-      document.getElementById('countPendiente').innerText = pendientes;
-      document.getElementById('countEntregado').innerText = entregados;
-      document.getElementById('countCerrado').innerText = cerrados;
-      document.getElementById('countParcial').innerText = parciales;
-      document.getElementById('countOtro').innerText = otros;
-      document.getElementById('countRepaso').innerText = repasos;
-
-      document.getElementById('progressPercentageText').innerText = `${pctAvance}% completado`;
-      document.getElementById('progressBarFill').style.width = `${pctAvance}%`;
-      document.getElementById('progressCompletedCount').innerText = `Visitados / Atendidos: ${atendidos} de ${total}`;
-      document.getElementById('progressRemainingCount').innerText = `Falta por visitar (Gris): ${pendientes} (${pctFalta}%)`;
+      return { total, pendientes, entregados, cerrados, parciales, otros, repasos, atendidos, pctAvance, pctFalta };
     }
 
     function populateVendorFilterDropdown(clients) {
@@ -792,7 +870,7 @@
     async function loadAvailableRoutesInSelect() {
       const select = document.getElementById('selectAdminRoute');
       const keysDiv = document.getElementById('routeKeysList');
-      select.innerHTML = '<option value="">-- Seleccionar Ruta --</option>';
+      select.innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
       keysDiv.innerHTML = '';
 
       const snapshot = await db.collection('routes').get();
@@ -819,20 +897,67 @@
       });
     }
 
+    // CARGAR RESUMEN CONSOLIDADO DE TODAS LAS RUTAS
+    function loadAdminGeneralSummary() {
+      db.collection('routes').onSnapshot(snapshot => {
+        let allClients = [];
+        snapshot.forEach(doc => {
+          const clients = doc.data().clients || [];
+          allClients = allClients.concat(clients);
+        });
+
+        const selectedVal = document.getElementById('selectAdminRoute').value;
+        if (!selectedVal) {
+          updateAdminSummaryStats(allClients, "General Día");
+        }
+      });
+    }
+
+    // RASTREO MULTICAMIÓN EN TIEMPO REAL (TODOS LOS CHOFERES ACTIVOS)
+    function startAdminGlobalTracking() {
+      if (adminGlobalTrackingUnsubscribe) adminGlobalTrackingUnsubscribe();
+
+      adminGlobalTrackingUnsubscribe = db.collection('tracking').onSnapshot(snapshot => {
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (!data || !data.lat || !data.lng) return;
+
+          const routeCode = data.code || doc.id;
+
+          if (!allTruckMarkers[routeCode]) {
+            const truckIcon = L.divIcon({
+              html: `<div style="background:#4F46E5;color:white;padding:4px 8px;border-radius:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:11px;font-weight:bold;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="fa-solid fa-truck"></i> #${routeCode}</div>`,
+              className: '',
+              iconSize: [60, 26]
+            });
+            allTruckMarkers[routeCode] = L.marker([data.lat, data.lng], { icon: truckIcon }).addTo(adminMap);
+          } else {
+            allTruckMarkers[routeCode].setLatLng([data.lat, data.lng]);
+          }
+        });
+      });
+    }
+
     function onAdminRouteSelect() {
       const code = document.getElementById('selectAdminRoute').value;
-      if (!code) return;
 
       adminMapInitialFit = false;
 
       adminMapMarkers.forEach(m => adminMap.removeLayer(m));
       adminMapMarkers = [];
-      if (adminTruckMarker) { adminMap.removeLayer(adminTruckMarker); adminTruckMarker = null; }
 
-      // 1. Escuchar Puntos de la Ruta
-      db.collection('routes').doc(code).onSnapshot(doc => {
+      if (!code) {
+        loadAdminGeneralSummary();
+        return;
+      }
+
+      if (adminRouteUnsubscribe) adminRouteUnsubscribe();
+
+      adminRouteUnsubscribe = db.collection('routes').doc(code).onSnapshot(doc => {
         if (!doc.exists) return;
         const clients = doc.data().clients || [];
+
+        updateAdminSummaryStats(clients, `Ruta #${code}`);
 
         adminMapMarkers.forEach(m => adminMap.removeLayer(m));
         adminMapMarkers = [];
@@ -862,34 +987,6 @@
         if (bounds.length > 0 && !adminMapInitialFit) {
           adminMap.fitBounds(bounds, { padding: [30, 30] });
           adminMapInitialFit = true;
-        }
-      });
-
-      // 2. Escuchar GPS del Camión en Tiempo Real (Soporta prefijos T y números)
-      if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
-
-      const altCode = code.startsWith('T') ? code.replace(/^T/i, '') : 'T' + code;
-
-      const handleGPSDoc = (data) => {
-        if (!data || !data.lat || !data.lng) return;
-
-        if (!adminTruckMarker) {
-          const truckIcon = L.divIcon({
-            html: '<div style="background:#4F46E5;color:white;padding:6px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><i class="fa-solid fa-truck"></i></div>',
-            iconSize: [30, 30]
-          });
-          adminTruckMarker = L.marker([data.lat, data.lng], { icon: truckIcon }).addTo(adminMap);
-        } else {
-          adminTruckMarker.setLatLng([data.lat, data.lng]);
-        }
-      };
-
-      adminTrackingUnsubscribe = db.collection('tracking').doc(code).onSnapshot(doc => {
-        if (doc && doc.exists) handleGPSDoc(doc.data());
-        else {
-          db.collection('tracking').doc(altCode).get().then(altDoc => {
-            if (altDoc && altDoc.exists) handleGPSDoc(altDoc.data());
-          });
         }
       });
     }
