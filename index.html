@@ -25,6 +25,7 @@
     .status-CERRADO { background-color: #FECACA; color: #991B1B; }
     .status-PARCIAL { background-color: #FFEDD5; color: #9A3412; }
     .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #6B21A8; }
+    .status-REPASO { background-color: #DBEAFE; color: #1E40AF; }
     
     .custom-map-marker { background: none; border: none; }
   </style>
@@ -89,9 +90,34 @@
           <div id="driverMap" class="map-container"></div>
         </div>
 
+        <!-- HERRAMIENTAS DE BÚSQUEDA Y FILTRADO -->
+        <div class="bg-white p-4 rounded-xl shadow space-y-3">
+          <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2 border-b pb-2">
+            <i class="fa-solid fa-filter text-indigo-600"></i> Buscar o Filtrar Clientes
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs font-bold text-gray-500">Buscar por Código / Nombre / Dirección:</label>
+              <div class="relative mt-1">
+                <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border rounded-lg pl-8 pr-3 py-1.5 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-gray-400 text-xs"></i>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-gray-500">Filtrar por Vendedor:</label>
+              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border rounded-lg px-3 py-1.5 text-sm font-bold text-gray-700 outline-none mt-1">
+                <option value="">-- Todos los Vendedores --</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <!-- LISTA DE CLIENTES CHOFER -->
         <div class="bg-white p-4 rounded-xl shadow">
-          <h4 class="font-bold text-gray-700 mb-3 border-b pb-2">Clientes en la Ruta</h4>
+          <div class="flex justify-between items-center mb-3 border-b pb-2">
+            <h4 class="font-bold text-gray-700">Clientes en la Ruta</h4>
+            <span id="driverResultsCount" class="text-xs font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">---</span>
+          </div>
           <div id="driverClientsList" class="space-y-3"></div>
         </div>
       </div>
@@ -162,7 +188,7 @@
 
   <script>
     // CONFIGURACIÓN DE SEGURIDAD
-    const ADMIN_PASSWORD = "bra151106"; // Nueva Contraseña Administrador
+    const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
     // FIREBASE CONFIG
@@ -181,11 +207,12 @@
 
     // MAPA DE COLORES DE ESTADO
     const STATUS_COLORS = {
-      'PENDIENTE': '#6B7280',    // Gris Predeterminado
+      'PENDIENTE': '#6B7280',    // Gris
       'ENTREGADO': '#22C55E',    // Verde
       'CERRADO': '#EF4444',      // Rojo
       'PARCIAL': '#F97316',      // Anaranjado
-      'OTRO MOTIVO': '#A855F7'  // Morado
+      'OTRO MOTIVO': '#A855F7',  // Morado
+      'REPASO': '#3B82F6'        // Azul
     };
 
     function createCustomMarkerIcon(sec, status) {
@@ -331,7 +358,7 @@
         clients.push({
           tpt: tpt.toString().trim(),
           sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
-          vendedor: idxVend !== -1 ? cols[idxVend] : '',
+          vendedor: idxVend !== -1 ? cols[idxVend].toString().trim() : '',
           name: idxName !== -1 ? cols[idxName] : 'Cliente ' + i,
           telefono: idxTel !== -1 ? cols[idxTel] : '',
           domicilio: idxDom !== -1 ? cols[idxDom] : '',
@@ -339,6 +366,7 @@
           lat: isNaN(lat) ? 0 : lat,
           lon: isNaN(lon) ? 0 : lon,
           estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toUpperCase() : 'PENDIENTE',
+          repasoConfirm: '', // 'APTO' o 'NO APTO'
           horaEntrega: ''
         });
       }
@@ -382,7 +410,6 @@
             const group = routesMap[code];
             group.sort((a, b) => a.sec - b.sec);
 
-            // Generar clave PIN estática de 4 dígitos para cada ruta
             let hash = 0;
             for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
             const generatedPin = Math.abs(hash % 9000 + 1000).toString();
@@ -477,12 +504,49 @@
       driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
           currentClientsData = doc.data().clients || [];
-          renderDriverClientsAndMap(currentClientsData);
+          populateVendorFilterDropdown(currentClientsData);
+          applyDriverFilters();
         }
       });
     }
 
-    function renderDriverClientsAndMap(clients) {
+    function populateVendorFilterDropdown(clients) {
+      const select = document.getElementById('driverVendorFilter');
+      const currentValue = select.value;
+      
+      const vendors = new Set();
+      clients.forEach(c => { if (c.vendedor) vendors.add(c.vendedor); });
+
+      select.innerHTML = '<option value="">-- Todos los Vendedores --</option>';
+      Array.from(vendors).sort().forEach(v => {
+        const option = document.createElement('option');
+        option.value = v;
+        option.innerText = `Vendedor ${v}`;
+        select.appendChild(option);
+      });
+
+      select.value = currentValue;
+    }
+
+    function applyDriverFilters() {
+      const searchText = document.getElementById('driverSearchInput').value.toLowerCase().trim();
+      const selectedVendor = document.getElementById('driverVendorFilter').value;
+
+      const filtered = currentClientsData.filter(c => {
+        const matchVendor = !selectedVendor || c.vendedor.toString() === selectedVendor;
+        const matchSearch = !searchText || 
+          c.name.toLowerCase().includes(searchText) || 
+          c.domicilio.toLowerCase().includes(searchText) || 
+          c.sec.toString().includes(searchText) ||
+          (c.telefono && c.telefono.includes(searchText));
+        
+        return matchVendor && matchSearch;
+      });
+
+      renderDriverClientsAndMap(filtered);
+    }
+
+    function renderDriverClientsAndMap(clientsToRender) {
       const listContainer = document.getElementById('driverClientsList');
       listContainer.innerHTML = '';
 
@@ -492,22 +556,50 @@
       let pending = 0, delivered = 0;
       const bounds = [];
 
-      clients.forEach((c, index) => {
+      document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
+
+      clientsToRender.forEach((c) => {
+        // Encontrar el índice original en el arreglo completo
+        const originalIndex = currentClientsData.findIndex(item => item.sec === c.sec && item.name === c.name);
+
         if (c.estado === 'ENTREGADO') delivered++;
         else pending++;
 
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
+        // Render de Bloque Repaso APTO / NO APTO
+        let repasoHtml = '';
+        if (statusKey === 'REPASO') {
+          let aptoClass = c.repasoConfirm === 'APTO' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700';
+          let noAptoClass = c.repasoConfirm === 'NO APTO' ? 'bg-rose-600 text-white' : 'bg-gray-200 text-gray-700';
+
+          repasoHtml = `
+            <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-bold text-blue-900"><i class="fa-solid fa-rotate-right"></i> ¿Repaso Confirmado?:</span>
+              <div class="flex gap-1">
+                <button onclick="updateRepasoConfirm(${originalIndex}, 'APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${aptoClass}">
+                  👍 APTO
+                </button>
+                <button onclick="updateRepasoConfirm(${originalIndex}, 'NO APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${noAptoClass}">
+                  👎 NO APTO
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
         const card = document.createElement('div');
         card.className = "border rounded-xl p-4 bg-gray-50 space-y-2 shadow-sm";
         card.innerHTML = `
           <div class="flex justify-between items-start">
             <span class="font-bold text-indigo-700 text-sm">#${c.sec} · ${c.name}</span>
-            <span class="status-badge ${badgeClass}">${statusKey}</span>
+            <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? ' (' + c.repasoConfirm + ')' : ''}</span>
           </div>
           <p class="text-xs text-gray-600"><i class="fa-solid fa-location-dot text-red-500"></i> ${c.domicilio}</p>
           <p class="text-xs text-gray-500"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: ${c.vendedor || 'S/V'} | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
+
+          ${repasoHtml}
 
           <div class="flex flex-wrap gap-2 pt-2 border-t items-center">
             <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
@@ -516,12 +608,13 @@
             <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
               <i class="fa-solid fa-map-pin"></i> Maps
             </a>
-            <select onchange="updateClientStatus(${index}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
+            <select onchange="updateClientStatus(${originalIndex}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
               <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
               <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
               <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
               <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
               <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
+              <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
             </select>
           </div>
         `;
@@ -537,12 +630,13 @@
               <span class="text-xs text-gray-600">${c.domicilio}</span><br>
               <div class="pt-1">
                 <label class="text-xs font-bold">Cambiar Estado:</label>
-                <select onchange="updateClientStatus(${index}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
+                <select onchange="updateClientStatus(${originalIndex}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
                   <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
                   <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
                   <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
                   <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
                   <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
+                  <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
                 </select>
               </div>
             </div>
@@ -564,6 +658,17 @@
       if (newStatus === 'ENTREGADO') {
         currentClientsData[index].horaEntrega = new Date().toLocaleTimeString();
       }
+
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    async function updateRepasoConfirm(index, confirmValue) {
+      if (!currentDocId || !currentClientsData[index]) return;
+
+      currentClientsData[index].repasoConfirm = confirmValue;
 
       await db.collection('routes').doc(currentDocId).update({
         clients: currentClientsData,
@@ -671,7 +776,7 @@
             <b>#${c.sec} · ${c.name}</b><br>
             <span class="text-xs text-gray-600">${c.domicilio}</span><br>
             <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
-            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey}</span>
+            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
           `);
 
           adminMapMarkers.push(marker);
