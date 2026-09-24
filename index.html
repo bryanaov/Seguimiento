@@ -68,18 +68,62 @@
 
       <!-- PANEL DE RUTA CARGADA -->
       <div id="driverRouteContainer" class="hidden space-y-4">
+        <!-- CABECERA GPS & STATUS -->
         <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-3">
           <div>
             <h3 class="font-bold text-gray-800 text-lg" id="driverRouteTitle">Ruta #</h3>
-            <p class="text-sm text-gray-500" id="driverStats">0 Pendientes / 0 Entregados</p>
+            <p class="text-xs text-emerald-600 font-bold" id="driverSubtitle">📡 Transmisión GPS activada automáticamente</p>
           </div>
-          <button id="btnToggleGPS" onclick="toggleGPSTracking()" class="w-full md:w-auto px-4 py-2.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center justify-center gap-2 shadow">
-            <i class="fa-solid fa-location-crosshairs"></i> Activar Transmisión GPS
-          </button>
+          <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Transmitiendo
+          </div>
         </div>
 
-        <div id="gpsStatusText" class="text-xs text-center font-medium text-gray-500 hidden">
-          📡 GPS inactivo
+        <!-- RESUMEN DE PROGRESO Y CONTADORES -->
+        <div class="bg-white p-4 rounded-xl shadow space-y-3">
+          <div class="flex justify-between items-center border-b pb-2">
+            <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen y Avance de Ruta
+            </h4>
+            <span id="progressPercentageText" class="text-xs font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full">0% completado</span>
+          </div>
+
+          <div class="space-y-1">
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden flex">
+              <div id="progressBarFill" class="bg-emerald-500 h-3 transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[11px] font-bold text-gray-500">
+              <span id="progressCompletedCount">Visitados: 0</span>
+              <span id="progressRemainingCount">Falta por visitar: 0 (100%)</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-1">
+            <div class="bg-gray-100 p-2 rounded-lg border">
+              <span class="block text-gray-500 text-[10px]">⏳ PENDIENTES</span>
+              <span id="countPendiente" class="text-base text-gray-800">0</span>
+            </div>
+            <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+              <span class="block text-emerald-600 text-[10px]">✅ ENTREGADOS</span>
+              <span id="countEntregado" class="text-base text-emerald-700">0</span>
+            </div>
+            <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
+              <span class="block text-rose-600 text-[10px]">❌ CERRADOS</span>
+              <span id="countCerrado" class="text-base text-rose-700">0</span>
+            </div>
+            <div class="bg-orange-50 p-2 rounded-lg border border-orange-200">
+              <span class="block text-orange-600 text-[10px]">🟧 PARCIAL</span>
+              <span id="countParcial" class="text-base text-orange-700">0</span>
+            </div>
+            <div class="bg-purple-50 p-2 rounded-lg border border-purple-200">
+              <span class="block text-purple-600 text-[10px]">🟣 OTRO MOTIVO</span>
+              <span id="countOtro" class="text-base text-purple-700">0</span>
+            </div>
+            <div class="bg-blue-50 p-2 rounded-lg border border-blue-200">
+              <span class="block text-blue-600 text-[10px]">🔵 REPASO</span>
+              <span id="countRepaso" class="text-base text-blue-700">0</span>
+            </div>
+          </div>
         </div>
 
         <!-- MAPA MÓVIL CHOFER -->
@@ -90,7 +134,7 @@
           <div id="driverMap" class="map-container"></div>
         </div>
 
-        <!-- HERRAMIENTAS DE BÚSQUEDA Y FILTRADO -->
+        <!-- BÚSQUEDA Y FILTRADO -->
         <div class="bg-white p-4 rounded-xl shadow space-y-3">
           <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2 border-b pb-2">
             <i class="fa-solid fa-filter text-indigo-600"></i> Buscar o Filtrar Clientes
@@ -157,7 +201,7 @@
         <div id="csvStatus" class="text-sm font-medium"></div>
       </div>
 
-      <!-- PANEL DE CLAVES ASIGNADAS A CHOFERES -->
+      <!-- PANEL DE CLAVES ASIGNADAS -->
       <div class="bg-white p-4 rounded-xl shadow space-y-2 border-l-4 border-amber-500">
         <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
           <i class="fa-solid fa-key text-amber-500"></i> Claves de Acceso Asignadas a Choferes
@@ -187,11 +231,9 @@
   </main>
 
   <script>
-    // CONFIGURACIÓN DE SEGURIDAD
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
-    // FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
       authDomain: "courier-4ecda.firebaseapp.com",
@@ -205,14 +247,13 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // MAPA DE COLORES DE ESTADO
     const STATUS_COLORS = {
-      'PENDIENTE': '#6B7280',    // Gris
-      'ENTREGADO': '#22C55E',    // Verde
-      'CERRADO': '#EF4444',      // Rojo
-      'PARCIAL': '#F97316',      // Anaranjado
-      'OTRO MOTIVO': '#A855F7',  // Morado
-      'REPASO': '#3B82F6'        // Azul
+      'PENDIENTE': '#6B7280',
+      'ENTREGADO': '#22C55E',
+      'CERRADO': '#EF4444',
+      'PARCIAL': '#F97316',
+      'OTRO MOTIVO': '#A855F7',
+      'REPASO': '#3B82F6'
     };
 
     function createCustomMarkerIcon(sec, status) {
@@ -258,9 +299,12 @@
     let adminMap = null;
     let adminMapMarkers = [];
     let adminTruckMarker = null;
+    let adminTrackingUnsubscribe = null;
 
     let driverMap = null;
     let driverMapMarkers = [];
+    let driverMapInitialFit = false;
+    let adminMapInitialFit = false;
 
     function requestAdminAccess() {
       if (isAdminAuthenticated) {
@@ -366,7 +410,7 @@
           lat: isNaN(lat) ? 0 : lat,
           lon: isNaN(lon) ? 0 : lon,
           estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toUpperCase() : 'PENDIENTE',
-          repasoConfirm: '', // 'APTO' o 'NO APTO'
+          repasoConfirm: '',
           horaEntrega: ''
         });
       }
@@ -490,6 +534,8 @@
       currentDocId = docRef.id;
       currentRouteCode = routeData.code || inputCode;
 
+      driverMapInitialFit = false;
+
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
@@ -504,10 +550,81 @@
       driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
           currentClientsData = doc.data().clients || [];
+          updateRouteSummaryStats(currentClientsData);
           populateVendorFilterDropdown(currentClientsData);
           applyDriverFilters();
         }
       });
+
+      // ACTIVACIÓN AUTOMÁTICA DE GPS AL INGRESAR
+      startGPSTrackingAuto();
+    }
+
+    // ACTIVACIÓN AUTOMÁTICA GPS
+    function startGPSTrackingAuto() {
+      if (!navigator.geolocation) return;
+
+      if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+      }
+
+      gpsWatchId = navigator.geolocation.watchPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+
+          // Guardar rastreo con ambas claves (ID exacto y nombre de ruta)
+          const payload = {
+            code: currentRouteCode,
+            lat: lat,
+            lng: lng,
+            timestamp: Date.now(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+
+          db.collection('tracking').doc(currentDocId).set(payload);
+          if (currentRouteCode !== currentDocId) {
+            db.collection('tracking').doc(currentRouteCode).set(payload);
+          }
+
+          const altCode = currentRouteCode.startsWith('T') ? currentRouteCode.replace(/^T/i, '') : 'T' + currentRouteCode;
+          db.collection('tracking').doc(altCode).set(payload);
+        },
+        err => { console.warn("GPS Warning: ", err.message); },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      );
+    }
+
+    function updateRouteSummaryStats(clients) {
+      const total = clients.length;
+      let pendientes = 0, entregados = 0, cerrados = 0, parciales = 0, otros = 0, repasos = 0;
+
+      clients.forEach(c => {
+        const st = c.estado || 'PENDIENTE';
+        if (st === 'PENDIENTE') pendientes++;
+        else if (st === 'ENTREGADO') entregados++;
+        else if (st === 'CERRADO') cerrados++;
+        else if (st === 'PARCIAL') parciales++;
+        else if (st === 'OTRO MOTIVO') otros++;
+        else if (st === 'REPASO') repasos++;
+        else pendientes++;
+      });
+
+      const atendidos = total - pendientes;
+      const pctAvance = total > 0 ? Math.round((atendidos / total) * 100) : 0;
+      const pctFalta = 100 - pctAvance;
+
+      document.getElementById('countPendiente').innerText = pendientes;
+      document.getElementById('countEntregado').innerText = entregados;
+      document.getElementById('countCerrado').innerText = cerrados;
+      document.getElementById('countParcial').innerText = parciales;
+      document.getElementById('countOtro').innerText = otros;
+      document.getElementById('countRepaso').innerText = repasos;
+
+      document.getElementById('progressPercentageText').innerText = `${pctAvance}% completado`;
+      document.getElementById('progressBarFill').style.width = `${pctAvance}%`;
+      document.getElementById('progressCompletedCount').innerText = `Visitados / Atendidos: ${atendidos} de ${total}`;
+      document.getElementById('progressRemainingCount').innerText = `Falta por visitar (Gris): ${pendientes} (${pctFalta}%)`;
     }
 
     function populateVendorFilterDropdown(clients) {
@@ -553,22 +670,16 @@
       driverMapMarkers.forEach(m => driverMap.removeLayer(m));
       driverMapMarkers = [];
 
-      let pending = 0, delivered = 0;
       const bounds = [];
 
       document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
 
       clientsToRender.forEach((c) => {
-        // Encontrar el índice original en el arreglo completo
         const originalIndex = currentClientsData.findIndex(item => item.sec === c.sec && item.name === c.name);
-
-        if (c.estado === 'ENTREGADO') delivered++;
-        else pending++;
 
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        // Render de Bloque Repaso APTO / NO APTO
         let repasoHtml = '';
         if (statusKey === 'REPASO') {
           let aptoClass = c.repasoConfirm === 'APTO' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700';
@@ -647,8 +758,10 @@
         }
       });
 
-      document.getElementById('driverStats').innerText = `${pending} Pendientes / ${delivered} Entregados`;
-      if (bounds.length > 0) driverMap.fitBounds(bounds, { padding: [30, 30] });
+      if (bounds.length > 0 && !driverMapInitialFit) {
+        driverMap.fitBounds(bounds, { padding: [30, 30] });
+        driverMapInitialFit = true;
+      }
     }
 
     async function updateClientStatus(index, newStatus) {
@@ -674,46 +787,6 @@
         clients: currentClientsData,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-    }
-
-    function toggleGPSTracking() {
-      const btn = document.getElementById('btnToggleGPS');
-      const statusText = document.getElementById('gpsStatusText');
-
-      if (gpsWatchId !== null) {
-        navigator.geolocation.clearWatch(gpsWatchId);
-        gpsWatchId = null;
-        btn.innerHTML = `<i class="fa-solid fa-location-crosshairs"></i> Activar Transmisión GPS`;
-        btn.className = "w-full md:w-auto px-4 py-2.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center justify-center gap-2 shadow";
-        statusText.classList.add('hidden');
-        return;
-      }
-
-      if (!navigator.geolocation) return alert("Tu dispositivo no soporta geolocalización.");
-
-      statusText.classList.remove('hidden');
-      statusText.innerText = "📡 Buscando señal GPS...";
-
-      gpsWatchId = navigator.geolocation.watchPosition(
-        pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-
-          db.collection('tracking').doc(currentDocId || currentRouteCode).set({
-            code: currentRouteCode,
-            lat: lat,
-            lng: lng,
-            timestamp: Date.now(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-
-          statusText.innerText = `📡 Transmitiendo GPS en vivo (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-          btn.innerHTML = `<i class="fa-solid fa-circle-stop"></i> Detener GPS`;
-          btn.className = "w-full md:w-auto px-4 py-2.5 rounded-xl font-bold bg-rose-600 text-white hover:bg-rose-700 flex items-center justify-center gap-2 shadow";
-        },
-        err => { statusText.innerText = `⚠️ Error GPS: ${err.message}`; },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-      );
     }
 
     async function loadAvailableRoutesInSelect() {
@@ -750,10 +823,13 @@
       const code = document.getElementById('selectAdminRoute').value;
       if (!code) return;
 
+      adminMapInitialFit = false;
+
       adminMapMarkers.forEach(m => adminMap.removeLayer(m));
       adminMapMarkers = [];
       if (adminTruckMarker) { adminMap.removeLayer(adminTruckMarker); adminTruckMarker = null; }
 
+      // 1. Escuchar Puntos de la Ruta
       db.collection('routes').doc(code).onSnapshot(doc => {
         if (!doc.exists) return;
         const clients = doc.data().clients || [];
@@ -783,13 +859,19 @@
           bounds.push([c.lat, c.lon]);
         });
 
-        if (bounds.length > 0) adminMap.fitBounds(bounds, { padding: [30, 30] });
+        if (bounds.length > 0 && !adminMapInitialFit) {
+          adminMap.fitBounds(bounds, { padding: [30, 30] });
+          adminMapInitialFit = true;
+        }
       });
 
-      db.collection('tracking').doc(code).onSnapshot(doc => {
-        if (!doc.exists) return;
-        const data = doc.data();
-        if (!data.lat || !data.lng) return;
+      // 2. Escuchar GPS del Camión en Tiempo Real (Soporta prefijos T y números)
+      if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
+
+      const altCode = code.startsWith('T') ? code.replace(/^T/i, '') : 'T' + code;
+
+      const handleGPSDoc = (data) => {
+        if (!data || !data.lat || !data.lng) return;
 
         if (!adminTruckMarker) {
           const truckIcon = L.divIcon({
@@ -799,6 +881,15 @@
           adminTruckMarker = L.marker([data.lat, data.lng], { icon: truckIcon }).addTo(adminMap);
         } else {
           adminTruckMarker.setLatLng([data.lat, data.lng]);
+        }
+      };
+
+      adminTrackingUnsubscribe = db.collection('tracking').doc(code).onSnapshot(doc => {
+        if (doc && doc.exists) handleGPSDoc(doc.data());
+        else {
+          db.collection('tracking').doc(altCode).get().then(altDoc => {
+            if (altDoc && altDoc.exists) handleGPSDoc(altDoc.data());
+          });
         }
       });
     }
