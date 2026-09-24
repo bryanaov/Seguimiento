@@ -24,7 +24,7 @@
     .status-ENTREGADO { background-color: #BBF7D0; color: #166534; }
     .status-CERRADO { background-color: #FECACA; color: #991B1B; }
     .status-PARCIAL { background-color: #FFEDD5; color: #9A3412; }
-    .status-OTRO { background-color: #F3E8FF; color: #6B21A8; }
+    .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #6B21A8; }
     
     .custom-map-marker { background: none; border: none; }
   </style>
@@ -41,8 +41,8 @@
         <button onclick="switchTab('driver')" id="btnTabDriver" class="px-3 py-1.5 rounded-lg bg-indigo-900 text-white text-sm font-semibold hover:bg-indigo-800">
           <i class="fa-solid fa-mobile-screen"></i> Modo Chofer
         </button>
-        <button onclick="switchTab('admin')" id="btnTabAdmin" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500">
-          <i class="fa-solid fa-map-location-dot"></i> Vista Admin
+        <button onclick="requestAdminAccess()" id="btnTabAdmin" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500">
+          <i class="fa-solid fa-lock"></i> Vista Admin
         </button>
       </div>
     </div>
@@ -52,19 +52,20 @@
 
     <!-- VISTA CHOFER (MÓVIL) -->
     <section id="viewDriver" class="block space-y-4">
-      <div class="bg-white p-5 rounded-xl shadow">
-        <h2 class="text-lg font-bold mb-3 flex items-center gap-2 text-indigo-700">
+      <div class="bg-white p-5 rounded-xl shadow space-y-3">
+        <h2 class="text-lg font-bold flex items-center gap-2 text-indigo-700">
           <i class="fa-solid fa-id-card"></i> Acceso a Ruta de Reparto
         </h2>
-        <div class="flex gap-2">
-          <input type="text" id="inputRouteCode" placeholder="Ingresa tu código (ej: 14 o T14)" class="flex-1 border rounded-lg px-3 py-2 text-lg uppercase font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <input type="text" id="inputRouteCode" placeholder="Código (ej: 14 o T14)" class="border rounded-lg px-3 py-2 text-base uppercase font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+          <input type="password" id="inputRoutePin" maxlength="6" placeholder="Clave de Ruta (PIN)" class="border rounded-lg px-3 py-2 text-base font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
           <button onclick="loadDriverRoute()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">
-            Cargar
+            Ingresar a Ruta
           </button>
         </div>
       </div>
 
-      <!-- PANEL DE RUTA CARGADA -->
+      <!-- PANEL DE RUTA CARGADA PARA CHOFER -->
       <div id="driverRouteContainer" class="hidden space-y-4">
         <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-3">
           <div>
@@ -130,6 +131,16 @@
         <div id="csvStatus" class="text-sm font-medium"></div>
       </div>
 
+      <!-- PANEL DE CLAVES ASIGNADAS A CHOFERES -->
+      <div class="bg-white p-4 rounded-xl shadow space-y-2">
+        <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+          <i class="fa-solid fa-key text-amber-500"></i> Claves de Acceso Asignadas a Choferes
+        </h3>
+        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold">
+          <span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>
+        </div>
+      </div>
+
       <!-- MAPA MONITOREO ADMIN -->
       <div class="bg-white p-4 rounded-xl shadow space-y-3">
         <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -151,6 +162,10 @@
   </main>
 
   <script>
+    // CONFIGURACIÓN DE SEGURIDAD
+    const ADMIN_PASSWORD = "admin123"; // Contraseña para acceder a la Vista Admin
+    let isAdminAuthenticated = false;
+
     // FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
@@ -222,6 +237,7 @@
     }
 
     let currentRouteCode = null;
+    let currentDocId = null; // ID exacto del documento en Firestore
     let currentClientsData = [];
     let driverUnsubscribe = null;
     let gpsWatchId = null;
@@ -233,7 +249,22 @@
     let driverMap = null;
     let driverMapMarkers = [];
 
-    // MONITOREAR METADATOS DEL ARCHIVO ACTIVO
+    // ACCESO CONTROLADO DE ADMINISTRADOR
+    function requestAdminAccess() {
+      if (isAdminAuthenticated) {
+        switchTab('admin');
+        return;
+      }
+      const pass = prompt("🔒 Ingrese la contraseña de Administrador:");
+      if (pass === ADMIN_PASSWORD) {
+        isAdminAuthenticated = true;
+        switchTab('admin');
+      } else if (pass !== null) {
+        alert("❌ Contraseña incorrecta.");
+      }
+    }
+
+    // METADATOS DEL ARCHIVO ACTIVO
     db.collection('meta').doc('active_file').onSnapshot(doc => {
       const card = document.getElementById('activeFileCard');
       if (doc && doc.exists) {
@@ -341,7 +372,7 @@
       }
 
       statusDiv.className = "text-sm font-bold text-indigo-600";
-      statusDiv.innerText = "⏳ Procesando archivo y guardando en la nube...";
+      statusDiv.innerText = "⏳ Procesando archivo y generando claves de seguridad...";
 
       const file = fileInput.files[0];
       const reader = new FileReader();
@@ -358,14 +389,8 @@
           const routesMap = {};
           parsedClients.forEach(client => {
             const rawCode = client.tpt;
-            const numCode = rawCode.replace(/^T/i, '');
-
             if (!routesMap[rawCode]) routesMap[rawCode] = [];
             routesMap[rawCode].push(client);
-
-            if (numCode !== rawCode && !routesMap[numCode]) {
-              routesMap[numCode] = routesMap[rawCode];
-            }
           });
 
           const routeKeys = Object.keys(routesMap);
@@ -373,14 +398,19 @@
             const group = routesMap[code];
             group.sort((a, b) => a.sec - b.sec);
 
+            // Generar clave PIN estática de 4 dígitos basada en el nombre de la ruta
+            let hash = 0;
+            for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
+            const generatedPin = Math.abs(hash % 9000 + 1000).toString();
+
             await db.collection('routes').doc(code).set({
               code: code,
+              pin: generatedPin,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               clients: group
             }, { merge: true });
           }
 
-          // REGISTRAR METADATOS DEL ARCHIVO
           const nowStr = new Date().toLocaleString();
           await db.collection('meta').doc('active_file').set({
             fileName: file.name,
@@ -392,7 +422,7 @@
           statusDiv.className = "text-sm font-bold text-emerald-600";
           statusDiv.innerText = `✅ ¡Éxito! Se guardaron ${parsedClients.length} clientes en las rutas (${routeKeys.join(', ')}).`;
 
-          fileInput.value = ''; // Limpiar selector
+          fileInput.value = '';
           loadAvailableRoutesInSelect();
         } catch (err) {
           statusDiv.className = "text-sm font-bold text-red-600";
@@ -403,7 +433,7 @@
     }
 
     async function clearCurrentDayData() {
-      if (!confirm("¿Estás seguro de borrar las rutas y el archivo actual del día? Esta acción no se puede deshacer.")) return;
+      if (!confirm("¿Estás seguro de borrar las rutas y el archivo actual del día?")) return;
 
       const snapshot = await db.collection('routes').get();
       const batch = db.batch();
@@ -413,17 +443,45 @@
       await db.collection('meta').doc('active_file').delete();
 
       document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Seleccionar Ruta --</option>';
+      document.getElementById('routeKeysList').innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
       if (adminMapMarkers) adminMapMarkers.forEach(m => adminMap.removeLayer(m));
       adminMapMarkers = [];
 
-      alert("✅ Datos del día eliminados correctamente. Puedes subir un nuevo archivo CSV.");
+      alert("✅ Datos eliminados correctamente.");
     }
 
-    function loadDriverRoute() {
-      let code = document.getElementById('inputRouteCode').value.trim();
-      if (!code) return alert("Ingresa un código de ruta.");
+    // INGRESO Y CARGA DE RUTA CHOFER
+    async function loadDriverRoute() {
+      let inputCode = document.getElementById('inputRouteCode').value.trim();
+      let inputPin = document.getElementById('inputRoutePin').value.trim();
 
-      currentRouteCode = code;
+      if (!inputCode) return alert("Ingresa tu código de ruta.");
+      if (!inputPin) return alert("Ingresa tu clave de acceso (PIN).");
+
+      // Buscar si existe el documento directamente o con prefijo T
+      let docRef = db.collection('routes').doc(inputCode);
+      let docSnap = await docRef.get();
+
+      if (!docSnap.exists) {
+        const altCode = inputCode.startsWith('T') ? inputCode.replace(/^T/i, '') : 'T' + inputCode;
+        docRef = db.collection('routes').doc(altCode);
+        docSnap = await docRef.get();
+      }
+
+      if (!docSnap.exists) {
+        return alert(`❌ La ruta #${inputCode} no existe en el sistema.`);
+      }
+
+      const routeData = docSnap.data();
+
+      // Validar Clave PIN
+      if (routeData.pin && routeData.pin !== inputPin) {
+        return alert("🔒 Clave de acceso incorrecta para esta ruta.");
+      }
+
+      currentDocId = docRef.id; // Guardar ID exacto de Firestore
+      currentRouteCode = routeData.code || inputCode;
+
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
@@ -435,21 +493,12 @@
 
       if (driverUnsubscribe) driverUnsubscribe();
 
-      driverUnsubscribe = db.collection('routes').doc(currentRouteCode).onSnapshot(doc => {
-        if (!doc.exists) {
-          const cleanCode = currentRouteCode.replace(/^T/i, '');
-          db.collection('routes').doc(cleanCode).get().then(altDoc => {
-            if (altDoc.exists) {
-              currentClientsData = altDoc.data().clients || [];
-              renderDriverClientsAndMap(currentClientsData);
-            } else {
-              document.getElementById('driverClientsList').innerHTML = `<p class="text-red-500 font-bold p-3 text-center">No existe la ruta #${currentRouteCode}.</p>`;
-            }
-          });
-          return;
+      // Escuchar cambios en la ruta exacta
+      driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
+        if (doc.exists) {
+          currentClientsData = doc.data().clients || [];
+          renderDriverClientsAndMap(currentClientsData);
         }
-        currentClientsData = doc.data().clients || [];
-        renderDriverClientsAndMap(currentClientsData);
       });
     }
 
@@ -468,14 +517,14 @@
         else pending++;
 
         let statusKey = c.estado || 'PENDIENTE';
-        if (!STATUS_COLORS[statusKey]) statusKey = 'PENDIENTE';
+        let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
         const card = document.createElement('div');
         card.className = "border rounded-xl p-4 bg-gray-50 space-y-2 shadow-sm";
         card.innerHTML = `
           <div class="flex justify-between items-start">
             <span class="font-bold text-indigo-700 text-sm">#${c.sec} · ${c.name}</span>
-            <span class="status-badge status-${statusKey}">${statusKey}</span>
+            <span class="status-badge ${badgeClass}">${statusKey}</span>
           </div>
           <p class="text-xs text-gray-600"><i class="fa-solid fa-location-dot text-red-500"></i> ${c.domicilio}</p>
           <p class="text-xs text-gray-500"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: ${c.vendedor || 'S/V'} | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
@@ -529,14 +578,15 @@
     }
 
     async function updateClientStatus(index, newStatus) {
-      if (!currentRouteCode || !currentClientsData[index]) return;
+      if (!currentDocId || !currentClientsData[index]) return;
 
       currentClientsData[index].estado = newStatus;
       if (newStatus === 'ENTREGADO') {
         currentClientsData[index].horaEntrega = new Date().toLocaleTimeString();
       }
 
-      await db.collection('routes').doc(currentRouteCode).update({
+      // Guardar en el ID exacto de la base de datos
+      await db.collection('routes').doc(currentDocId).update({
         clients: currentClientsData,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -565,7 +615,7 @@
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
 
-          db.collection('tracking').doc(currentRouteCode).set({
+          db.collection('tracking').doc(currentDocId || currentRouteCode).set({
             code: currentRouteCode,
             lat: lat,
             lng: lng,
@@ -584,14 +634,27 @@
 
     async function loadAvailableRoutesInSelect() {
       const select = document.getElementById('selectAdminRoute');
+      const keysDiv = document.getElementById('routeKeysList');
       select.innerHTML = '<option value="">-- Seleccionar Ruta --</option>';
+      keysDiv.innerHTML = '';
 
       const snapshot = await db.collection('routes').get();
       snapshot.forEach(doc => {
+        const data = doc.data();
+        const routeId = doc.id;
         const option = document.createElement('option');
-        option.value = doc.id;
-        option.innerText = `Ruta #${doc.id}`;
+        option.value = routeId;
+        option.innerText = `Ruta #${routeId}`;
         select.appendChild(option);
+
+        // Mostrar claves de choferes en el panel admin
+        if (data.pin) {
+          keysDiv.innerHTML += `
+            <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-2.5 py-1 rounded-lg">
+              Ruta <b>#${routeId}</b> 🔑 Clave: <u class="text-indigo-900 font-extrabold">${data.pin}</u>
+            </span>
+          `;
+        }
       });
     }
 
@@ -622,7 +685,7 @@
           if (!c.lat || !c.lon) return;
 
           let statusKey = c.estado || 'PENDIENTE';
-          if (!STATUS_COLORS[statusKey]) statusKey = 'PENDIENTE';
+          let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
           const icon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor);
           const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
@@ -631,7 +694,7 @@
             <b>#${c.sec} · ${c.name}</b><br>
             <span class="text-xs text-gray-600">${c.domicilio}</span><br>
             <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
-            <b>Estado:</b> <span class="status-badge status-${statusKey}">${statusKey}</span>
+            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey}</span>
           `);
 
           adminMapMarkers.push(marker);
