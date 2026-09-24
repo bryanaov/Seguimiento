@@ -310,7 +310,6 @@
 
     function createCustomMarkerIcon(sec, status) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
-      
       return L.divIcon({
         className: 'custom-map-marker',
         html: `
@@ -347,15 +346,16 @@
     let currentClientsData = [];
     let driverUnsubscribe = null;
     let gpsWatchId = null;
+    let lastGpsSentTime = 0;
 
     let adminMap = null;
-    let adminMapMarkers = [];
-    let allTruckMarkers = {}; // Almacena marcadores GPS de todos los choferes
+    let adminMapMarkers = {}; // Diccionario para reutilizar marcadores en lugar de borrar todo
+    let allTruckMarkers = {};
     let adminGlobalTrackingUnsubscribe = null;
     let adminRouteUnsubscribe = null;
 
     let driverMap = null;
-    let driverMapMarkers = [];
+    let driverMapMarkers = {}; // Diccionario para reutilizar marcadores en lugar de borrar todo
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
@@ -392,7 +392,8 @@
       if (tab === 'admin') {
         setTimeout(() => {
           if (!adminMap) {
-            adminMap = L.map('adminMap').setView([-16.3988, -71.5350], 13);
+            // Aceleración Gráfica con preferCanvas
+            adminMap = L.map('adminMap', { preferCanvas: true }).setView([-16.3988, -71.5350], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(adminMap);
           }
           adminMap.invalidateSize();
@@ -555,8 +556,9 @@
 
       document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
       document.getElementById('routeKeysList').innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
-      if (adminMapMarkers) adminMapMarkers.forEach(m => adminMap.removeLayer(m));
-      adminMapMarkers = [];
+      
+      Object.keys(adminMapMarkers).forEach(k => adminMap.removeLayer(adminMapMarkers[k]));
+      adminMapMarkers = {};
 
       alert("✅ Datos eliminados correctamente.");
     }
@@ -596,7 +598,8 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        driverMap = L.map('driverMap').setView([-16.3988, -71.5350], 13);
+        // Aceleración Gráfica
+        driverMap = L.map('driverMap', { preferCanvas: true }).setView([-16.3988, -71.5350], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(driverMap);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
@@ -615,6 +618,7 @@
       startGPSTrackingAuto();
     }
 
+    // TRANSMISIÓN AUTOMÁTICA CON FILTRO DE FRECUENCIA (Throttling)
     function startGPSTrackingAuto() {
       if (!navigator.geolocation) return;
 
@@ -624,6 +628,11 @@
 
       gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
+          const now = Date.now();
+          // Solo enviar si pasaron al menos 4 segundos (evita sobrecalentar el celular)
+          if (now - lastGpsSentTime < 4000) return;
+          lastGpsSentTime = now;
+
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
 
@@ -631,7 +640,7 @@
             code: currentRouteCode,
             lat: lat,
             lng: lng,
-            timestamp: Date.now(),
+            timestamp: now,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           };
 
@@ -648,7 +657,6 @@
       );
     }
 
-    // RESUMEN MÓVIL CHOFER
     function updateDriverSummaryStats(clients) {
       const stats = calculateStats(clients);
 
@@ -665,7 +673,6 @@
       document.getElementById('driverRemainingCount').innerText = `Falta por visitar (Gris): ${stats.pendientes} (${stats.pctFalta}%)`;
     }
 
-    // RESUMEN ADMIN (ESPECÍFICO O GLOBAL)
     function updateAdminSummaryStats(clients, label) {
       const stats = calculateStats(clients);
 
@@ -741,19 +748,20 @@
       renderDriverClientsAndMap(filtered);
     }
 
+    // RENDERIZADO FLUIDO (REUTILIZA MARCADORES)
     function renderDriverClientsAndMap(clientsToRender) {
       const listContainer = document.getElementById('driverClientsList');
       listContainer.innerHTML = '';
 
-      driverMapMarkers.forEach(m => driverMap.removeLayer(m));
-      driverMapMarkers = [];
-
       const bounds = [];
+      const currentKeys = new Set();
 
       document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
 
       clientsToRender.forEach((c) => {
         const originalIndex = currentClientsData.findIndex(item => item.sec === c.sec && item.name === c.name);
+        const uniqueKey = `driver_${c.sec}_${c.name}`;
+        currentKeys.add(uniqueKey);
 
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
@@ -811,28 +819,42 @@
 
         if (c.lat && c.lon) {
           const markerIcon = createCustomMarkerIcon(c.sec, statusKey);
-          const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
-
-          marker.bindPopup(`
-            <div class="space-y-1">
-              <b>#${c.sec} · ${c.name}</b><br>
-              <span class="text-xs text-gray-600">${c.domicilio}</span><br>
-              <div class="pt-1">
-                <label class="text-xs font-bold">Cambiar Estado:</label>
-                <select onchange="updateClientStatus(${originalIndex}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
-                  <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
-                  <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                  <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
-                  <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
-                  <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
-                  <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
-                </select>
+          
+          if (!driverMapMarkers[uniqueKey]) {
+            // Crear si no existe
+            const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
+            marker.bindPopup(`
+              <div class="space-y-1">
+                <b>#${c.sec} · ${c.name}</b><br>
+                <span class="text-xs text-gray-600">${c.domicilio}</span><br>
+                <div class="pt-1">
+                  <label class="text-xs font-bold">Cambiar Estado:</label>
+                  <select onchange="updateClientStatus(${originalIndex}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
+                    <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+                    <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+                    <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
+                    <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
+                    <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
+                    <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
+                  </select>
+                </div>
               </div>
-            </div>
-          `);
+            `);
+            driverMapMarkers[uniqueKey] = marker;
+          } else {
+            // Reutilizar y actualizar ícono sin re-crear objeto
+            driverMapMarkers[uniqueKey].setIcon(markerIcon);
+          }
 
-          driverMapMarkers.push(marker);
           bounds.push([c.lat, c.lon]);
+        }
+      });
+
+      // Limpiar marcadores viejos
+      Object.keys(driverMapMarkers).forEach(k => {
+        if (!currentKeys.has(k)) {
+          driverMap.removeLayer(driverMapMarkers[k]);
+          delete driverMapMarkers[k];
         }
       });
 
@@ -897,7 +919,6 @@
       });
     }
 
-    // CARGAR RESUMEN CONSOLIDADO DE TODAS LAS RUTAS
     function loadAdminGeneralSummary() {
       db.collection('routes').onSnapshot(snapshot => {
         let allClients = [];
@@ -913,7 +934,6 @@
       });
     }
 
-    // RASTREO MULTICAMIÓN EN TIEMPO REAL (TODOS LOS CHOFERES ACTIVOS)
     function startAdminGlobalTracking() {
       if (adminGlobalTrackingUnsubscribe) adminGlobalTrackingUnsubscribe();
 
@@ -943,8 +963,8 @@
 
       adminMapInitialFit = false;
 
-      adminMapMarkers.forEach(m => adminMap.removeLayer(m));
-      adminMapMarkers = [];
+      Object.keys(adminMapMarkers).forEach(k => adminMap.removeLayer(adminMapMarkers[k]));
+      adminMapMarkers = {};
 
       if (!code) {
         loadAdminGeneralSummary();
@@ -959,29 +979,41 @@
 
         updateAdminSummaryStats(clients, `Ruta #${code}`);
 
-        adminMapMarkers.forEach(m => adminMap.removeLayer(m));
-        adminMapMarkers = [];
-
         const bounds = [];
+        const currentKeys = new Set();
 
         clients.forEach(c => {
           if (!c.lat || !c.lon) return;
+
+          const uniqueKey = `admin_${c.sec}_${c.name}`;
+          currentKeys.add(uniqueKey);
 
           let statusKey = c.estado || 'PENDIENTE';
           let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
           const icon = createCustomMarkerIcon(c.sec, statusKey);
-          const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
+          
+          if (!adminMapMarkers[uniqueKey]) {
+            const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
+            marker.bindPopup(`
+              <b>#${c.sec} · ${c.name}</b><br>
+              <span class="text-xs text-gray-600">${c.domicilio}</span><br>
+              <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
+              <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
+            `);
+            adminMapMarkers[uniqueKey] = marker;
+          } else {
+            adminMapMarkers[uniqueKey].setIcon(icon);
+          }
 
-          marker.bindPopup(`
-            <b>#${c.sec} · ${c.name}</b><br>
-            <span class="text-xs text-gray-600">${c.domicilio}</span><br>
-            <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
-            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
-          `);
-
-          adminMapMarkers.push(marker);
           bounds.push([c.lat, c.lon]);
+        });
+
+        Object.keys(adminMapMarkers).forEach(k => {
+          if (!currentKeys.has(k)) {
+            adminMap.removeLayer(adminMapMarkers[k]);
+            delete adminMapMarkers[k];
+          }
         });
 
         if (bounds.length > 0 && !adminMapInitialFit) {
