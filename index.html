@@ -81,7 +81,7 @@
         </div>
         <div class="flex items-center gap-2 pt-1 text-xs text-gray-600">
           <input type="checkbox" id="chkRememberDriver" checked class="w-4 h-4 text-indigo-600 rounded">
-          <label for="chkRememberDriver" class="font-semibold cursor-pointer">Recordar mis datos en este celular (Auto-ingreso)</label>
+          <label for="chkRememberDriver" class="font-semibold cursor-pointer">Guardar sesión durante el turno (8 horas)</label>
         </div>
       </div>
 
@@ -97,7 +97,8 @@
             <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Transmitiendo
             </div>
-            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-rose-50 hover:text-rose-600 font-bold text-xs rounded-lg border transition flex items-center gap-1">
+            <!-- BOTÓN DE SALIR MANUAL -->
+            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-lg border border-rose-200 transition flex items-center gap-1 shadow-sm">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
             </button>
           </div>
@@ -433,19 +434,33 @@
 
     let driverMap = null;
     let driverMapMarkers = {};
-    let driverSelfMarker = null; // MARCADOR DE UBICACIÓN EN VIVO DEL CHOFER
+    let driverSelfMarker = null;
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
+    // COMPROBAR SESIÓN Y EXPIRACIÓN DE 8 HORAS
     window.addEventListener('DOMContentLoaded', () => {
       const savedCode = localStorage.getItem('courier_driver_code');
       const savedPin = localStorage.getItem('courier_driver_pin');
-      if (savedCode && savedPin) {
-        document.getElementById('inputRouteCode').value = savedCode;
-        document.getElementById('inputRoutePin').value = savedPin;
-        loadDriverRoute();
+      const savedExp = localStorage.getItem('courier_driver_exp');
+
+      if (savedCode && savedPin && savedExp) {
+        if (Date.now() < parseInt(savedExp, 10)) {
+          document.getElementById('inputRouteCode').value = savedCode;
+          document.getElementById('inputRoutePin').value = savedPin;
+          loadDriverRoute();
+        } else {
+          // Sesión de 8 horas expirada
+          clearDriverStorage();
+        }
       }
     });
+
+    function clearDriverStorage() {
+      localStorage.removeItem('courier_driver_code');
+      localStorage.removeItem('courier_driver_pin');
+      localStorage.removeItem('courier_driver_exp');
+    }
 
     function requestAdminAccess() {
       if (isAdminAuthenticated) {
@@ -684,12 +699,14 @@
         return alert("🔒 Clave de acceso incorrecta para esta ruta.");
       }
 
+      // GUARDAR ACCESO POR 8 HORAS SI ESTÁ ACTIVADA LA CASILLA
       if (document.getElementById('chkRememberDriver').checked) {
+        const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
         localStorage.setItem('courier_driver_code', inputCode);
         localStorage.setItem('courier_driver_pin', inputPin);
+        localStorage.setItem('courier_driver_exp', (Date.now() + EIGHT_HOURS_MS).toString());
       } else {
-        localStorage.removeItem('courier_driver_code');
-        localStorage.removeItem('courier_driver_pin');
+        clearDriverStorage();
       }
 
       currentDocId = docRef.id;
@@ -721,9 +738,9 @@
       startGPSTrackingAuto();
     }
 
+    // CIERRA SESIÓN Y LIMPIA MEMORIA MANUALMENTE
     function logoutDriverSession() {
-      localStorage.removeItem('courier_driver_code');
-      localStorage.removeItem('courier_driver_pin');
+      clearDriverStorage();
       if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
       if (driverUnsubscribe) driverUnsubscribe();
 
@@ -738,7 +755,6 @@
       document.getElementById('driverLoginCard').classList.remove('hidden');
     }
 
-    // TRANSMISIÓN GPS EN TIEMPO REAL AL ADMIN + PUNTO AZUL EN SU PROPIO MAPA
     function startGPSTrackingAuto() {
       if (!navigator.geolocation) return;
 
@@ -751,7 +767,6 @@
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
 
-          // 1. MOSTRAR PUNTO AZUL EN EL MAPA DEL CHOFER
           if (driverMap) {
             const selfIcon = L.divIcon({
               className: 'custom-map-marker',
@@ -768,7 +783,6 @@
             }
           }
 
-          // 2. TRANSMITIR UBICACIÓN AL ADMINISTRADOR (CADA 3 SEGUNDOS)
           const now = Date.now();
           if (now - lastGpsSentTime < 3000) return;
           lastGpsSentTime = now;
