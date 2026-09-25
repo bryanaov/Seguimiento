@@ -28,6 +28,21 @@
     .status-REPASO { background-color: #DBEAFE; color: #1E40AF; }
     
     .custom-map-marker { background: none; border: none; }
+
+    /* Animación del GPS en vivo del chofer */
+    @keyframes pulseDriverDot {
+      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+    .driver-self-marker {
+      width: 16px;
+      height: 16px;
+      background-color: #2563EB;
+      border: 2px solid #FFFFFF;
+      border-radius: 50%;
+      animation: pulseDriverDot 2s infinite;
+    }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800">
@@ -80,7 +95,7 @@
           </div>
           <div class="flex items-center gap-2">
             <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Transmitiendo
             </div>
             <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-rose-50 hover:text-rose-600 font-bold text-xs rounded-lg border transition flex items-center gap-1">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
@@ -138,7 +153,7 @@
         <!-- MAPA MÓVIL CHOFER -->
         <div class="bg-white p-3 rounded-xl shadow space-y-2">
           <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta
+            <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta (Punto azul = Tu Ubicación)
           </h4>
           <div id="driverMap" class="map-container"></div>
         </div>
@@ -418,6 +433,7 @@
 
     let driverMap = null;
     let driverMapMarkers = {};
+    let driverSelfMarker = null; // MARCADOR DE UBICACIÓN EN VIVO DEL CHOFER
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
@@ -711,12 +727,18 @@
       if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
       if (driverUnsubscribe) driverUnsubscribe();
 
+      if (driverSelfMarker && driverMap) {
+        driverMap.removeLayer(driverSelfMarker);
+        driverSelfMarker = null;
+      }
+
       document.getElementById('inputRouteCode').value = '';
       document.getElementById('inputRoutePin').value = '';
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
     }
 
+    // TRANSMISIÓN GPS EN TIEMPO REAL AL ADMIN + PUNTO AZUL EN SU PROPIO MAPA
     function startGPSTrackingAuto() {
       if (!navigator.geolocation) return;
 
@@ -726,12 +748,30 @@
 
       gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
-          const now = Date.now();
-          if (now - lastGpsSentTime < 4000) return;
-          lastGpsSentTime = now;
-
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+
+          // 1. MOSTRAR PUNTO AZUL EN EL MAPA DEL CHOFER
+          if (driverMap) {
+            const selfIcon = L.divIcon({
+              className: 'custom-map-marker',
+              html: `<div class="driver-self-marker" title="Tu ubicación actual"></div>`,
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
+            });
+
+            if (!driverSelfMarker) {
+              driverSelfMarker = L.marker([lat, lng], { icon: selfIcon, zIndexOffset: 1000 }).addTo(driverMap);
+              driverSelfMarker.bindPopup("<b>📍 Tu ubicación actual (En vivo)</b>");
+            } else {
+              driverSelfMarker.setLatLng([lat, lng]);
+            }
+          }
+
+          // 2. TRANSMITIR UBICACIÓN AL ADMINISTRADOR (CADA 3 SEGUNDOS)
+          const now = Date.now();
+          if (now - lastGpsSentTime < 3000) return;
+          lastGpsSentTime = now;
 
           const payload = {
             code: currentRouteCode,
@@ -1154,7 +1194,7 @@
 
       if (currentCode && select.querySelector(`option[value="${currentCode}"]`)) {
         select.value = currentCode;
-        onAdminRouteSelect(false); // Mantener el zoom/mapa actual sin saltar
+        onAdminRouteSelect(false);
       } else {
         select.value = "";
         loadAdminGeneralSummary();
