@@ -282,7 +282,7 @@
               <i class="fa-solid fa-rotate"></i> Actualizar
             </button>
             <label class="text-xs font-bold text-gray-600">Filtrar Ruta:</label>
-            <select id="selectAdminRoute" onchange="onAdminRouteSelect()" class="border rounded-lg px-3 py-1.5 font-bold text-gray-700 outline-none w-full sm:w-auto">
+            <select id="selectAdminRoute" onchange="onAdminRouteSelect(true)" class="border rounded-lg px-3 py-1.5 font-bold text-gray-700 outline-none w-full sm:w-auto">
               <option value="">-- Todas las Rutas (Vista General) --</option>
             </select>
           </div>
@@ -348,11 +348,9 @@
       'REPASO': '#3B82F6'
     };
 
-    // GENERADOR DE MARCADORES OPTIMIZADO (SIN MICHI # Y MÁS PEQUEÑO)
     function createCustomMarkerIcon(sec, status, showLabel = true) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
 
-      // En la Vista General (+1,000 puntos), se muestran solo puntos pequeños sin texto estorboso
       if (!showLabel) {
         return L.divIcon({
           className: 'custom-map-marker',
@@ -371,7 +369,6 @@
         });
       }
 
-      // En Ruta Individual o Chofer, se muestra punto pequeño + número limpio (sin #)
       return L.divIcon({
         className: 'custom-map-marker',
         html: `
@@ -424,7 +421,6 @@
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
-    // AUTO-LOGIN PARA CHOFER SI TIENE DATOS GUARDADOS
     window.addEventListener('DOMContentLoaded', () => {
       const savedCode = localStorage.getItem('courier_driver_code');
       const savedPin = localStorage.getItem('courier_driver_pin');
@@ -466,15 +462,23 @@
       document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
       
       if (tab === 'admin') {
-        setTimeout(() => {
+        setTimeout(async () => {
           if (!adminMap) {
             adminMap = L.map('adminMap', { preferCanvas: true }).setView([-16.3988, -71.5350], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(adminMap);
           }
           adminMap.invalidateSize();
-          loadAvailableRoutesInSelect();
+          await loadAvailableRoutesInSelect();
           startAdminGlobalTracking();
-          loadAdminGeneralSummary();
+
+          const savedRoute = localStorage.getItem('courier_admin_selected_route');
+          const select = document.getElementById('selectAdminRoute');
+          if (savedRoute && select.querySelector(`option[value="${savedRoute}"]`)) {
+            select.value = savedRoute;
+            onAdminRouteSelect(true);
+          } else {
+            loadAdminGeneralSummary();
+          }
         }, 100);
       } else {
         setTimeout(() => {
@@ -664,7 +668,6 @@
         return alert("🔒 Clave de acceso incorrecta para esta ruta.");
       }
 
-      // GUARDAR ACCESO SI ESTÁ ACTIVADO EL CHECKBOX
       if (document.getElementById('chkRememberDriver').checked) {
         localStorage.setItem('courier_driver_code', inputCode);
         localStorage.setItem('courier_driver_pin', inputPin);
@@ -982,6 +985,7 @@
 
     async function loadAvailableRoutesInSelect() {
       const select = document.getElementById('selectAdminRoute');
+      const savedValue = select.value || localStorage.getItem('courier_admin_selected_route') || '';
       const keysDiv = document.getElementById('routeKeysList');
       select.innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
       keysDiv.innerHTML = '';
@@ -1008,6 +1012,10 @@
           `;
         }
       });
+
+      if (savedValue && select.querySelector(`option[value="${savedValue}"]`)) {
+        select.value = savedValue;
+      }
     }
 
     function renderAdminMapPoints(clients, showLabels = true) {
@@ -1023,7 +1031,6 @@
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        // Si es Vista General (showLabels=false), renderiza solo el punto pequeño sin etiquetas encimadas
         const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
 
         if (!adminMapMarkers[uniqueKey]) {
@@ -1095,6 +1102,7 @@
     }
 
     function loadAdminGeneralSummary() {
+      localStorage.setItem('courier_admin_selected_route', '');
       if (adminRouteUnsubscribe) { adminRouteUnsubscribe(); adminRouteUnsubscribe = null; }
       if (adminAllRoutesUnsubscribe) { adminAllRoutesUnsubscribe(); adminAllRoutesUnsubscribe = null; }
 
@@ -1108,7 +1116,7 @@
         const selectedVal = document.getElementById('selectAdminRoute').value;
         if (!selectedVal) {
           updateAdminSummaryStats(allClients, "General Día");
-          renderAdminMapPoints(allClients, false); // false = Puntos limpios para la vista general
+          renderAdminMapPoints(allClients, false);
           renderAdminClientsTable(allClients);
         }
       });
@@ -1138,20 +1146,28 @@
       });
     }
 
-    function manualRefreshAdmin() {
-      loadAvailableRoutesInSelect();
-      const code = document.getElementById('selectAdminRoute').value;
-      if (code) {
-        onAdminRouteSelect();
+    async function manualRefreshAdmin() {
+      const select = document.getElementById('selectAdminRoute');
+      const currentCode = select.value || localStorage.getItem('courier_admin_selected_route') || '';
+      
+      await loadAvailableRoutesInSelect();
+
+      if (currentCode && select.querySelector(`option[value="${currentCode}"]`)) {
+        select.value = currentCode;
+        onAdminRouteSelect(false); // Mantener el zoom/mapa actual sin saltar
       } else {
+        select.value = "";
         loadAdminGeneralSummary();
       }
     }
 
-    function onAdminRouteSelect() {
+    function onAdminRouteSelect(resetBounds = true) {
       const code = document.getElementById('selectAdminRoute').value;
+      localStorage.setItem('courier_admin_selected_route', code);
 
-      adminMapInitialFit = false;
+      if (resetBounds) {
+        adminMapInitialFit = false;
+      }
 
       if (!code) {
         loadAdminGeneralSummary();
@@ -1166,7 +1182,7 @@
         const clients = doc.data().clients || [];
 
         updateAdminSummaryStats(clients, `Ruta #${code}`);
-        renderAdminMapPoints(clients, true); // true = Mostrar números para la ruta filtrada
+        renderAdminMapPoints(clients, true);
         renderAdminClientsTable(clients);
       });
     }
