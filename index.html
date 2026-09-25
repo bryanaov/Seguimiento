@@ -349,13 +349,14 @@
     let lastGpsSentTime = 0;
 
     let adminMap = null;
-    let adminMapMarkers = {}; // Diccionario para reutilizar marcadores en lugar de borrar todo
+    let adminMapMarkers = {};
     let allTruckMarkers = {};
     let adminGlobalTrackingUnsubscribe = null;
     let adminRouteUnsubscribe = null;
+    let adminAllRoutesUnsubscribe = null;
 
     let driverMap = null;
-    let driverMapMarkers = {}; // Diccionario para reutilizar marcadores en lugar de borrar todo
+    let driverMapMarkers = {};
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
@@ -392,7 +393,6 @@
       if (tab === 'admin') {
         setTimeout(() => {
           if (!adminMap) {
-            // Aceleración Gráfica con preferCanvas
             adminMap = L.map('adminMap', { preferCanvas: true }).setView([-16.3988, -71.5350], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(adminMap);
           }
@@ -598,7 +598,6 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        // Aceleración Gráfica
         driverMap = L.map('driverMap', { preferCanvas: true }).setView([-16.3988, -71.5350], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(driverMap);
       }
@@ -618,7 +617,6 @@
       startGPSTrackingAuto();
     }
 
-    // TRANSMISIÓN AUTOMÁTICA CON FILTRO DE FRECUENCIA (Throttling)
     function startGPSTrackingAuto() {
       if (!navigator.geolocation) return;
 
@@ -629,7 +627,6 @@
       gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
           const now = Date.now();
-          // Solo enviar si pasaron al menos 4 segundos (evita sobrecalentar el celular)
           if (now - lastGpsSentTime < 4000) return;
           lastGpsSentTime = now;
 
@@ -748,7 +745,6 @@
       renderDriverClientsAndMap(filtered);
     }
 
-    // RENDERIZADO FLUIDO (REUTILIZA MARCADORES)
     function renderDriverClientsAndMap(clientsToRender) {
       const listContainer = document.getElementById('driverClientsList');
       listContainer.innerHTML = '';
@@ -821,7 +817,6 @@
           const markerIcon = createCustomMarkerIcon(c.sec, statusKey);
           
           if (!driverMapMarkers[uniqueKey]) {
-            // Crear si no existe
             const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
             marker.bindPopup(`
               <div class="space-y-1">
@@ -842,7 +837,6 @@
             `);
             driverMapMarkers[uniqueKey] = marker;
           } else {
-            // Reutilizar y actualizar ícono sin re-crear objeto
             driverMapMarkers[uniqueKey].setIcon(markerIcon);
           }
 
@@ -850,7 +844,6 @@
         }
       });
 
-      // Limpiar marcadores viejos
       Object.keys(driverMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
           driverMap.removeLayer(driverMapMarkers[k]);
@@ -919,8 +912,59 @@
       });
     }
 
+    // DIBUJAR PUNTOS DE ADMIN (GENERAL O RUTA INDIVIDUAL)
+    function renderAdminMapPoints(clients) {
+      const bounds = [];
+      const currentKeys = new Set();
+
+      clients.forEach(c => {
+        if (!c.lat || !c.lon) return;
+
+        // Clave única garantizada incluyendo la ruta tpt
+        const uniqueKey = `admin_${c.tpt || 'R'}_${c.sec}_${c.name}`;
+        currentKeys.add(uniqueKey);
+
+        let statusKey = c.estado || 'PENDIENTE';
+        let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
+
+        const icon = createCustomMarkerIcon(c.sec, statusKey);
+
+        if (!adminMapMarkers[uniqueKey]) {
+          const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
+          marker.bindPopup(`
+            <b>Ruta: ${c.tpt || 'S/R'} | #${c.sec} · ${c.name}</b><br>
+            <span class="text-xs text-gray-600">${c.domicilio}</span><br>
+            <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
+            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
+          `);
+          adminMapMarkers[uniqueKey] = marker;
+        } else {
+          adminMapMarkers[uniqueKey].setIcon(icon);
+        }
+
+        bounds.push([c.lat, c.lon]);
+      });
+
+      // Eliminar marcadores que ya no estén en el filtro activo
+      Object.keys(adminMapMarkers).forEach(k => {
+        if (!currentKeys.has(k)) {
+          adminMap.removeLayer(adminMapMarkers[k]);
+          delete adminMapMarkers[k];
+        }
+      });
+
+      if (bounds.length > 0 && !adminMapInitialFit) {
+        adminMap.fitBounds(bounds, { padding: [30, 30] });
+        adminMapInitialFit = true;
+      }
+    }
+
+    // VISTA GENERAL ADMIN CON PUNTOS
     function loadAdminGeneralSummary() {
-      db.collection('routes').onSnapshot(snapshot => {
+      if (adminRouteUnsubscribe) { adminRouteUnsubscribe(); adminRouteUnsubscribe = null; }
+      if (adminAllRoutesUnsubscribe) { adminAllRoutesUnsubscribe(); adminAllRoutesUnsubscribe = null; }
+
+      adminAllRoutesUnsubscribe = db.collection('routes').onSnapshot(snapshot => {
         let allClients = [];
         snapshot.forEach(doc => {
           const clients = doc.data().clients || [];
@@ -930,6 +974,7 @@
         const selectedVal = document.getElementById('selectAdminRoute').value;
         if (!selectedVal) {
           updateAdminSummaryStats(allClients, "General Día");
+          renderAdminMapPoints(allClients);
         }
       });
     }
@@ -963,63 +1008,20 @@
 
       adminMapInitialFit = false;
 
-      Object.keys(adminMapMarkers).forEach(k => adminMap.removeLayer(adminMapMarkers[k]));
-      adminMapMarkers = {};
-
       if (!code) {
         loadAdminGeneralSummary();
         return;
       }
 
-      if (adminRouteUnsubscribe) adminRouteUnsubscribe();
+      if (adminAllRoutesUnsubscribe) { adminAllRoutesUnsubscribe(); adminAllRoutesUnsubscribe = null; }
+      if (adminRouteUnsubscribe) { adminRouteUnsubscribe(); adminRouteUnsubscribe = null; }
 
       adminRouteUnsubscribe = db.collection('routes').doc(code).onSnapshot(doc => {
         if (!doc.exists) return;
         const clients = doc.data().clients || [];
 
         updateAdminSummaryStats(clients, `Ruta #${code}`);
-
-        const bounds = [];
-        const currentKeys = new Set();
-
-        clients.forEach(c => {
-          if (!c.lat || !c.lon) return;
-
-          const uniqueKey = `admin_${c.sec}_${c.name}`;
-          currentKeys.add(uniqueKey);
-
-          let statusKey = c.estado || 'PENDIENTE';
-          let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
-
-          const icon = createCustomMarkerIcon(c.sec, statusKey);
-          
-          if (!adminMapMarkers[uniqueKey]) {
-            const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
-            marker.bindPopup(`
-              <b>#${c.sec} · ${c.name}</b><br>
-              <span class="text-xs text-gray-600">${c.domicilio}</span><br>
-              <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
-              <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
-            `);
-            adminMapMarkers[uniqueKey] = marker;
-          } else {
-            adminMapMarkers[uniqueKey].setIcon(icon);
-          }
-
-          bounds.push([c.lat, c.lon]);
-        });
-
-        Object.keys(adminMapMarkers).forEach(k => {
-          if (!currentKeys.has(k)) {
-            adminMap.removeLayer(adminMapMarkers[k]);
-            delete adminMapMarkers[k];
-          }
-        });
-
-        if (bounds.length > 0 && !adminMapInitialFit) {
-          adminMap.fitBounds(bounds, { padding: [30, 30] });
-          adminMapInitialFit = true;
-        }
+        renderAdminMapPoints(clients);
       });
     }
   </script>
