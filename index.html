@@ -53,7 +53,7 @@
 
     <!-- VISTA CHOFER (MÓVIL) -->
     <section id="viewDriver" class="block space-y-4">
-      <div class="bg-white p-5 rounded-xl shadow space-y-3">
+      <div id="driverLoginCard" class="bg-white p-5 rounded-xl shadow space-y-3">
         <h2 class="text-lg font-bold flex items-center gap-2 text-indigo-700">
           <i class="fa-solid fa-id-card"></i> Acceso a Ruta de Reparto
         </h2>
@@ -63,6 +63,10 @@
           <button onclick="loadDriverRoute()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">
             Ingresar a Ruta
           </button>
+        </div>
+        <div class="flex items-center gap-2 pt-1 text-xs text-gray-600">
+          <input type="checkbox" id="chkRememberDriver" checked class="w-4 h-4 text-indigo-600 rounded">
+          <label for="chkRememberDriver" class="font-semibold cursor-pointer">Recordar mis datos en este celular (Auto-ingreso)</label>
         </div>
       </div>
 
@@ -74,8 +78,13 @@
             <h3 class="font-bold text-gray-800 text-lg" id="driverRouteTitle">Ruta #</h3>
             <p class="text-xs text-emerald-600 font-bold" id="driverSubtitle">📡 Transmisión GPS activada automáticamente</p>
           </div>
-          <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Transmitiendo
+          <div class="flex items-center gap-2">
+            <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo
+            </div>
+            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-rose-50 hover:text-rose-600 font-bold text-xs rounded-lg border transition flex items-center gap-1">
+              <i class="fa-solid fa-right-from-bracket"></i> Salir
+            </button>
           </div>
         </div>
 
@@ -269,6 +278,9 @@
             </span>
           </div>
           <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="manualRefreshAdmin()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-xs hover:bg-indigo-100 flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
             <label class="text-xs font-bold text-gray-600">Filtrar Ruta:</label>
             <select id="selectAdminRoute" onchange="onAdminRouteSelect()" class="border rounded-lg px-3 py-1.5 font-bold text-gray-700 outline-none w-full sm:w-auto">
               <option value="">-- Todas las Rutas (Vista General) --</option>
@@ -278,6 +290,34 @@
 
         <div id="adminMap" class="map-container" style="height: 480px;"></div>
       </div>
+
+      <!-- DETALLE DE ESTADOS DE CLIENTES ADMIN -->
+      <div id="adminClientsDetailCard" class="bg-white p-4 rounded-xl shadow space-y-3">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 border-b pb-2">
+          <h4 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-indigo-600"></i> Estado Detallado de Clientes <span id="adminTableScope" class="text-xs text-indigo-600 font-bold">(General)</span>
+          </h4>
+          <input type="text" id="adminSearchInput" oninput="applyAdminTableFilter()" placeholder="Buscar cliente, sec o dirección..." class="border rounded-lg px-3 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
+        </div>
+        <div class="overflow-x-auto max-h-96">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-gray-100 border-b text-gray-600 font-bold uppercase text-[10px]">
+                <th class="p-2">Ruta</th>
+                <th class="p-2">Sec</th>
+                <th class="p-2">Cliente / Razón Social</th>
+                <th class="p-2">Dirección</th>
+                <th class="p-2">Estado</th>
+                <th class="p-2">Hora Entrega</th>
+              </tr>
+            </thead>
+            <tbody id="adminClientsTableBody">
+              <tr><td colspan="6" class="text-center p-4 text-gray-400">Cargando lista de clientes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </section>
 
   </main>
@@ -308,36 +348,59 @@
       'REPASO': '#3B82F6'
     };
 
-    function createCustomMarkerIcon(sec, status) {
+    // GENERADOR DE MARCADORES OPTIMIZADO (SIN MICHI # Y MÁS PEQUEÑO)
+    function createCustomMarkerIcon(sec, status, showLabel = true) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
+
+      // En la Vista General (+1,000 puntos), se muestran solo puntos pequeños sin texto estorboso
+      if (!showLabel) {
+        return L.divIcon({
+          className: 'custom-map-marker',
+          html: `
+            <div style="
+              width: 10px; 
+              height: 10px; 
+              border-radius: 50%; 
+              background-color: ${statusColor}; 
+              border: 1.5px solid #ffffff; 
+              box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            "></div>
+          `,
+          iconSize: [10, 10],
+          iconAnchor: [5, 5]
+        });
+      }
+
+      // En Ruta Individual o Chofer, se muestra punto pequeño + número limpio (sin #)
       return L.divIcon({
         className: 'custom-map-marker',
         html: `
-          <div style="display: flex; align-items: center; gap: 4px; pointer-events: auto;">
+          <div style="display: flex; align-items: center; gap: 2px; pointer-events: auto;">
             <div style="
-              width: 18px; 
-              height: 18px; 
+              width: 12px; 
+              height: 12px; 
               border-radius: 50%; 
               background-color: ${statusColor}; 
-              border: 2px solid #ffffff; 
-              box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+              border: 1.5px solid #ffffff; 
+              box-shadow: 0 1px 3px rgba(0,0,0,0.3);
               flex-shrink: 0;
             "></div>
             <span style="
-              background: rgba(255,255,255,0.95); 
+              background: rgba(255,255,255,0.92); 
               color: #1f2937; 
-              font-weight: 800; 
-              font-size: 11px; 
-              padding: 1px 5px; 
-              border-radius: 4px; 
-              border: 1px solid #d1d5db;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+              font-weight: 700; 
+              font-size: 9px; 
+              padding: 0px 3px; 
+              border-radius: 3px; 
+              border: 1px solid #e5e7eb;
+              box-shadow: 0 1px 2px rgba(0,0,0,0.2);
               white-space: nowrap;
-            ">#${sec}</span>
+              line-height: 12px;
+            ">${sec}</span>
           </div>
         `,
-        iconSize: [60, 24],
-        iconAnchor: [9, 12]
+        iconSize: [38, 14],
+        iconAnchor: [6, 7]
       });
     }
 
@@ -354,11 +417,23 @@
     let adminGlobalTrackingUnsubscribe = null;
     let adminRouteUnsubscribe = null;
     let adminAllRoutesUnsubscribe = null;
+    let adminCurrentRawClients = [];
 
     let driverMap = null;
     let driverMapMarkers = {};
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
+
+    // AUTO-LOGIN PARA CHOFER SI TIENE DATOS GUARDADOS
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedCode = localStorage.getItem('courier_driver_code');
+      const savedPin = localStorage.getItem('courier_driver_pin');
+      if (savedCode && savedPin) {
+        document.getElementById('inputRouteCode').value = savedCode;
+        document.getElementById('inputRoutePin').value = savedPin;
+        loadDriverRoute();
+      }
+    });
 
     function requestAdminAccess() {
       if (isAdminAuthenticated) {
@@ -589,11 +664,21 @@
         return alert("🔒 Clave de acceso incorrecta para esta ruta.");
       }
 
+      // GUARDAR ACCESO SI ESTÁ ACTIVADO EL CHECKBOX
+      if (document.getElementById('chkRememberDriver').checked) {
+        localStorage.setItem('courier_driver_code', inputCode);
+        localStorage.setItem('courier_driver_pin', inputPin);
+      } else {
+        localStorage.removeItem('courier_driver_code');
+        localStorage.removeItem('courier_driver_pin');
+      }
+
       currentDocId = docRef.id;
       currentRouteCode = routeData.code || inputCode;
 
       driverMapInitialFit = false;
 
+      document.getElementById('driverLoginCard').classList.add('hidden');
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
@@ -615,6 +700,18 @@
       });
 
       startGPSTrackingAuto();
+    }
+
+    function logoutDriverSession() {
+      localStorage.removeItem('courier_driver_code');
+      localStorage.removeItem('courier_driver_pin');
+      if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+      if (driverUnsubscribe) driverUnsubscribe();
+
+      document.getElementById('inputRouteCode').value = '';
+      document.getElementById('inputRoutePin').value = '';
+      document.getElementById('driverRouteContainer').classList.add('hidden');
+      document.getElementById('driverLoginCard').classList.remove('hidden');
     }
 
     function startGPSTrackingAuto() {
@@ -674,6 +771,7 @@
       const stats = calculateStats(clients);
 
       document.getElementById('adminScopeLabel').innerText = label ? `(${label})` : '(General Día)';
+      document.getElementById('adminTableScope').innerText = label ? `(${label})` : '(General Día)';
       document.getElementById('adminCountPendiente').innerText = stats.pendientes;
       document.getElementById('adminCountEntregado').innerText = stats.entregados;
       document.getElementById('adminCountCerrado').innerText = stats.cerrados;
@@ -814,13 +912,13 @@
         listContainer.appendChild(card);
 
         if (c.lat && c.lon) {
-          const markerIcon = createCustomMarkerIcon(c.sec, statusKey);
+          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
           
           if (!driverMapMarkers[uniqueKey]) {
             const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
             marker.bindPopup(`
               <div class="space-y-1">
-                <b>#${c.sec} · ${c.name}</b><br>
+                <b>${c.sec} · ${c.name}</b><br>
                 <span class="text-xs text-gray-600">${c.domicilio}</span><br>
                 <div class="pt-1">
                   <label class="text-xs font-bold">Cambiar Estado:</label>
@@ -912,27 +1010,26 @@
       });
     }
 
-    // DIBUJAR PUNTOS DE ADMIN (GENERAL O RUTA INDIVIDUAL)
-    function renderAdminMapPoints(clients) {
+    function renderAdminMapPoints(clients, showLabels = true) {
       const bounds = [];
       const currentKeys = new Set();
 
       clients.forEach(c => {
         if (!c.lat || !c.lon) return;
 
-        // Clave única garantizada incluyendo la ruta tpt
         const uniqueKey = `admin_${c.tpt || 'R'}_${c.sec}_${c.name}`;
         currentKeys.add(uniqueKey);
 
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        const icon = createCustomMarkerIcon(c.sec, statusKey);
+        // Si es Vista General (showLabels=false), renderiza solo el punto pequeño sin etiquetas encimadas
+        const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
 
         if (!adminMapMarkers[uniqueKey]) {
           const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
           marker.bindPopup(`
-            <b>Ruta: ${c.tpt || 'S/R'} | #${c.sec} · ${c.name}</b><br>
+            <b>Ruta: ${c.tpt || 'S/R'} | Sec: ${c.sec} · ${c.name}</b><br>
             <span class="text-xs text-gray-600">${c.domicilio}</span><br>
             <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
             <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
@@ -945,7 +1042,6 @@
         bounds.push([c.lat, c.lon]);
       });
 
-      // Eliminar marcadores que ya no estén en el filtro activo
       Object.keys(adminMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
           adminMap.removeLayer(adminMapMarkers[k]);
@@ -959,7 +1055,45 @@
       }
     }
 
-    // VISTA GENERAL ADMIN CON PUNTOS
+    function renderAdminClientsTable(clients) {
+      adminCurrentRawClients = clients;
+      applyAdminTableFilter();
+    }
+
+    function applyAdminTableFilter() {
+      const tbody = document.getElementById('adminClientsTableBody');
+      const searchText = document.getElementById('adminSearchInput').value.toLowerCase().trim();
+
+      const filtered = adminCurrentRawClients.filter(c => {
+        return !searchText || 
+          (c.tpt && c.tpt.toLowerCase().includes(searchText)) ||
+          (c.sec && c.sec.toString().includes(searchText)) ||
+          (c.name && c.name.toLowerCase().includes(searchText)) ||
+          (c.domicilio && c.domicilio.toLowerCase().includes(searchText));
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400 font-semibold">No se encontraron clientes para la búsqueda.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(c => {
+        let statusKey = c.estado || 'PENDIENTE';
+        let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
+
+        return `
+          <tr class="border-b hover:bg-gray-50 transition">
+            <td class="p-2 font-bold text-indigo-700">#${c.tpt || 'S/R'}</td>
+            <td class="p-2 font-extrabold text-gray-800">${c.sec}</td>
+            <td class="p-2 font-semibold">${c.name}</td>
+            <td class="p-2 text-gray-600 text-[11px]">${c.domicilio}</td>
+            <td class="p-2"><span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span></td>
+            <td class="p-2 font-mono text-gray-500 text-[11px]">${c.horaEntrega || '---'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     function loadAdminGeneralSummary() {
       if (adminRouteUnsubscribe) { adminRouteUnsubscribe(); adminRouteUnsubscribe = null; }
       if (adminAllRoutesUnsubscribe) { adminAllRoutesUnsubscribe(); adminAllRoutesUnsubscribe = null; }
@@ -974,7 +1108,8 @@
         const selectedVal = document.getElementById('selectAdminRoute').value;
         if (!selectedVal) {
           updateAdminSummaryStats(allClients, "General Día");
-          renderAdminMapPoints(allClients);
+          renderAdminMapPoints(allClients, false); // false = Puntos limpios para la vista general
+          renderAdminClientsTable(allClients);
         }
       });
     }
@@ -991,9 +1126,9 @@
 
           if (!allTruckMarkers[routeCode]) {
             const truckIcon = L.divIcon({
-              html: `<div style="background:#4F46E5;color:white;padding:4px 8px;border-radius:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:11px;font-weight:bold;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="fa-solid fa-truck"></i> #${routeCode}</div>`,
+              html: `<div style="background:#4F46E5;color:white;padding:3px 7px;border-radius:10px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:10px;font-weight:bold;white-space:nowrap;display:flex;align-items:center;gap:3px;"><i class="fa-solid fa-truck"></i> ${routeCode}</div>`,
               className: '',
-              iconSize: [60, 26]
+              iconSize: [50, 22]
             });
             allTruckMarkers[routeCode] = L.marker([data.lat, data.lng], { icon: truckIcon }).addTo(adminMap);
           } else {
@@ -1001,6 +1136,16 @@
           }
         });
       });
+    }
+
+    function manualRefreshAdmin() {
+      loadAvailableRoutesInSelect();
+      const code = document.getElementById('selectAdminRoute').value;
+      if (code) {
+        onAdminRouteSelect();
+      } else {
+        loadAdminGeneralSummary();
+      }
     }
 
     function onAdminRouteSelect() {
@@ -1021,7 +1166,8 @@
         const clients = doc.data().clients || [];
 
         updateAdminSummaryStats(clients, `Ruta #${code}`);
-        renderAdminMapPoints(clients);
+        renderAdminMapPoints(clients, true); // true = Mostrar números para la ruta filtrada
+        renderAdminClientsTable(clients);
       });
     }
   </script>
