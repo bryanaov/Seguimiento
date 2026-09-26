@@ -163,7 +163,7 @@
           </div>
         </div>
 
-        <!-- MAPA MÓVIL CHOFER -->
+        <!-- MAPA MÓVIL CHOFER CON BOTÓN AGRANDAR -->
         <div class="bg-white p-3 rounded-xl shadow space-y-2">
           <div class="flex justify-between items-center">
             <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
@@ -173,6 +173,7 @@
 
           <div class="relative">
             <div id="driverMap" class="map-container"></div>
+            <!-- BOTÓN FLOTANTE PANTALLA COMPLETA -->
             <button id="btnExpandDriverMap" onclick="toggleExpandMap('driverMap', 'btnExpandDriverMap')" class="absolute top-2 right-2 z-[100000] px-3 py-1.5 bg-white/95 hover:bg-white text-indigo-700 border border-gray-300 rounded-lg text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
               <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
             </button>
@@ -461,6 +462,38 @@
       });
     }
 
+    // FUNCION DE DISPERSION (JITTER) PARA PUNTOS SUPERPUESTOS
+    function applyJitter(clients) {
+      const offset = 0.00015; // Distancia aproximada de separación (unos 15-20 metros)
+      const coordMap = {};
+
+      clients.forEach(c => {
+        if (!c.lat || !c.lon) return;
+        
+        // Truncamos las coordenadas para identificar si están en el mismo punto exacto o muy muy cerca
+        const key = `${c.lat.toFixed(4)}_${c.lon.toFixed(4)}`; 
+        
+        if (!coordMap[key]) {
+          coordMap[key] = [];
+        }
+        coordMap[key].push(c);
+      });
+
+      Object.values(coordMap).forEach(group => {
+        if (group.length > 1) {
+          // Si hay varios en el mismo sitio, los distribuimos en un círculo
+          const angleStep = (2 * Math.PI) / group.length;
+          group.forEach((client, index) => {
+            const angle = index * angleStep;
+            client.lat += offset * Math.cos(angle);
+            client.lon += offset * Math.sin(angle);
+          });
+        }
+      });
+
+      return clients;
+    }
+
     let currentRouteCode = null;
     let currentDocId = null;
     let currentClientsData = [];
@@ -510,7 +543,7 @@
       // Si es solo 1 cliente
       if (matchingClients.length === 1) {
         const c = matchingClients[0];
-        map.setView([c.lat, c.lon], 17);
+        map.setView([c.lat, c.lon], 20); // Zoom máximo al enfocar 1 solo punto
 
         const uniqueKey = (mode === 'driver') 
           ? `driver_${c.sec}_${c.name}` 
@@ -522,7 +555,7 @@
       } else {
         // Si hay múltiples clientes
         const bounds = matchingClients.map(c => [c.lat, c.lon]);
-        map.fitBounds(bounds, { padding: [50, 50] });
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 19 });
       }
     }
 
@@ -597,8 +630,9 @@
       if (tab === 'admin') {
         setTimeout(async () => {
           if (!adminMap) {
-            adminMap = L.map('adminMap', { preferCanvas: true }).setView([-16.3988, -71.5350], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(adminMap);
+            // Aumentamos el maxZoom de 19 a 22 para poder acercarse más a los puntos superpuestos
+            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 22 }).setView([-16.3988, -71.5350], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22 }).addTo(adminMap);
           }
           adminMap.invalidateSize();
           await loadAvailableRoutesInSelect();
@@ -810,8 +844,8 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        driverMap = L.map('driverMap', { preferCanvas: true }).setView([-16.3988, -71.5350], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(driverMap);
+        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 22 }).setView([-16.3988, -71.5350], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22 }).addTo(driverMap);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
 
@@ -998,7 +1032,10 @@
 
       document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
 
-      clientsToRender.forEach((c) => {
+      // Aplica dispersión si hay puntos muy juntos
+      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clientsToRender))); // Copia para no mutar base de datos
+
+      jitteredClients.forEach((c) => {
         const originalIndex = currentClientsData.findIndex(item => item.sec === c.sec && item.name === c.name);
         const uniqueKey = `driver_${c.sec}_${c.name}`;
         currentKeys.add(uniqueKey);
@@ -1079,10 +1116,10 @@
           </div>
 
           <div class="flex flex-wrap gap-2 pt-2 border-t items-center">
-            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
+            <a href="https://waze.com/ul?ll=${currentClientsData[originalIndex].lat},${currentClientsData[originalIndex].lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
               <i class="fa-brands fa-waze"></i> Waze
             </a>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${currentClientsData[originalIndex].lat},${currentClientsData[originalIndex].lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
               <i class="fa-solid fa-map-pin"></i> Maps
             </a>
             <select onchange="updateClientStatus(${originalIndex}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
@@ -1122,6 +1159,7 @@
             driverMapMarkers[uniqueKey] = marker;
           } else {
             driverMapMarkers[uniqueKey].setIcon(markerIcon);
+            driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]); // Actualiza la posición dispersa
           }
 
           bounds.push([c.lat, c.lon]);
@@ -1299,7 +1337,9 @@
       const bounds = [];
       const currentKeys = new Set();
 
-      clients.forEach(c => {
+      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clients))); // Aplica dispersión visual
+
+      jitteredClients.forEach(c => {
         if (!c.lat || !c.lon) return;
 
         const uniqueKey = `admin_${c.tpt || 'R'}_${c.sec}_${c.name}`;
@@ -1325,6 +1365,7 @@
           adminMapMarkers[uniqueKey] = marker;
         } else {
           adminMapMarkers[uniqueKey].setIcon(icon);
+          adminMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
         }
 
         bounds.push([c.lat, c.lon]);
