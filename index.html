@@ -18,11 +18,23 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <style>
-    .map-container { height: 380px; width: 100%; border-radius: 12px; }
+    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; }
+    
+    /* Estilo para expandir mapa a pantalla completa en celular */
+    .map-container-fullscreen {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 99999 !important;
+      border-radius: 0 !important;
+    }
+
     .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; }
     .status-PENDIENTE { background-color: #E5E7EB; color: #374151; }
     .status-ENTREGADO { background-color: #BBF7D0; color: #166534; }
-    .status-CERRADO { background-color: #FECACA; color: #991B1B; }
+    .status-CERRADO, .status-RECHAZADO { background-color: #FECACA; color: #991B1B; }
     .status-PARCIAL { background-color: #FFEDD5; color: #9A3412; }
     .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #6B21A8; }
     .status-REPASO { background-color: #DBEAFE; color: #1E40AF; }
@@ -122,28 +134,29 @@
             </div>
           </div>
 
+          <!-- BOTONES INTERACTIVOS CHOFER -->
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-1">
-            <div class="bg-gray-100 p-2 rounded-lg border">
+            <div onclick="zoomToStatus('PENDIENTE', 'driver')" class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg border cursor-pointer transition shadow-sm" title="Toca para ver pendientes en el mapa">
               <span class="block text-gray-500 text-[10px]">⏳ PENDIENTES</span>
               <span id="driverCountPendiente" class="text-base text-gray-800">0</span>
             </div>
-            <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+            <div onclick="zoomToStatus('ENTREGADO', 'driver')" class="bg-emerald-50 hover:bg-emerald-100 p-2 rounded-lg border border-emerald-200 cursor-pointer transition shadow-sm" title="Toca para ver entregados en el mapa">
               <span class="block text-emerald-600 text-[10px]">✅ ENTREGADOS</span>
               <span id="driverCountEntregado" class="text-base text-emerald-700">0</span>
             </div>
-            <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
-              <span class="block text-rose-600 text-[10px]">❌ CERRADOS</span>
+            <div onclick="zoomToStatus('RECHAZADO', 'driver')" class="bg-rose-50 hover:bg-rose-100 p-2 rounded-lg border border-rose-200 cursor-pointer transition shadow-sm" title="Toca para ver rechazados en el mapa">
+              <span class="block text-rose-600 text-[10px]">❌ RECHAZADOS</span>
               <span id="driverCountCerrado" class="text-base text-rose-700">0</span>
             </div>
-            <div class="bg-orange-50 p-2 rounded-lg border border-orange-200">
+            <div onclick="zoomToStatus('PARCIAL', 'driver')" class="bg-orange-50 hover:bg-orange-100 p-2 rounded-lg border border-orange-200 cursor-pointer transition shadow-sm" title="Toca para ver parciales en el mapa">
               <span class="block text-orange-600 text-[10px]">🟧 PARCIAL</span>
               <span id="driverCountParcial" class="text-base text-orange-700">0</span>
             </div>
-            <div class="bg-purple-50 p-2 rounded-lg border border-purple-200">
+            <div onclick="zoomToStatus('OTRO MOTIVO', 'driver')" class="bg-purple-50 hover:bg-purple-100 p-2 rounded-lg border border-purple-200 cursor-pointer transition shadow-sm" title="Toca para ver otros motivos en el mapa">
               <span class="block text-purple-600 text-[10px]">🟣 OTRO MOTIVO</span>
               <span id="driverCountOtro" class="text-base text-purple-700">0</span>
             </div>
-            <div class="bg-blue-50 p-2 rounded-lg border border-blue-200">
+            <div onclick="zoomToStatus('REPASO', 'driver')" class="bg-blue-50 hover:bg-blue-100 p-2 rounded-lg border border-blue-200 cursor-pointer transition shadow-sm" title="Toca para ver repasos en el mapa">
               <span class="block text-blue-600 text-[10px]">🔵 REPASO</span>
               <span id="driverCountRepaso" class="text-base text-blue-700">0</span>
             </div>
@@ -152,10 +165,18 @@
 
         <!-- MAPA MÓVIL CHOFER -->
         <div class="bg-white p-3 rounded-xl shadow space-y-2">
-          <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta (Punto azul = Tu Ubicación)
-          </h4>
-          <div id="driverMap" class="map-container"></div>
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta (Punto azul = Tu Ubicación)
+            </h4>
+          </div>
+
+          <div class="relative">
+            <div id="driverMap" class="map-container"></div>
+            <button id="btnExpandDriverMap" onclick="toggleExpandMap('driverMap', 'btnExpandDriverMap')" class="absolute top-2 right-2 z-[100000] px-3 py-1.5 bg-white/95 hover:bg-white text-indigo-700 border border-gray-300 rounded-lg text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
+            </button>
+          </div>
         </div>
 
         <!-- BÚSQUEDA Y FILTRADO -->
@@ -255,28 +276,29 @@
           </div>
         </div>
 
+        <!-- BOTONES INTERACTIVOS ADMIN -->
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-1">
-          <div class="bg-gray-100 p-2 rounded-lg border">
+          <div onclick="zoomToStatus('PENDIENTE', 'admin')" class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg border cursor-pointer transition shadow-sm" title="Haz clic para enfocar los pendientes en el mapa">
             <span class="block text-gray-500 text-[10px]">⏳ PENDIENTES</span>
             <span id="adminCountPendiente" class="text-base text-gray-800">0</span>
           </div>
-          <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+          <div onclick="zoomToStatus('ENTREGADO', 'admin')" class="bg-emerald-50 hover:bg-emerald-100 p-2 rounded-lg border border-emerald-200 cursor-pointer transition shadow-sm" title="Haz clic para enfocar los entregados en el mapa">
             <span class="block text-emerald-600 text-[10px]">✅ ENTREGADOS</span>
             <span id="adminCountEntregado" class="text-base text-emerald-700">0</span>
           </div>
-          <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
-            <span class="block text-rose-600 text-[10px]">❌ CERRADOS</span>
+          <div onclick="zoomToStatus('RECHAZADO', 'admin')" class="bg-rose-50 hover:bg-rose-100 p-2 rounded-lg border border-rose-200 cursor-pointer transition shadow-sm" title="Haz clic para enfocar los rechazados en el mapa">
+            <span class="block text-rose-600 text-[10px]">❌ RECHAZADOS</span>
             <span id="adminCountCerrado" class="text-base text-rose-700">0</span>
           </div>
-          <div class="bg-orange-50 p-2 rounded-lg border border-orange-200">
+          <div onclick="zoomToStatus('PARCIAL', 'admin')" class="bg-orange-50 hover:bg-orange-100 p-2 rounded-lg border border-orange-200 cursor-pointer transition shadow-sm" title="Haz clic para enfocar los parciales en el mapa">
             <span class="block text-orange-600 text-[10px]">🟧 PARCIAL</span>
             <span id="adminCountParcial" class="text-base text-orange-700">0</span>
           </div>
-          <div class="bg-purple-50 p-2 rounded-lg border border-purple-200">
+          <div onclick="zoomToStatus('OTRO MOTIVO', 'admin')" class="bg-purple-50 hover:bg-purple-100 p-2 rounded-lg border border-purple-200 cursor-pointer transition shadow-sm" title="Haz clic para enfocar otros motivos en el mapa">
             <span class="block text-purple-600 text-[10px]">🟣 OTRO MOTIVO</span>
             <span id="adminCountOtro" class="text-base text-purple-700">0</span>
           </div>
-          <div class="bg-blue-50 p-2 rounded-lg border border-blue-200">
+          <div onclick="zoomToStatus('REPASO', 'admin')" class="bg-blue-50 hover:bg-blue-100 p-2 rounded-lg border border-blue-200 cursor-pointer transition shadow-sm" title="Haz clic para enfocar los repasos en el mapa">
             <span class="block text-blue-600 text-[10px]">🔵 REPASO</span>
             <span id="adminCountRepaso" class="text-base text-blue-700">0</span>
           </div>
@@ -293,7 +315,6 @@
             </span>
           </div>
           <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <!-- BOTÓN EXPORTAR REPORTE EXCEL / CSV -->
             <button onclick="exportAdminReportCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition">
               <i class="fa-solid fa-file-excel"></i> Exportar Reporte CSV
             </button>
@@ -307,7 +328,12 @@
           </div>
         </div>
 
-        <div id="adminMap" class="map-container" style="height: 480px;"></div>
+        <div class="relative">
+          <div id="adminMap" class="map-container" style="height: 480px;"></div>
+          <button id="btnExpandAdminMap" onclick="toggleExpandMap('adminMap', 'btnExpandAdminMap')" class="absolute top-2 right-2 z-[100000] px-3 py-1.5 bg-white/95 hover:bg-white text-indigo-700 border border-gray-300 rounded-lg text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
+          </button>
+        </div>
       </div>
 
       <!-- DETALLE DE ESTADOS DE CLIENTES ADMIN -->
@@ -376,6 +402,7 @@
       'PENDIENTE': '#6B7280',
       'ENTREGADO': '#22C55E',
       'CERRADO': '#EF4444',
+      'RECHAZADO': '#EF4444',
       'PARCIAL': '#F97316',
       'OTRO MOTIVO': '#A855F7',
       'REPASO': '#3B82F6'
@@ -454,6 +481,68 @@
     let driverSelfMarker = null;
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
+
+    // HACE ZOOM AL TOCAR CUALQUIERA DE LAS TARJETAS DE RESUMEN
+    function zoomToStatus(targetStatus, mode) {
+      const map = (mode === 'driver') ? driverMap : adminMap;
+      const markers = (mode === 'driver') ? driverMapMarkers : adminMapMarkers;
+      const clients = (mode === 'driver') ? currentClientsData : adminCurrentRawClients;
+
+      if (!map || !clients || clients.length === 0) return;
+
+      const matchingClients = clients.filter(c => {
+        const st = c.estado || 'PENDIENTE';
+        if (targetStatus === 'RECHAZADO') {
+          return (st === 'RECHAZADO' || st === 'CERRADO') && c.lat && c.lon;
+        }
+        return st === targetStatus && c.lat && c.lon;
+      });
+
+      if (matchingClients.length === 0) {
+        alert(`No hay clientes con estado "${targetStatus === 'RECHAZADO' ? 'RECHAZADO' : targetStatus}".`);
+        return;
+      }
+
+      // Desplaza la pantalla suavemente hacia el mapa
+      const mapElementId = (mode === 'driver') ? 'driverMap' : 'adminMap';
+      document.getElementById(mapElementId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Si es solo 1 cliente
+      if (matchingClients.length === 1) {
+        const c = matchingClients[0];
+        map.setView([c.lat, c.lon], 17);
+
+        const uniqueKey = (mode === 'driver') 
+          ? `driver_${c.sec}_${c.name}` 
+          : `admin_${c.tpt || 'R'}_${c.sec}_${c.name}`;
+        
+        if (markers[uniqueKey]) {
+          markers[uniqueKey].openPopup();
+        }
+      } else {
+        // Si hay múltiples clientes
+        const bounds = matchingClients.map(c => [c.lat, c.lon]);
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }
+
+    // AGRANDAR / REDUCIR MAPA EN PANTALLA COMPLETA
+    function toggleExpandMap(mapId, btnId) {
+      const mapEl = document.getElementById(mapId);
+      const btn = document.getElementById(btnId);
+      const isFull = mapEl.classList.toggle('map-container-fullscreen');
+
+      if (btn) {
+        btn.innerHTML = isFull 
+          ? `<i class="fa-solid fa-compress text-rose-600"></i> Reducir Mapa`
+          : `<i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa`;
+      }
+
+      const targetMap = (mapId === 'driverMap') ? driverMap : adminMap;
+      if (targetMap) {
+        setTimeout(() => targetMap.invalidateSize(), 200);
+      }
+    }
 
     window.addEventListener('DOMContentLoaded', () => {
       const savedCode = localStorage.getItem('courier_driver_code');
@@ -850,7 +939,7 @@
         const st = c.estado || 'PENDIENTE';
         if (st === 'PENDIENTE') pendientes++;
         else if (st === 'ENTREGADO') entregados++;
-        else if (st === 'CERRADO') cerrados++;
+        else if (st === 'CERRADO' || st === 'RECHAZADO') cerrados++;
         else if (st === 'PARCIAL') parciales++;
         else if (st === 'OTRO MOTIVO') otros++;
         else if (st === 'REPASO') repasos++;
@@ -915,6 +1004,7 @@
         currentKeys.add(uniqueKey);
 
         let statusKey = c.estado || 'PENDIENTE';
+        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
         let clientPhotos = c.photos || (c.photo ? [c.photo] : []);
 
@@ -956,6 +1046,7 @@
               <select id="obsSelect_${originalIndex}" onchange="updateClientObs(${originalIndex}, this.value)" class="w-full text-xs font-semibold border rounded-lg px-2 py-1 bg-gray-50 outline-none">
                 <option value="" ${!c.obs ? 'selected' : ''}>-- Seleccionar Motivo / Observación --</option>
                 <option value="Sin dinero" ${c.obs === 'Sin dinero' ? 'selected' : ''}>💵 Sin dinero</option>
+                <option value="Cliente rechazó" ${c.obs === 'Cliente rechazó' ? 'selected' : ''}>❌ Cliente rechazó / Rechazado</option>
                 <option value="Local cerrado" ${c.obs === 'Local cerrado' ? 'selected' : ''}>🚪 Local cerrado</option>
                 <option value="Cliente no está" ${c.obs === 'Cliente no está' ? 'selected' : ''}>👤 Cliente no está</option>
                 <option value="Pedido cancelado" ${c.obs === 'Pedido cancelado' ? 'selected' : ''}>🚫 Pedido cancelado</option>
@@ -997,7 +1088,7 @@
             <select onchange="updateClientStatus(${originalIndex}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
               <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
               <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
+              <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
               <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
               <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
               <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
@@ -1020,7 +1111,7 @@
                   <select onchange="updateClientStatus(${originalIndex}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
                     <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
                     <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                    <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
+                    <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
                     <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
                     <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
                     <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
@@ -1215,6 +1306,7 @@
         currentKeys.add(uniqueKey);
 
         let statusKey = c.estado || 'PENDIENTE';
+        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
         let photoCount = c.photos ? c.photos.length : (c.photo ? 1 : 0);
 
@@ -1281,6 +1373,7 @@
 
       tbody.innerHTML = filtered.map(c => {
         let statusKey = c.estado || 'PENDIENTE';
+        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
         let photoCount = c.photos ? c.photos.length : (c.photo ? 1 : 0);
 
@@ -1318,6 +1411,9 @@
 
       adminCurrentRawClients.forEach(c => {
         const photoCount = c.photos ? c.photos.length : (c.photo ? 1 : 0);
+        let st = c.estado || 'PENDIENTE';
+        if (st === 'CERRADO') st = 'RECHAZADO';
+
         const row = [
           `"${c.tpt || ''}"`,
           `"${c.sec || ''}"`,
@@ -1325,7 +1421,7 @@
           `"${(c.domicilio || '').replace(/"/g, '""')}"`,
           `"${c.vendedor || ''}"`,
           `"${c.subtotal || '0.00'}"`,
-          `"${c.estado || 'PENDIENTE'}"`,
+          `"${st}"`,
           `"${(c.obs || '').replace(/"/g, '""')}"`,
           `"${photoCount} foto(s)"`,
           `"${c.horaEntrega || ''}"`
