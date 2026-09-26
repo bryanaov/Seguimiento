@@ -70,11 +70,11 @@
     <section id="viewDriver" class="block space-y-4">
       <div id="driverLoginCard" class="bg-white p-5 rounded-xl shadow space-y-3">
         <h2 class="text-lg font-bold flex items-center gap-2 text-indigo-700">
-          <i class="fa-solid fa-id-card"></i> Acceso a Ruta de Reparto
+          <i class="fa-solid fa-truck-arrow-right"></i> Acceso a Ruta de Reparto
         </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <input type="text" id="inputRouteCode" placeholder="Código (ej: 14 o T14)" class="border rounded-lg px-3 py-2 text-base uppercase font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
-          <input type="password" id="inputRoutePin" maxlength="6" placeholder="Clave de Ruta (PIN)" class="border rounded-lg px-3 py-2 text-base font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+        <p class="text-xs text-gray-500 font-semibold">Ingresa el código de tu transporte para iniciar:</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input type="text" id="inputRouteCode" placeholder="Código de Ruta (ej: 14 o T14)" class="border rounded-lg px-3 py-2 text-base uppercase font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
           <button onclick="loadDriverRoute()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">
             Ingresar a Ruta
           </button>
@@ -97,7 +97,6 @@
             <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Transmitiendo
             </div>
-            <!-- BOTÓN DE SALIR MANUAL -->
             <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-lg border border-rose-200 transition flex items-center gap-1 shadow-sm">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
             </button>
@@ -226,14 +225,14 @@
         <div id="csvStatus" class="text-sm font-medium"></div>
       </div>
 
-      <!-- PANEL DE CLAVES ASIGNADAS -->
+      <!-- PANEL DE RUTAS REGISTRADAS -->
       <div class="bg-white p-4 rounded-xl shadow space-y-2 border-l-4 border-amber-500">
         <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
-          <i class="fa-solid fa-key text-amber-500"></i> Claves de Acceso Asignadas a Choferes
+          <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas Cargas en Sistema
         </h3>
-        <p class="text-xs text-gray-500">Comparte este PIN con cada chofer para que puedan acceder solo a su ruta:</p>
+        <p class="text-xs text-gray-500">Los choferes ingresan directamente digitando solo su código de transporte (ej: 14 o T14):</p>
         <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
-          <span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>
+          <span class="text-gray-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>
         </div>
       </div>
 
@@ -284,16 +283,20 @@
         </div>
       </div>
 
-      <!-- MAPA MONITOREO ADMIN -->
+      <!-- MAPA MONITOREO ADMIN Y BOTÓN DE EXPORTACIÓN -->
       <div class="bg-white p-4 rounded-xl shadow space-y-3">
-        <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-3">
           <div class="flex items-center gap-2">
             <h3 class="font-bold text-gray-800">Monitoreo General de Rutas</h3>
             <span class="text-[11px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS Multicamión Activo
             </span>
           </div>
-          <div class="flex items-center gap-2 w-full sm:w-auto">
+          <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <!-- BOTÓN EXPORTAR REPORTE EXCEL / CSV -->
+            <button onclick="exportAdminReportCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition">
+              <i class="fa-solid fa-file-excel"></i> Exportar Reporte CSV
+            </button>
             <button onclick="manualRefreshAdmin()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-xs hover:bg-indigo-100 flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-rotate"></i> Actualizar
             </button>
@@ -323,12 +326,14 @@
                 <th class="p-2">Sec</th>
                 <th class="p-2">Cliente / Razón Social</th>
                 <th class="p-2">Dirección</th>
-                <th class="p-2">Estado</th>
+                <th class="p-2">Monto S/</th>
+                <th class="p-2">Estado / Motivo</th>
+                <th class="p-2">Evidencias</th>
                 <th class="p-2">Hora Entrega</th>
               </tr>
             </thead>
             <tbody id="adminClientsTableBody">
-              <tr><td colspan="6" class="text-center p-4 text-gray-400">Cargando lista de clientes...</td></tr>
+              <tr><td colspan="8" class="text-center p-4 text-gray-400">Cargando lista de clientes...</td></tr>
             </tbody>
           </table>
         </div>
@@ -337,6 +342,18 @@
     </section>
 
   </main>
+
+  <!-- MODAL GALERÍA VISUALIZADORA DE FOTOS DE EVIDENCIA -->
+  <div id="photoModal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-4 max-w-lg w-full space-y-3 shadow-2xl relative">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 id="photoModalTitle" class="font-bold text-gray-800 text-sm">Fotos de Evidencia</h3>
+        <button onclick="closePhotoModal()" class="text-gray-500 hover:text-rose-600 font-bold text-lg px-2">✕</button>
+      </div>
+      <div id="photoGalleryContainer" class="space-y-3 overflow-y-auto max-h-[70vh]"></div>
+      <p id="photoModalObs" class="text-xs font-semibold text-gray-700 bg-gray-50 p-2 rounded-lg border"></p>
+    </div>
+  </div>
 
   <script>
     const ADMIN_PASSWORD = "bra151106";
@@ -438,19 +455,15 @@
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
-    // COMPROBAR SESIÓN Y EXPIRACIÓN DE 8 HORAS
     window.addEventListener('DOMContentLoaded', () => {
       const savedCode = localStorage.getItem('courier_driver_code');
-      const savedPin = localStorage.getItem('courier_driver_pin');
       const savedExp = localStorage.getItem('courier_driver_exp');
 
-      if (savedCode && savedPin && savedExp) {
+      if (savedCode && savedExp) {
         if (Date.now() < parseInt(savedExp, 10)) {
           document.getElementById('inputRouteCode').value = savedCode;
-          document.getElementById('inputRoutePin').value = savedPin;
           loadDriverRoute();
         } else {
-          // Sesión de 8 horas expirada
           clearDriverStorage();
         }
       }
@@ -577,7 +590,9 @@
           lon: isNaN(lon) ? 0 : lon,
           estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toUpperCase() : 'PENDIENTE',
           repasoConfirm: '',
-          horaEntrega: ''
+          horaEntrega: '',
+          obs: '',
+          photos: []
         });
       }
       return clients;
@@ -594,7 +609,7 @@
       }
 
       statusDiv.className = "text-sm font-bold text-indigo-600";
-      statusDiv.innerText = "⏳ Procesando archivo y generando claves de seguridad...";
+      statusDiv.innerText = "⏳ Procesando archivo y creando rutas...";
 
       const file = fileInput.files[0];
       const reader = new FileReader();
@@ -620,13 +635,8 @@
             const group = routesMap[code];
             group.sort((a, b) => a.sec - b.sec);
 
-            let hash = 0;
-            for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
-            const generatedPin = Math.abs(hash % 9000 + 1000).toString();
-
             await db.collection('routes').doc(code).set({
               code: code,
-              pin: generatedPin,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               clients: group
             }, { merge: true });
@@ -665,7 +675,7 @@
       await db.collection('meta').doc('active_file').delete();
 
       document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
-      document.getElementById('routeKeysList').innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
+      document.getElementById('routeKeysList').innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
       
       Object.keys(adminMapMarkers).forEach(k => adminMap.removeLayer(adminMapMarkers[k]));
       adminMapMarkers = {};
@@ -675,10 +685,8 @@
 
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
-      let inputPin = document.getElementById('inputRoutePin').value.trim();
 
       if (!inputCode) return alert("Ingresa tu código de ruta.");
-      if (!inputPin) return alert("Ingresa tu clave de acceso (PIN).");
 
       let docRef = db.collection('routes').doc(inputCode);
       let docSnap = await docRef.get();
@@ -695,15 +703,9 @@
 
       const routeData = docSnap.data();
 
-      if (routeData.pin && routeData.pin !== inputPin) {
-        return alert("🔒 Clave de acceso incorrecta para esta ruta.");
-      }
-
-      // GUARDAR ACCESO POR 8 HORAS SI ESTÁ ACTIVADA LA CASILLA
       if (document.getElementById('chkRememberDriver').checked) {
         const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
         localStorage.setItem('courier_driver_code', inputCode);
-        localStorage.setItem('courier_driver_pin', inputPin);
         localStorage.setItem('courier_driver_exp', (Date.now() + EIGHT_HOURS_MS).toString());
       } else {
         clearDriverStorage();
@@ -738,7 +740,6 @@
       startGPSTrackingAuto();
     }
 
-    // CIERRA SESIÓN Y LIMPIA MEMORIA MANUALMENTE
     function logoutDriverSession() {
       clearDriverStorage();
       if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
@@ -750,7 +751,6 @@
       }
 
       document.getElementById('inputRouteCode').value = '';
-      document.getElementById('inputRoutePin').value = '';
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
     }
@@ -916,6 +916,7 @@
 
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
+        let clientPhotos = c.photos || (c.photo ? [c.photo] : []);
 
         let repasoHtml = '';
         if (statusKey === 'REPASO') {
@@ -948,6 +949,43 @@
           <p class="text-xs text-gray-500"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: ${c.vendedor || 'S/V'} | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
 
           ${repasoHtml}
+
+          <!-- MOTIVO Y MULTI FOTOS DE EVIDENCIA -->
+          <div class="bg-white p-2.5 rounded-lg border space-y-2 mt-2">
+            <div class="flex gap-2 items-center">
+              <select id="obsSelect_${originalIndex}" onchange="updateClientObs(${originalIndex}, this.value)" class="w-full text-xs font-semibold border rounded-lg px-2 py-1 bg-gray-50 outline-none">
+                <option value="" ${!c.obs ? 'selected' : ''}>-- Seleccionar Motivo / Observación --</option>
+                <option value="Sin dinero" ${c.obs === 'Sin dinero' ? 'selected' : ''}>💵 Sin dinero</option>
+                <option value="Local cerrado" ${c.obs === 'Local cerrado' ? 'selected' : ''}>🚪 Local cerrado</option>
+                <option value="Cliente no está" ${c.obs === 'Cliente no está' ? 'selected' : ''}>👤 Cliente no está</option>
+                <option value="Pedido cancelado" ${c.obs === 'Pedido cancelado' ? 'selected' : ''}>🚫 Pedido cancelado</option>
+                <option value="Entregado conforme" ${c.obs === 'Entregado conforme' ? 'selected' : ''}>✅ Entregado conforme</option>
+              </select>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <label for="cameraInput_${originalIndex}" class="cursor-pointer px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-camera text-indigo-600"></i> ${clientPhotos.length > 0 ? '📷 Agregar Otra Foto' : '📷 Tomar Foto Evidencia'}
+                </label>
+                <input type="file" id="cameraInput_${originalIndex}" accept="image/*" capture="environment" onchange="uploadPhotoEvidence(${originalIndex}, this)" class="hidden">
+                
+                <span class="text-xs font-bold text-gray-500">${clientPhotos.length} foto(s) subida(s)</span>
+              </div>
+
+              <!-- MINI GALERÍA DE FOTOS SUBIDAS -->
+              ${clientPhotos.length > 0 ? `
+                <div class="flex flex-wrap gap-2 pt-2 border-t">
+                  ${clientPhotos.map((imgSrc, pIdx) => `
+                    <div class="relative group">
+                      <img src="${imgSrc}" onclick="openPhotoModalByClientIndex(${originalIndex})" class="w-14 h-14 object-cover rounded-lg border border-indigo-300 shadow-sm cursor-pointer hover:opacity-80">
+                      <button onclick="deletePhotoEvidence(${originalIndex}, ${pIdx})" class="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black shadow hover:bg-rose-700 transition" title="Borrar foto">✕</button>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
 
           <div class="flex flex-wrap gap-2 pt-2 border-t items-center">
             <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
@@ -1026,6 +1064,103 @@
       });
     }
 
+    async function updateClientObs(index, newObs) {
+      if (!currentDocId || !currentClientsData[index]) return;
+
+      currentClientsData[index].obs = newObs;
+
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    function uploadPhotoEvidence(index, input) {
+      if (!input.files || !input.files[0]) return;
+
+      const file = input.files[0];
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDim) { height *= maxDim / width; width = maxDim; }
+          } else {
+            if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+
+          let photos = currentClientsData[index].photos || (currentClientsData[index].photo ? [currentClientsData[index].photo] : []);
+          photos.push(compressedBase64);
+          currentClientsData[index].photos = photos;
+          delete currentClientsData[index].photo;
+
+          await db.collection('routes').doc(currentDocId).update({
+            clients: currentClientsData,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function deletePhotoEvidence(index, photoIdx) {
+      if (!currentDocId || !currentClientsData[index]) return;
+      if (!confirm("¿Estás seguro de borrar esta foto de evidencia?")) return;
+
+      let photos = currentClientsData[index].photos || (currentClientsData[index].photo ? [currentClientsData[index].photo] : []);
+      photos.splice(photoIdx, 1);
+      currentClientsData[index].photos = photos;
+      delete currentClientsData[index].photo;
+
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    function openPhotoModalByClientIndex(idx) {
+      const client = currentClientsData[idx];
+      if (client) showPhotoGalleryModal(client);
+    }
+
+    function showPhotoGalleryModal(client) {
+      const photos = client.photos || (client.photo ? [client.photo] : []);
+      const container = document.getElementById('photoGalleryContainer');
+      
+      if (photos.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center">No hay fotos de evidencia.</p>`;
+      } else {
+        container.innerHTML = photos.map((p, idx) => `
+          <div class="space-y-1">
+            <span class="text-xs font-bold text-gray-700 block">📷 Foto ${idx + 1} de ${photos.length}:</span>
+            <img src="${p}" class="w-full rounded-xl border border-gray-300 object-contain max-h-[50vh]">
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('photoModalTitle').innerText = `Evidencias: ${client.name}`;
+      document.getElementById('photoModalObs').innerText = client.obs ? `Motivo / Obs: ${client.obs}` : 'Sin observación registrada.';
+      document.getElementById('photoModal').classList.remove('hidden');
+    }
+
+    function closePhotoModal() {
+      document.getElementById('photoModal').classList.add('hidden');
+    }
+
     async function updateRepasoConfirm(index, confirmValue) {
       if (!currentDocId || !currentClientsData[index]) return;
 
@@ -1046,25 +1181,22 @@
 
       const snapshot = await db.collection('routes').get();
       if (snapshot.empty) {
-        keysDiv.innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
+        keysDiv.innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
         return;
       }
 
       snapshot.forEach(doc => {
-        const data = doc.data();
         const routeId = doc.id;
         const option = document.createElement('option');
         option.value = routeId;
         option.innerText = `Ruta #${routeId}`;
         select.appendChild(option);
 
-        if (data.pin) {
-          keysDiv.innerHTML += `
-            <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg shadow-sm">
-              Ruta <b>#${routeId}</b> 🔑 Clave: <u class="text-indigo-900 font-extrabold text-sm">${data.pin}</u>
-            </span>
-          `;
-        }
+        keysDiv.innerHTML += `
+          <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg shadow-sm">
+            Ruta <b>#${routeId}</b> (Ingreso directo con código)
+          </span>
+        `;
       });
 
       if (savedValue && select.querySelector(`option[value="${savedValue}"]`)) {
@@ -1084,6 +1216,7 @@
 
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
+        let photoCount = c.photos ? c.photos.length : (c.photo ? 1 : 0);
 
         const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
 
@@ -1092,8 +1225,10 @@
           marker.bindPopup(`
             <b>Ruta: ${c.tpt || 'S/R'} | Sec: ${c.sec} · ${c.name}</b><br>
             <span class="text-xs text-gray-600">${c.domicilio}</span><br>
-            <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
-            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
+            <b>Monto:</b> S/ ${c.subtotal || '0.00'}<br>
+            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey}</span><br>
+            ${c.obs ? `<b>Motivo:</b> ${c.obs}<br>` : ''}
+            ${photoCount > 0 ? `<button onclick="showPhotoGalleryModalByName('${c.sec}', '${c.name}')" class="mt-1 px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold">Ver ${photoCount} Foto(s)</button>` : ''}
           `);
           adminMapMarkers[uniqueKey] = marker;
         } else {
@@ -1116,6 +1251,11 @@
       }
     }
 
+    function showPhotoGalleryModalByName(sec, name) {
+      const client = adminCurrentRawClients.find(c => c.sec == sec && c.name == name);
+      if (client) showPhotoGalleryModal(client);
+    }
+
     function renderAdminClientsTable(clients) {
       adminCurrentRawClients = clients;
       applyAdminTableFilter();
@@ -1130,17 +1270,19 @@
           (c.tpt && c.tpt.toLowerCase().includes(searchText)) ||
           (c.sec && c.sec.toString().includes(searchText)) ||
           (c.name && c.name.toLowerCase().includes(searchText)) ||
-          (c.domicilio && c.domicilio.toLowerCase().includes(searchText));
+          (c.domicilio && c.domicilio.toLowerCase().includes(searchText)) ||
+          (c.obs && c.obs.toLowerCase().includes(searchText));
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400 font-semibold">No se encontraron clientes para la búsqueda.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400 font-semibold">No se encontraron clientes para la búsqueda.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(c => {
         let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
+        let photoCount = c.photos ? c.photos.length : (c.photo ? 1 : 0);
 
         return `
           <tr class="border-b hover:bg-gray-50 transition">
@@ -1148,11 +1290,57 @@
             <td class="p-2 font-extrabold text-gray-800">${c.sec}</td>
             <td class="p-2 font-semibold">${c.name}</td>
             <td class="p-2 text-gray-600 text-[11px]">${c.domicilio}</td>
-            <td class="p-2"><span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span></td>
+            <td class="p-2 font-bold text-gray-800 text-[11px]">S/ ${c.subtotal || '0.00'}</td>
+            <td class="p-2">
+              <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
+              ${c.obs ? `<div class="text-[10px] text-gray-500 font-bold mt-0.5">📌 ${c.obs}</div>` : ''}
+            </td>
+            <td class="p-2">
+              ${photoCount > 0 ? `<button onclick="showPhotoGalleryModalByName('${c.sec}', '${c.name}')" class="px-2 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold flex items-center gap-1"><i class="fa-solid fa-images"></i> Ver ${photoCount} foto(s)</button>` : '<span class="text-gray-400 text-[11px]">---</span>'}
+            </td>
             <td class="p-2 font-mono text-gray-500 text-[11px]">${c.horaEntrega || '---'}</td>
           </tr>
         `;
       }).join('');
+    }
+
+    function exportAdminReportCSV() {
+      if (!adminCurrentRawClients || adminCurrentRawClients.length === 0) {
+        alert("No hay datos de clientes para exportar.");
+        return;
+      }
+
+      const selectedRoute = document.getElementById('selectAdminRoute').value;
+      const fileName = selectedRoute ? `Reporte_Ruta_${selectedRoute}.csv` : `Reporte_General_UltimaMilla.csv`;
+
+      let csvContent = "\uFEFF";
+      csvContent += "Ruta;Secuencia;Cliente / Razon Social;Direccion;Vendedor;Monto S/;Estado;Motivo / Observacion;Fotos Evidencia;Hora Entrega\n";
+
+      adminCurrentRawClients.forEach(c => {
+        const photoCount = c.photos ? c.photos.length : (c.photo ? 1 : 0);
+        const row = [
+          `"${c.tpt || ''}"`,
+          `"${c.sec || ''}"`,
+          `"${(c.name || '').replace(/"/g, '""')}"`,
+          `"${(c.domicilio || '').replace(/"/g, '""')}"`,
+          `"${c.vendedor || ''}"`,
+          `"${c.subtotal || '0.00'}"`,
+          `"${c.estado || 'PENDIENTE'}"`,
+          `"${(c.obs || '').replace(/"/g, '""')}"`,
+          `"${photoCount} foto(s)"`,
+          `"${c.horaEntrega || ''}"`
+        ];
+        csvContent += row.join(";") + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     function loadAdminGeneralSummary() {
