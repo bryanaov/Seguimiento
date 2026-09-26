@@ -386,8 +386,8 @@
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
-    // SERVIDOR DE MAPAS 100% GRATUITO Y LIBRE DE API KEY (ESRI WORLD STREET MAP)
-    const FREE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+    // SERVIDOR OFICIAL DE GOOGLE MAPS (ROADMAP DE CALLES - RÁPIDO Y LIBRE DE CLAVES API)
+    const GOOGLE_MAPS_TILE_URL = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
 
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
@@ -412,7 +412,7 @@
       'REPASO': '#3B82F6'
     };
 
-    // ÍCONOS SIMPLIFICADOS
+    // ÍCONOS SIMPLIFICADOS (RÁPIDOS PARA MÓVIL)
     function createCustomMarkerIcon(sec, status, showLabel = true) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
 
@@ -511,7 +511,7 @@
 
       if (matchingClients.length === 1) {
         const c = matchingClients[0];
-        map.setView([c.lat, c.lon], 18);
+        map.setView([c.lat, c.lon], 20);
 
         const uniqueKey = (mode === 'driver') 
           ? `driver_${c.sec}_${c.name}` 
@@ -522,7 +522,7 @@
         }
       } else {
         const bounds = matchingClients.map(c => [c.lat, c.lon]);
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 });
       }
     }
 
@@ -597,9 +597,9 @@
       if (tab === 'admin') {
         setTimeout(async () => {
           if (!adminMap) {
-            // CARGA DE MAPA LIBRE Y RÁPIDO
-            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 19 }).setView([-16.3988, -71.5350], 13);
-            L.tileLayer(FREE_TILE_URL, { maxZoom: 19, attribution: 'Esri' }).addTo(adminMap);
+            // CARGA DE GOOGLE MAPS
+            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
+            L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(adminMap);
           }
           adminMap.invalidateSize();
           await loadAvailableRoutesInSelect();
@@ -811,9 +811,9 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        // MAPA LIBRE SIN API KEY
-        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 19 }).setView([-16.3988, -71.5350], 13);
-        L.tileLayer(FREE_TILE_URL, { maxZoom: 19, attribution: 'Esri' }).addTo(driverMap);
+        // CARGA DE GOOGLE MAPS EN CHOFER
+        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
+        L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(driverMap);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
 
