@@ -43,13 +43,13 @@
 
     /* Animación del GPS en vivo del chofer */
     @keyframes pulseDriverDot {
-      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
-      70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
-      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+      0% { transform: scale(0.9); opacity: 0.8; }
+      70% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.8; }
     }
     .driver-self-marker {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       background-color: #2563EB;
       border: 2px solid #FFFFFF;
       border-radius: 50%;
@@ -386,6 +386,9 @@
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
+    // URL DEL MAPA ULTRA-LIGERO (CARTO POSITRON - RÁPIDO Y MINIMALISTA)
+    const LIGHT_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
       authDomain: "courier-4ecda.firebaseapp.com",
@@ -409,79 +412,46 @@
       'REPASO': '#3B82F6'
     };
 
+    // ÍCONOS SIMPLIFICADOS (SIN SOMBRAS PESADAS PARA EVITAR LAG)
     function createCustomMarkerIcon(sec, status, showLabel = true) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
 
       if (!showLabel) {
         return L.divIcon({
           className: 'custom-map-marker',
-          html: `
-            <div style="
-              width: 10px; 
-              height: 10px; 
-              border-radius: 50%; 
-              background-color: ${statusColor}; 
-              border: 1.5px solid #ffffff; 
-              box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-            "></div>
-          `,
-          iconSize: [10, 10],
-          iconAnchor: [5, 5]
+          html: `<div style="width:8px;height:8px;border-radius:50%;background-color:${statusColor};border:1px solid #ffffff;"></div>`,
+          iconSize: [8, 8],
+          iconAnchor: [4, 4]
         });
       }
 
       return L.divIcon({
         className: 'custom-map-marker',
         html: `
-          <div style="display: flex; align-items: center; gap: 2px; pointer-events: auto;">
-            <div style="
-              width: 12px; 
-              height: 12px; 
-              border-radius: 50%; 
-              background-color: ${statusColor}; 
-              border: 1.5px solid #ffffff; 
-              box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-              flex-shrink: 0;
-            "></div>
-            <span style="
-              background: rgba(255,255,255,0.92); 
-              color: #1f2937; 
-              font-weight: 700; 
-              font-size: 9px; 
-              padding: 0px 3px; 
-              border-radius: 3px; 
-              border: 1px solid #e5e7eb;
-              box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-              white-space: nowrap;
-              line-height: 12px;
-            ">${sec}</span>
+          <div style="display:flex;align-items:center;gap:1px;pointer-events:auto;">
+            <div style="width:10px;height:10px;border-radius:50%;background-color:${statusColor};border:1px solid #ffffff;flex-shrink:0;"></div>
+            <span style="background:#ffffff;color:#111827;font-weight:700;font-size:9px;padding:0 2px;border-radius:2px;border:1px solid #d1d5db;white-space:nowrap;line-height:10px;">${sec}</span>
           </div>
         `,
-        iconSize: [38, 14],
-        iconAnchor: [6, 7]
+        iconSize: [32, 12],
+        iconAnchor: [5, 6]
       });
     }
 
-    // FUNCION DE DISPERSION (JITTER) PARA PUNTOS SUPERPUESTOS
+    // DISPERSIÓN (JITTER) DE PUNTOS CERCANOS
     function applyJitter(clients) {
-      const offset = 0.00015; // Distancia aproximada de separación (unos 15-20 metros)
+      const offset = 0.00015;
       const coordMap = {};
 
       clients.forEach(c => {
         if (!c.lat || !c.lon) return;
-        
-        // Truncamos las coordenadas para identificar si están en el mismo punto exacto o muy muy cerca
         const key = `${c.lat.toFixed(4)}_${c.lon.toFixed(4)}`; 
-        
-        if (!coordMap[key]) {
-          coordMap[key] = [];
-        }
+        if (!coordMap[key]) coordMap[key] = [];
         coordMap[key].push(c);
       });
 
       Object.values(coordMap).forEach(group => {
         if (group.length > 1) {
-          // Si hay varios en el mismo sitio, los distribuimos en un círculo
           const angleStep = (2 * Math.PI) / group.length;
           group.forEach((client, index) => {
             const angle = index * angleStep;
@@ -536,14 +506,12 @@
         return;
       }
 
-      // Desplaza la pantalla suavemente hacia el mapa
       const mapElementId = (mode === 'driver') ? 'driverMap' : 'adminMap';
       document.getElementById(mapElementId).scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Si es solo 1 cliente
       if (matchingClients.length === 1) {
         const c = matchingClients[0];
-        map.setView([c.lat, c.lon], 20); // Zoom máximo al enfocar 1 solo punto
+        map.setView([c.lat, c.lon], 20);
 
         const uniqueKey = (mode === 'driver') 
           ? `driver_${c.sec}_${c.name}` 
@@ -553,7 +521,6 @@
           markers[uniqueKey].openPopup();
         }
       } else {
-        // Si hay múltiples clientes
         const bounds = matchingClients.map(c => [c.lat, c.lon]);
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 19 });
       }
@@ -630,9 +597,9 @@
       if (tab === 'admin') {
         setTimeout(async () => {
           if (!adminMap) {
-            // Aumentamos el maxZoom de 19 a 22 para poder acercarse más a los puntos superpuestos
-            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 22 }).setView([-16.3988, -71.5350], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22 }).addTo(adminMap);
+            // MAPA ULTRA-RÁPIDO Y LIGERO
+            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
+            L.tileLayer(LIGHT_TILE_URL, { maxZoom: 20, subdomains: 'abcd', attribution: 'CARTO' }).addTo(adminMap);
           }
           adminMap.invalidateSize();
           await loadAvailableRoutesInSelect();
@@ -844,8 +811,9 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 22 }).setView([-16.3988, -71.5350], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22 }).addTo(driverMap);
+        // MAPA ULTRA-RÁPIDO MÓVIL
+        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
+        L.tileLayer(LIGHT_TILE_URL, { maxZoom: 20, subdomains: 'abcd', attribution: 'CARTO' }).addTo(driverMap);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
 
@@ -894,8 +862,8 @@
             const selfIcon = L.divIcon({
               className: 'custom-map-marker',
               html: `<div class="driver-self-marker" title="Tu ubicación actual"></div>`,
-              iconSize: [16, 16],
-              iconAnchor: [8, 8]
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
             });
 
             if (!driverSelfMarker) {
@@ -1032,8 +1000,7 @@
 
       document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
 
-      // Aplica dispersión si hay puntos muy juntos
-      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clientsToRender))); // Copia para no mutar base de datos
+      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clientsToRender)));
 
       jitteredClients.forEach((c) => {
         const originalIndex = currentClientsData.findIndex(item => item.sec === c.sec && item.name === c.name);
@@ -1159,7 +1126,7 @@
             driverMapMarkers[uniqueKey] = marker;
           } else {
             driverMapMarkers[uniqueKey].setIcon(markerIcon);
-            driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]); // Actualiza la posición dispersa
+            driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
           }
 
           bounds.push([c.lat, c.lon]);
@@ -1337,7 +1304,7 @@
       const bounds = [];
       const currentKeys = new Set();
 
-      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clients))); // Aplica dispersión visual
+      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clients)));
 
       jitteredClients.forEach(c => {
         if (!c.lat || !c.lon) return;
@@ -1513,7 +1480,7 @@
 
           if (!allTruckMarkers[routeCode]) {
             const truckIcon = L.divIcon({
-              html: `<div style="background:#4F46E5;color:white;padding:3px 7px;border-radius:10px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:10px;font-weight:bold;white-space:nowrap;display:flex;align-items:center;gap:3px;"><i class="fa-solid fa-truck"></i> ${routeCode}</div>`,
+              html: `<div style="background:#4F46E5;color:white;padding:3px 7px;border-radius:10px;border:2px solid white;font-size:10px;font-weight:bold;white-space:nowrap;display:flex;align-items:center;gap:3px;"><i class="fa-solid fa-truck"></i> ${routeCode}</div>`,
               className: '',
               iconSize: [50, 22]
             });
