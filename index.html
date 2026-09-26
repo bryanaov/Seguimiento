@@ -386,8 +386,8 @@
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
-    // URL DEL MAPA ULTRA-LIGERO (CARTO POSITRON - RÁPIDO Y MINIMALISTA)
-    const LIGHT_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    // SERVIDOR DE MAPAS 100% GRATUITO Y LIBRE DE API KEY (ESRI WORLD STREET MAP)
+    const FREE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
 
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
@@ -412,7 +412,7 @@
       'REPASO': '#3B82F6'
     };
 
-    // ÍCONOS SIMPLIFICADOS (SIN SOMBRAS PESADAS PARA EVITAR LAG)
+    // ÍCONOS SIMPLIFICADOS
     function createCustomMarkerIcon(sec, status, showLabel = true) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
 
@@ -511,7 +511,7 @@
 
       if (matchingClients.length === 1) {
         const c = matchingClients[0];
-        map.setView([c.lat, c.lon], 20);
+        map.setView([c.lat, c.lon], 18);
 
         const uniqueKey = (mode === 'driver') 
           ? `driver_${c.sec}_${c.name}` 
@@ -522,7 +522,7 @@
         }
       } else {
         const bounds = matchingClients.map(c => [c.lat, c.lon]);
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 19 });
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
       }
     }
 
@@ -597,9 +597,9 @@
       if (tab === 'admin') {
         setTimeout(async () => {
           if (!adminMap) {
-            // MAPA ULTRA-RÁPIDO Y LIGERO
-            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
-            L.tileLayer(LIGHT_TILE_URL, { maxZoom: 20, subdomains: 'abcd', attribution: 'CARTO' }).addTo(adminMap);
+            // CARGA DE MAPA LIBRE Y RÁPIDO
+            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 19 }).setView([-16.3988, -71.5350], 13);
+            L.tileLayer(FREE_TILE_URL, { maxZoom: 19, attribution: 'Esri' }).addTo(adminMap);
           }
           adminMap.invalidateSize();
           await loadAvailableRoutesInSelect();
@@ -811,9 +811,9 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        // MAPA ULTRA-RÁPIDO MÓVIL
-        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
-        L.tileLayer(LIGHT_TILE_URL, { maxZoom: 20, subdomains: 'abcd', attribution: 'CARTO' }).addTo(driverMap);
+        // MAPA LIBRE SIN API KEY
+        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 19 }).setView([-16.3988, -71.5350], 13);
+        L.tileLayer(FREE_TILE_URL, { maxZoom: 19, attribution: 'Esri' }).addTo(driverMap);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
 
