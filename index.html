@@ -163,12 +163,22 @@
           </div>
         </div>
 
-        <!-- MAPA MÓVIL CHOFER CON BOTÓN AGRANDAR -->
+        <!-- MAPA MÓVIL CHOFER CON OPCIÓN DE OCULTAR / TRANSPARENTAR VISITADOS -->
         <div class="bg-white p-3 rounded-xl shadow space-y-2">
-          <div class="flex justify-between items-center">
+          <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
               <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta (Punto azul = Tu Ubicación)
             </h4>
+            
+            <!-- SELECTOR DE VISIBILIDAD DE PUNTOS VISITADOS -->
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+              <label for="driverVisitedVisibility" class="text-xs font-bold text-gray-600 whitespace-nowrap">Puntos Visitados:</label>
+              <select id="driverVisitedVisibility" onchange="applyDriverFilters()" class="text-xs font-extrabold border rounded-lg px-2.5 py-1 bg-gray-50 text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                <option value="show">👁️ Mostrar Todos</option>
+                <option value="translucent">👻 Semitransparentes</option>
+                <option value="hide">🙈 Ocultar Visitados (Solo Pendientes)</option>
+              </select>
+            </div>
           </div>
 
           <div class="relative">
@@ -412,7 +422,7 @@
       'REPASO': '#3B82F6'
     };
 
-    // ÍCONOS SIMPLIFICADOS (RÁPIDOS PARA MÓVIL)
+    // ÍCONOS SIMPLIFICADOS
     function createCustomMarkerIcon(sec, status, showLabel = true) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
 
@@ -597,7 +607,6 @@
       if (tab === 'admin') {
         setTimeout(async () => {
           if (!adminMap) {
-            // CARGA DE GOOGLE MAPS
             adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
             L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(adminMap);
           }
@@ -811,7 +820,6 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        // CARGA DE GOOGLE MAPS EN CHOFER
         driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
         L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(driverMap);
       }
@@ -998,19 +1006,22 @@
       const bounds = [];
       const currentKeys = new Set();
 
+      const visitedModeSelect = document.getElementById('driverVisitedVisibility');
+      const visitedMode = visitedModeSelect ? visitedModeSelect.value : 'show';
+
       document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
 
       const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clientsToRender)));
 
       jitteredClients.forEach((c) => {
-        const originalIndex = currentClientsData.findIndex(item => item.sec === c.sec && item.name === c.name);
+        const secId = c.sec;
         const uniqueKey = `driver_${c.sec}_${c.name}`;
-        currentKeys.add(uniqueKey);
 
         let statusKey = c.estado || 'PENDIENTE';
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
         let clientPhotos = c.photos || (c.photo ? [c.photo] : []);
+        const isVisited = (statusKey !== 'PENDIENTE');
 
         let repasoHtml = '';
         if (statusKey === 'REPASO') {
@@ -1021,10 +1032,10 @@
             <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-bold text-blue-900"><i class="fa-solid fa-rotate-right"></i> ¿Repaso Confirmado?:</span>
               <div class="flex gap-1">
-                <button onclick="updateRepasoConfirm(${originalIndex}, 'APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${aptoClass}">
+                <button onclick="updateRepasoConfirm(${secId}, 'APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${aptoClass}">
                   👍 APTO
                 </button>
-                <button onclick="updateRepasoConfirm(${originalIndex}, 'NO APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${noAptoClass}">
+                <button onclick="updateRepasoConfirm(${secId}, 'NO APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${noAptoClass}">
                   👎 NO APTO
                 </button>
               </div>
@@ -1047,7 +1058,7 @@
           <!-- MOTIVO Y MULTI FOTOS DE EVIDENCIA -->
           <div class="bg-white p-2.5 rounded-lg border space-y-2 mt-2">
             <div class="flex gap-2 items-center">
-              <select id="obsSelect_${originalIndex}" onchange="updateClientObs(${originalIndex}, this.value)" class="w-full text-xs font-semibold border rounded-lg px-2 py-1 bg-gray-50 outline-none">
+              <select id="obsSelect_${secId}" onchange="updateClientObs(${secId}, this.value)" class="w-full text-xs font-semibold border rounded-lg px-2 py-1 bg-gray-50 outline-none">
                 <option value="" ${!c.obs ? 'selected' : ''}>-- Seleccionar Motivo / Observación --</option>
                 <option value="Sin dinero" ${c.obs === 'Sin dinero' ? 'selected' : ''}>💵 Sin dinero</option>
                 <option value="Cliente rechazó" ${c.obs === 'Cliente rechazó' ? 'selected' : ''}>❌ Cliente rechazó / Rechazado</option>
@@ -1060,10 +1071,10 @@
 
             <div class="space-y-2">
               <div class="flex items-center justify-between gap-2 flex-wrap">
-                <label for="cameraInput_${originalIndex}" class="cursor-pointer px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                <label for="cameraInput_${secId}" class="cursor-pointer px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
                   <i class="fa-solid fa-camera text-indigo-600"></i> ${clientPhotos.length > 0 ? '📷 Agregar Otra Foto' : '📷 Tomar Foto Evidencia'}
                 </label>
-                <input type="file" id="cameraInput_${originalIndex}" accept="image/*" capture="environment" onchange="uploadPhotoEvidence(${originalIndex}, this)" class="hidden">
+                <input type="file" id="cameraInput_${secId}" accept="image/*" capture="environment" onchange="uploadPhotoEvidence(${secId}, this)" class="hidden">
                 
                 <span class="text-xs font-bold text-gray-500">${clientPhotos.length} foto(s) subida(s)</span>
               </div>
@@ -1073,8 +1084,8 @@
                 <div class="flex flex-wrap gap-2 pt-2 border-t">
                   ${clientPhotos.map((imgSrc, pIdx) => `
                     <div class="relative group">
-                      <img src="${imgSrc}" onclick="openPhotoModalByClientIndex(${originalIndex})" class="w-14 h-14 object-cover rounded-lg border border-indigo-300 shadow-sm cursor-pointer hover:opacity-80">
-                      <button onclick="deletePhotoEvidence(${originalIndex}, ${pIdx})" class="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black shadow hover:bg-rose-700 transition" title="Borrar foto">✕</button>
+                      <img src="${imgSrc}" onclick="openPhotoModalByClientIndex(${secId})" class="w-14 h-14 object-cover rounded-lg border border-indigo-300 shadow-sm cursor-pointer hover:opacity-80">
+                      <button onclick="deletePhotoEvidence(${secId}, ${pIdx})" class="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black shadow hover:bg-rose-700 transition" title="Borrar foto">✕</button>
                     </div>
                   `).join('')}
                 </div>
@@ -1083,13 +1094,13 @@
           </div>
 
           <div class="flex flex-wrap gap-2 pt-2 border-t items-center">
-            <a href="https://waze.com/ul?ll=${currentClientsData[originalIndex].lat},${currentClientsData[originalIndex].lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
+            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
               <i class="fa-brands fa-waze"></i> Waze
             </a>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${currentClientsData[originalIndex].lat},${currentClientsData[originalIndex].lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
               <i class="fa-solid fa-map-pin"></i> Maps
             </a>
-            <select onchange="updateClientStatus(${originalIndex}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
+            <select onchange="updateClientStatus(${secId}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
               <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
               <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
               <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
@@ -1101,38 +1112,51 @@
         `;
         listContainer.appendChild(card);
 
+        // LÓGICA DE DIBUJO EN EL MAPA RESPETANDO MODO DE VISITADOS
         if (c.lat && c.lon) {
+          if (visitedMode === 'hide' && isVisited) {
+            // Se omite dibujar el marcador si se eligió ocultar visitados
+            return;
+          }
+
+          currentKeys.add(uniqueKey);
           const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
-          
-          if (!driverMapMarkers[uniqueKey]) {
-            const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
-            marker.bindPopup(`
-              <div class="space-y-1">
-                <b>${c.sec} · ${c.name}</b><br>
-                <span class="text-xs text-gray-600">${c.domicilio}</span><br>
-                <div class="pt-1">
-                  <label class="text-xs font-bold">Cambiar Estado:</label>
-                  <select onchange="updateClientStatus(${originalIndex}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
-                    <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
-                    <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                    <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
-                    <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
-                    <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
-                    <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
-                  </select>
-                </div>
+          const markerOpacity = (visitedMode === 'translucent' && isVisited) ? 0.3 : 1.0;
+
+          const popupHtml = `
+            <div class="space-y-1">
+              <b>${c.sec} · ${c.name}</b><br>
+              <span class="text-xs text-gray-600">${c.domicilio}</span><br>
+              <div class="pt-1">
+                <label class="text-xs font-bold">Cambiar Estado:</label>
+                <select onchange="updateClientStatus(${secId}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
+                  <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+                  <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+                  <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
+                  <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
+                  <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
+                  <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
+                </select>
               </div>
-            `);
+            </div>
+          `;
+
+          if (!driverMapMarkers[uniqueKey]) {
+            const marker = L.marker([c.lat, c.lon], { icon: markerIcon, opacity: markerOpacity }).addTo(driverMap);
+            marker.bindPopup(popupHtml);
             driverMapMarkers[uniqueKey] = marker;
           } else {
             driverMapMarkers[uniqueKey].setIcon(markerIcon);
             driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
+            driverMapMarkers[uniqueKey].setOpacity(markerOpacity);
+            driverMapMarkers[uniqueKey].setPopupContent(popupHtml);
           }
 
           bounds.push([c.lat, c.lon]);
         }
       });
 
+      // Limpiar marcadores viejos o los ocultados por filtro
       Object.keys(driverMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
           driverMap.removeLayer(driverMapMarkers[k]);
@@ -1146,8 +1170,11 @@
       }
     }
 
-    async function updateClientStatus(index, newStatus) {
-      if (!currentDocId || !currentClientsData[index]) return;
+    async function updateClientStatus(sec, newStatus) {
+      if (!currentDocId || !currentClientsData) return;
+
+      const index = currentClientsData.findIndex(c => c.sec == sec);
+      if (index === -1) return;
 
       currentClientsData[index].estado = newStatus;
       if (newStatus === 'ENTREGADO') {
@@ -1160,8 +1187,11 @@
       });
     }
 
-    async function updateClientObs(index, newObs) {
-      if (!currentDocId || !currentClientsData[index]) return;
+    async function updateClientObs(sec, newObs) {
+      if (!currentDocId || !currentClientsData) return;
+
+      const index = currentClientsData.findIndex(c => c.sec == sec);
+      if (index === -1) return;
 
       currentClientsData[index].obs = newObs;
 
@@ -1171,8 +1201,11 @@
       });
     }
 
-    function uploadPhotoEvidence(index, input) {
+    function uploadPhotoEvidence(sec, input) {
       if (!input.files || !input.files[0]) return;
+
+      const index = currentClientsData.findIndex(c => c.sec == sec);
+      if (index === -1) return;
 
       const file = input.files[0];
       const reader = new FileReader();
@@ -1213,8 +1246,12 @@
       reader.readAsDataURL(file);
     }
 
-    async function deletePhotoEvidence(index, photoIdx) {
-      if (!currentDocId || !currentClientsData[index]) return;
+    async function deletePhotoEvidence(sec, photoIdx) {
+      if (!currentDocId || !currentClientsData) return;
+
+      const index = currentClientsData.findIndex(c => c.sec == sec);
+      if (index === -1) return;
+
       if (!confirm("¿Estás seguro de borrar esta foto de evidencia?")) return;
 
       let photos = currentClientsData[index].photos || (currentClientsData[index].photo ? [currentClientsData[index].photo] : []);
@@ -1228,8 +1265,8 @@
       });
     }
 
-    function openPhotoModalByClientIndex(idx) {
-      const client = currentClientsData[idx];
+    function openPhotoModalByClientIndex(sec) {
+      const client = currentClientsData.find(c => c.sec == sec);
       if (client) showPhotoGalleryModal(client);
     }
 
@@ -1257,8 +1294,11 @@
       document.getElementById('photoModal').classList.add('hidden');
     }
 
-    async function updateRepasoConfirm(index, confirmValue) {
-      if (!currentDocId || !currentClientsData[index]) return;
+    async function updateRepasoConfirm(sec, confirmValue) {
+      if (!currentDocId || !currentClientsData) return;
+
+      const index = currentClientsData.findIndex(c => c.sec == sec);
+      if (index === -1) return;
 
       currentClientsData[index].repasoConfirm = confirmValue;
 
