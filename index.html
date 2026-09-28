@@ -20,7 +20,6 @@
   <style>
     .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; }
     
-    /* Estilo para expandir mapa a pantalla completa en celular */
     .map-container-fullscreen {
       position: fixed !important;
       top: 0 !important;
@@ -41,7 +40,6 @@
     
     .custom-map-marker { background: none; border: none; }
 
-    /* Animación del GPS en vivo del chofer */
     @keyframes pulseDriverDot {
       0% { transform: scale(0.9); opacity: 0.8; }
       70% { transform: scale(1.1); opacity: 1; }
@@ -163,27 +161,23 @@
           </div>
         </div>
 
-        <!-- MAPA MÓVIL CHOFER CON OPCIÓN DE OCULTAR / TRANSPARENTAR VISITADOS -->
+        <!-- MAPA MÓVIL CHOFER CON CASILLA CHECKBOX -->
         <div class="bg-white p-3 rounded-xl shadow space-y-2">
           <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
               <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta (Punto azul = Tu Ubicación)
             </h4>
             
-            <!-- SELECTOR DE VISIBILIDAD DE PUNTOS VISITADOS -->
-            <div class="flex items-center gap-2 self-end sm:self-auto">
-              <label for="driverVisitedVisibility" class="text-xs font-bold text-gray-600 whitespace-nowrap">Puntos Visitados:</label>
-              <select id="driverVisitedVisibility" onchange="applyDriverFilters()" class="text-xs font-extrabold border rounded-lg px-2.5 py-1 bg-gray-50 text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
-                <option value="show">👁️ Mostrar Todos</option>
-                <option value="translucent">👻 Semitransparentes</option>
-                <option value="hide">🙈 Ocultar Visitados (Solo Pendientes)</option>
-              </select>
+            <div class="flex items-center gap-2 self-end sm:self-auto bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer">
+              <label for="chkHideVisited" class="text-xs font-extrabold text-indigo-700 cursor-pointer select-none">
+                🙈 Ocultar Atendidos / Visitados
+              </label>
             </div>
           </div>
 
           <div class="relative">
             <div id="driverMap" class="map-container"></div>
-            <!-- BOTÓN FLOTANTE PANTALLA COMPLETA -->
             <button id="btnExpandDriverMap" onclick="toggleExpandMap('driverMap', 'btnExpandDriverMap')" class="absolute top-2 right-2 z-[100000] px-3 py-1.5 bg-white/95 hover:bg-white text-indigo-700 border border-gray-300 rounded-lg text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
               <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
             </button>
@@ -381,7 +375,7 @@
   </main>
 
   <!-- MODAL GALERÍA VISUALIZADORA DE FOTOS DE EVIDENCIA -->
-  <div id="photoModal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+  <div id="photoModal" class="hidden fixed inset-0 bg-black/80 z-[100001] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-4 max-w-lg w-full space-y-3 shadow-2xl relative">
       <div class="flex justify-between items-center border-b pb-2">
         <h3 id="photoModalTitle" class="font-bold text-gray-800 text-sm">Fotos de Evidencia</h3>
@@ -396,7 +390,6 @@
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
-    // SERVIDOR OFICIAL DE GOOGLE MAPS (ROADMAP DE CALLES - RÁPIDO Y LIBRE DE CLAVES API)
     const GOOGLE_MAPS_TILE_URL = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
 
     const firebaseConfig = {
@@ -422,7 +415,6 @@
       'REPASO': '#3B82F6'
     };
 
-    // ÍCONOS SIMPLIFICADOS
     function createCustomMarkerIcon(sec, status, showLabel = true) {
       const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
 
@@ -448,7 +440,6 @@
       });
     }
 
-    // DISPERSIÓN (JITTER) DE PUNTOS CERCANOS
     function applyJitter(clients) {
       const offset = 0.00015;
       const coordMap = {};
@@ -495,7 +486,6 @@
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
-    // HACE ZOOM AL TOCAR CUALQUIERA DE LAS TARJETAS DE RESUMEN
     function zoomToStatus(targetStatus, mode) {
       const map = (mode === 'driver') ? driverMap : adminMap;
       const markers = (mode === 'driver') ? driverMapMarkers : adminMapMarkers;
@@ -536,7 +526,6 @@
       }
     }
 
-    // AGRANDAR / REDUCIR MAPA EN PANTALLA COMPLETA
     function toggleExpandMap(mapId, btnId) {
       const mapEl = document.getElementById(mapId);
       const btn = document.getElementById(btnId);
@@ -999,6 +988,26 @@
       renderDriverClientsAndMap(filtered);
     }
 
+    // ENVÍO DE NOTIFICACIÓN PRE-FORMATEADA A WHATSAPP
+    function sendWhatsAppNotification(sec) {
+      const client = currentClientsData.find(c => c.sec == sec);
+      if (!client) return;
+
+      const statusKey = client.estado || 'PENDIENTE';
+      const photosCount = client.photos ? client.photos.length : (client.photo ? 1 : 0);
+
+      const message = `🚨 *ALERTA DE ${statusKey}* 🚨\n` +
+        `🚛 *Transporte / Ruta:* ${currentRouteCode || client.tpt || 'S/R'}\n` +
+        `👤 *Cliente:* #${client.sec} - ${client.name}\n` +
+        `📍 *Dirección:* ${client.domicilio}\n` +
+        `💵 *Monto:* S/ ${client.subtotal || '0.00'}\n` +
+        `📌 *Motivo:* ${client.obs || 'Sin motivo registrado'}\n` +
+        `📷 *Evidencias:* ${photosCount} foto(s) guardada(s) en sistema`;
+
+      const encodedMessage = encodeURIComponent(message);
+      window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
+    }
+
     function renderDriverClientsAndMap(clientsToRender) {
       const listContainer = document.getElementById('driverClientsList');
       listContainer.innerHTML = '';
@@ -1006,8 +1015,7 @@
       const bounds = [];
       const currentKeys = new Set();
 
-      const visitedModeSelect = document.getElementById('driverVisitedVisibility');
-      const visitedMode = visitedModeSelect ? visitedModeSelect.value : 'show';
+      const hideVisited = document.getElementById('chkHideVisited') ? document.getElementById('chkHideVisited').checked : false;
 
       document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
 
@@ -1042,6 +1050,8 @@
             </div>
           `;
         }
+
+        const showWhatsAppBtn = (statusKey === 'RECHAZADO' || statusKey === 'PARCIAL' || statusKey === 'OTRO MOTIVO');
 
         const card = document.createElement('div');
         card.className = "border rounded-xl p-4 bg-gray-50 space-y-2 shadow-sm";
@@ -1093,6 +1103,15 @@
             </div>
           </div>
 
+          <!-- BOTÓN DIRECTO DE NOTIFICAR A WHATSAPP SI HAY RECHAZO O PARCIAL -->
+          ${showWhatsAppBtn ? `
+            <div class="pt-1">
+              <button onclick="sendWhatsAppNotification(${secId})" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg shadow flex items-center justify-center gap-2 transition">
+                <i class="fa-brands fa-whatsapp text-sm"></i> 📲 Notificar ${statusKey} al Grupo de WhatsApp
+              </button>
+            </div>
+          ` : ''}
+
           <div class="flex flex-wrap gap-2 pt-2 border-t items-center">
             <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
               <i class="fa-brands fa-waze"></i> Waze
@@ -1112,16 +1131,13 @@
         `;
         listContainer.appendChild(card);
 
-        // LÓGICA DE DIBUJO EN EL MAPA RESPETANDO MODO DE VISITADOS
         if (c.lat && c.lon) {
-          if (visitedMode === 'hide' && isVisited) {
-            // Se omite dibujar el marcador si se eligió ocultar visitados
+          if (hideVisited && isVisited) {
             return;
           }
 
           currentKeys.add(uniqueKey);
           const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
-          const markerOpacity = (visitedMode === 'translucent' && isVisited) ? 0.3 : 1.0;
 
           const popupHtml = `
             <div class="space-y-1">
@@ -1142,13 +1158,12 @@
           `;
 
           if (!driverMapMarkers[uniqueKey]) {
-            const marker = L.marker([c.lat, c.lon], { icon: markerIcon, opacity: markerOpacity }).addTo(driverMap);
+            const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
             marker.bindPopup(popupHtml);
             driverMapMarkers[uniqueKey] = marker;
           } else {
             driverMapMarkers[uniqueKey].setIcon(markerIcon);
             driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
-            driverMapMarkers[uniqueKey].setOpacity(markerOpacity);
             driverMapMarkers[uniqueKey].setPopupContent(popupHtml);
           }
 
@@ -1156,7 +1171,6 @@
         }
       });
 
-      // Limpiar marcadores viejos o los ocultados por filtro
       Object.keys(driverMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
           driverMap.removeLayer(driverMapMarkers[k]);
@@ -1275,17 +1289,17 @@
       const container = document.getElementById('photoGalleryContainer');
       
       if (photos.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-400 text-center">No hay fotos de evidencia.</p>`;
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">Sin fotos de evidencia subidas.</p>`;
       } else {
         container.innerHTML = photos.map((p, idx) => `
-          <div class="space-y-1">
+          <div class="space-y-1 border-b pb-2">
             <span class="text-xs font-bold text-gray-700 block">📷 Foto ${idx + 1} de ${photos.length}:</span>
             <img src="${p}" class="w-full rounded-xl border border-gray-300 object-contain max-h-[50vh]">
           </div>
         `).join('');
       }
 
-      document.getElementById('photoModalTitle').innerText = `Evidencias: ${client.name}`;
+      document.getElementById('photoModalTitle').innerText = `Evidencias: ${client.name} (Ruta: ${client.tpt || 'S/R'} - Sec: ${client.sec})`;
       document.getElementById('photoModalObs').innerText = client.obs ? `Motivo / Obs: ${client.obs}` : 'Sin observación registrada.';
       document.getElementById('photoModal').classList.remove('hidden');
     }
@@ -1340,6 +1354,15 @@
       }
     }
 
+    function openAdminPhotoModal(tpt, sec) {
+      const client = adminCurrentRawClients.find(c => (c.tpt == tpt || !tpt) && c.sec == sec);
+      if (client) {
+        showPhotoGalleryModal(client);
+      } else {
+        alert("No se encontró la información del cliente.");
+      }
+    }
+
     function renderAdminMapPoints(clients, showLabels = true) {
       const bounds = [];
       const currentKeys = new Set();
@@ -1367,7 +1390,7 @@
             <b>Monto:</b> S/ ${c.subtotal || '0.00'}<br>
             <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey}</span><br>
             ${c.obs ? `<b>Motivo:</b> ${c.obs}<br>` : ''}
-            ${photoCount > 0 ? `<button onclick="showPhotoGalleryModalByName('${c.sec}', '${c.name}')" class="mt-1 px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold">Ver ${photoCount} Foto(s)</button>` : ''}
+            ${photoCount > 0 ? `<button onclick="openAdminPhotoModal('${c.tpt}', '${c.sec}')" class="mt-1 px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold shadow-sm hover:bg-indigo-700">Ver ${photoCount} Foto(s)</button>` : ''}
           `);
           adminMapMarkers[uniqueKey] = marker;
         } else {
@@ -1389,11 +1412,6 @@
         adminMap.fitBounds(bounds, { padding: [30, 30] });
         adminMapInitialFit = true;
       }
-    }
-
-    function showPhotoGalleryModalByName(sec, name) {
-      const client = adminCurrentRawClients.find(c => c.sec == sec && c.name == name);
-      if (client) showPhotoGalleryModal(client);
     }
 
     function renderAdminClientsTable(clients) {
@@ -1437,7 +1455,7 @@
               ${c.obs ? `<div class="text-[10px] text-gray-500 font-bold mt-0.5">📌 ${c.obs}</div>` : ''}
             </td>
             <td class="p-2">
-              ${photoCount > 0 ? `<button onclick="showPhotoGalleryModalByName('${c.sec}', '${c.name}')" class="px-2 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold flex items-center gap-1"><i class="fa-solid fa-images"></i> Ver ${photoCount} foto(s)</button>` : '<span class="text-gray-400 text-[11px]">---</span>'}
+              ${photoCount > 0 ? `<button onclick="openAdminPhotoModal('${c.tpt}', '${c.sec}')" class="px-2 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-images"></i> Ver ${photoCount} foto(s)</button>` : '<span class="text-gray-400 text-[11px]">---</span>'}
             </td>
             <td class="p-2 font-mono text-gray-500 text-[11px]">${c.horaEntrega || '---'}</td>
           </tr>
