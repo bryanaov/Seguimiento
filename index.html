@@ -985,7 +985,6 @@
       renderDriverClientsAndMap(filtered);
     }
 
-    // ENVÍO EXACTO SOLICITADO: SOLO RUTA, CLIENTE Y MOTIVO
     function sendWhatsAppNotification(sec) {
       const client = currentClientsData.find(c => c.sec == sec);
       if (!client) return;
@@ -1104,12 +1103,22 @@
           const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
 
           const popupHtml = `
-            <div class="space-y-1">
-              <b>${c.sec} · ${c.name}</b><br>
-              <span class="text-xs text-gray-600">${c.domicilio}</span><br>
-              <div class="pt-1">
-                <label class="text-xs font-bold">Cambiar Estado:</label>
-                <select onchange="updateClientStatus(${secId}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
+            <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 190px;">
+              <div style="font-weight: bold; font-size: 13px; margin-bottom: 6px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; color: #3730a3;">
+                ${c.sec} · ${c.name}
+              </div>
+              <div><b>SEC:</b> ${c.sec}</div>
+              <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
+              <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
+              <div><b>TPT (Ruta):</b> ${c.tpt || currentRouteCode || '---'}</div>
+              <div><b>RAZON SOCIAL:</b> ${c.name}</div>
+              <div><b>DOMICILIO:</b> ${c.domicilio}</div>
+              <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
+              ${c.obs ? `<div style="color: #6b21a8; margin-top: 2px;"><b>MOTIVO:</b> ${c.obs}</div>` : ''}
+              
+              <div style="margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 2px;">Cambiar Estado:</label>
+                <select onchange="updateClientStatus(${secId}, this.value)" style="font-size: 11px; font-weight: bold; border: 1px solid #d1d5db; border-radius: 4px; padding: 3px; width: 100%; background-color: #fff;">
                   <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
                   <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
                   <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
@@ -1243,19 +1252,31 @@
 
         const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
 
+        const popupHtml = `
+          <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 190px;">
+            <div style="font-weight: bold; font-size: 13px; margin-bottom: 6px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; color: #3730a3;">
+              ${c.sec} · ${c.name}
+            </div>
+            <div><b>SEC:</b> ${c.sec}</div>
+            <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
+            <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
+            <div><b>TPT (Ruta):</b> ${c.tpt || 'S/R'}</div>
+            <div><b>RAZON SOCIAL:</b> ${c.name}</div>
+            <div><b>DOMICILIO:</b> ${c.domicilio}</div>
+            <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
+            <div style="margin-top: 4px;"><b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey}</span></div>
+            ${c.obs ? `<div style="color: #6b21a8; margin-top: 2px;"><b>MOTIVO:</b> ${c.obs}</div>` : ''}
+          </div>
+        `;
+
         if (!adminMapMarkers[uniqueKey]) {
           const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
-          marker.bindPopup(`
-            <b>Ruta: ${c.tpt || 'S/R'} | Sec: ${c.sec} · ${c.name}</b><br>
-            <span class="text-xs text-gray-600">${c.domicilio}</span><br>
-            <b>Monto:</b> S/ ${c.subtotal || '0.00'}<br>
-            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey}</span><br>
-            ${c.obs ? `<b>Motivo:</b> ${c.obs}<br>` : ''}
-          `);
+          marker.bindPopup(popupHtml);
           adminMapMarkers[uniqueKey] = marker;
         } else {
           adminMapMarkers[uniqueKey].setIcon(icon);
           adminMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
+          adminMapMarkers[uniqueKey].setPopupContent(popupHtml);
         }
 
         bounds.push([c.lat, c.lon]);
