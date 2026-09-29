@@ -21,11 +21,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- LIBRERÍA DE OPTIMIZACIÓN CONTRA LAG (MarkerCluster) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
-  <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-
   <!-- Firebase JS SDK (Compat Mode) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -592,7 +587,6 @@
 
     let adminMap = null;
     let adminMapMarkers = {};
-    let adminClusterGroup = null; // NUEVO CLUSTER ADMIN
     let allTruckMarkers = {};
     let adminGlobalTrackingUnsubscribe = null;
     let adminRouteUnsubscribe = null;
@@ -601,7 +595,6 @@
 
     let driverMap = null;
     let driverMapMarkers = {};
-    let driverClusterGroup = null; // NUEVO CLUSTER CHOFER
     let driverSelfMarker = null;
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
@@ -719,10 +712,6 @@
           if (!adminMap) {
             adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
             L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(adminMap);
-            
-            // INICIALIZAR CLUSTER ADMIN
-            adminClusterGroup = L.markerClusterGroup({ disableClusteringAtZoom: 17, maxClusterRadius: 50 });
-            adminMap.addLayer(adminClusterGroup);
           }
           adminMap.invalidateSize();
           await loadAvailableRoutesInSelect();
@@ -889,8 +878,8 @@
       document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
       document.getElementById('routeKeysList').innerHTML = '<span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
       
-      // Limpiar cluster admin
-      if (adminClusterGroup) adminClusterGroup.clearLayers();
+      // Limpiar marcadores admin
+      Object.keys(adminMapMarkers).forEach(k => adminMap.removeLayer(adminMapMarkers[k]));
       adminMapMarkers = {};
 
       alert("✅ Datos eliminados correctamente.");
@@ -936,10 +925,6 @@
       if (!driverMap) {
         driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
         L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(driverMap);
-        
-        // INICIALIZAR CLUSTER CHOFER
-        driverClusterGroup = L.markerClusterGroup({ disableClusteringAtZoom: 18, maxClusterRadius: 40 });
-        driverMap.addLayer(driverClusterGroup);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
 
@@ -967,9 +952,8 @@
         driverMap.removeLayer(driverSelfMarker);
         driverSelfMarker = null;
       }
-      if (driverClusterGroup) {
-        driverClusterGroup.clearLayers();
-      }
+      
+      Object.keys(driverMapMarkers).forEach(k => driverMap.removeLayer(driverMapMarkers[k]));
       driverMapMarkers = {};
 
       document.getElementById('inputRouteCode').value = '';
@@ -1277,17 +1261,14 @@
             </div>
           `;
 
-          // OPTIMIZACIÓN CLUSTER: Actualizar en lugar de borrar y crear
           if (!driverMapMarkers[uniqueKey]) {
-            const marker = L.marker([c.lat, c.lon], { icon: markerIcon });
+            const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
             marker.bindPopup(popupHtml);
             driverMapMarkers[uniqueKey] = marker;
-            driverClusterGroup.addLayer(marker);
           } else {
-            const marker = driverMapMarkers[uniqueKey];
-            marker.setIcon(markerIcon);
-            marker.setLatLng([c.lat, c.lon]);
-            marker.setPopupContent(popupHtml);
+            driverMapMarkers[uniqueKey].setIcon(markerIcon);
+            driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
+            driverMapMarkers[uniqueKey].setPopupContent(popupHtml);
           }
 
           bounds.push([c.lat, c.lon]);
@@ -1299,7 +1280,7 @@
       // Eliminar marcadores que ya no están en la lista actual
       Object.keys(driverMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
-          driverClusterGroup.removeLayer(driverMapMarkers[k]);
+          driverMap.removeLayer(driverMapMarkers[k]);
           delete driverMapMarkers[k];
         }
       });
@@ -1541,17 +1522,14 @@
           </div>
         `;
 
-        // OPTIMIZACIÓN CLUSTER PARA ADMIN
         if (!adminMapMarkers[uniqueKey]) {
-          const marker = L.marker([c.lat, c.lon], { icon: icon });
+          const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
           marker.bindPopup(popupHtml);
           adminMapMarkers[uniqueKey] = marker;
-          adminClusterGroup.addLayer(marker);
         } else {
-          const marker = adminMapMarkers[uniqueKey];
-          marker.setIcon(icon);
-          marker.setLatLng([c.lat, c.lon]);
-          marker.setPopupContent(popupHtml);
+          adminMapMarkers[uniqueKey].setIcon(icon);
+          adminMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
+          adminMapMarkers[uniqueKey].setPopupContent(popupHtml);
         }
 
         bounds.push([c.lat, c.lon]);
@@ -1559,7 +1537,7 @@
 
       Object.keys(adminMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
-          adminClusterGroup.removeLayer(adminMapMarkers[k]);
+          adminMap.removeLayer(adminMapMarkers[k]);
           delete adminMapMarkers[k];
         }
       });
