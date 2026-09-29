@@ -172,18 +172,25 @@
           </div>
         </div>
 
-        <!-- MAPA MÓVIL CHOFER CON CASILLA CHECKBOX -->
+        <!-- MAPA MÓVIL CHOFER CON CASILLA CHECKBOX Y MODOS DE COLOR -->
         <div class="bg-white p-3 rounded-xl shadow space-y-2">
           <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta (Punto azul = Tu Ubicación)
+              <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta
             </h4>
             
-            <div class="flex items-center gap-2 self-end sm:self-auto bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer">
-              <label for="chkHideVisited" class="text-xs font-extrabold text-indigo-700 cursor-pointer select-none">
-                🙈 Ocultar Atendidos / Visitados
-              </label>
+            <div class="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+              <!-- BOTÓN DE MODO COLOR EN MAPA -->
+              <button onclick="toggleColorMode('driver')" id="btnDriverColorMode" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold hover:bg-indigo-100 transition shadow-sm">
+                🎨 Color: Por Estado
+              </button>
+
+              <div class="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
+                <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer">
+                <label for="chkHideVisited" class="text-xs font-extrabold text-indigo-700 cursor-pointer select-none">
+                  🙈 Ocultar Visitados
+                </label>
+              </div>
             </div>
           </div>
 
@@ -331,6 +338,9 @@
             </span>
           </div>
           <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <button onclick="toggleColorMode('admin')" id="btnAdminColorMode" class="px-2.5 py-1.5 bg-indigo-50 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-xs hover:bg-indigo-100 transition shadow-sm">
+              🎨 Color: Por Estado
+            </button>
             <button onclick="exportAdminReportCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition">
               <i class="fa-solid fa-file-excel"></i> Exportar Reporte CSV
             </button>
@@ -413,8 +423,48 @@
       'REPASO': '#3B82F6'
     };
 
-    function createCustomMarkerIcon(sec, status, showLabel = true) {
-      const statusColor = STATUS_COLORS[status] || STATUS_COLORS['PENDIENTE'];
+    // PALETA DE COLORES DINÁMICA PARA VENDEDORES
+    const VENDOR_PALETTE = [
+      '#2563EB', '#DC2626', '#059669', '#D97706', '#7C3AED', 
+      '#DB2777', '#0891B2', '#4D7C0F', '#4F46E5', '#C026D3',
+      '#EA580C', '#0284C7', '#16A34A', '#9333EA', '#E11D48'
+    ];
+
+    function getVendorColor(vendorName) {
+      if (!vendorName) return '#9CA3AF';
+      let hash = 0;
+      const str = vendorName.toString();
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const index = Math.abs(hash) % VENDOR_PALETTE.length;
+      return VENDOR_PALETTE[index];
+    }
+
+    let driverColorMode = 'status'; // 'status' o 'vendor'
+    let adminColorMode = 'status';  // 'status' o 'vendor'
+
+    function toggleColorMode(mode) {
+      if (mode === 'driver') {
+        driverColorMode = (driverColorMode === 'status') ? 'vendor' : 'status';
+        document.getElementById('btnDriverColorMode').innerText = (driverColorMode === 'vendor') ? '🎨 Color: Por Vendedor' : '🎨 Color: Por Estado';
+        applyDriverFilters();
+      } else {
+        adminColorMode = (adminColorMode === 'status') ? 'vendor' : 'status';
+        document.getElementById('btnAdminColorMode').innerText = (adminColorMode === 'vendor') ? '🎨 Color: Por Vendedor' : '🎨 Color: Por Estado';
+        if (adminCurrentRawClients.length > 0) {
+          renderAdminMapPoints(adminCurrentRawClients, true);
+        }
+      }
+    }
+
+    function createCustomMarkerIcon(sec, status, vendor, showLabel = true, colorMode = 'status') {
+      const cleanStatus = (status || 'PENDIENTE').toString().trim().toUpperCase();
+      let statusColor = STATUS_COLORS[cleanStatus] || STATUS_COLORS['PENDIENTE'];
+
+      if (colorMode === 'vendor') {
+        statusColor = getVendorColor(vendor);
+      }
 
       if (!showLabel) {
         return L.divIcon({
@@ -492,7 +542,7 @@
       if (!map || !clients || clients.length === 0) return;
 
       const matchingClients = clients.filter(c => {
-        const st = c.estado || 'PENDIENTE';
+        const st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
         if (targetStatus === 'RECHAZADO') {
           return (st === 'RECHAZADO' || st === 'CERRADO') && c.lat && c.lon;
         }
@@ -512,8 +562,8 @@
         map.setView([c.lat, c.lon], 20);
 
         const uniqueKey = (mode === 'driver') 
-          ? `driver_${c.sec}_${c.name}` 
-          : `admin_${c.tpt || 'R'}_${c.sec}_${c.name}`;
+          ? `driver_${c._idx}_${c.sec}` 
+          : `admin_${c.tpt || 'R'}_${c._idx}_${c.sec}`;
         
         if (markers[uniqueKey]) {
           markers[uniqueKey].openPopup();
@@ -674,7 +724,7 @@
           subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
           lat: isNaN(lat) ? 0 : lat,
           lon: isNaN(lon) ? 0 : lon,
-          estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toUpperCase() : 'PENDIENTE',
+          estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toString().trim().toUpperCase() : 'PENDIENTE',
           repasoConfirm: '',
           horaEntrega: '',
           obs: ''
@@ -815,7 +865,8 @@
 
       driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
-          currentClientsData = doc.data().clients || [];
+          const rawClients = doc.data().clients || [];
+          currentClientsData = rawClients.map((c, i) => ({ ...c, _idx: i }));
           updateDriverSummaryStats(currentClientsData);
           populateVendorFilterDropdown(currentClientsData);
           applyDriverFilters();
@@ -932,7 +983,7 @@
       let pendientes = 0, entregados = 0, cerrados = 0, parciales = 0, otros = 0, repasos = 0;
 
       clients.forEach(c => {
-        const st = c.estado || 'PENDIENTE';
+        const st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
         if (st === 'PENDIENTE') pendientes++;
         else if (st === 'ENTREGADO') entregados++;
         else if (st === 'CERRADO' || st === 'RECHAZADO') cerrados++;
@@ -985,8 +1036,8 @@
       renderDriverClientsAndMap(filtered);
     }
 
-    function sendWhatsAppNotification(sec) {
-      const client = currentClientsData.find(c => c.sec == sec);
+    function sendWhatsAppNotification(idx) {
+      const client = currentClientsData.find(c => c._idx === idx);
       if (!client) return;
 
       let routeCode = currentRouteCode || client.tpt || '';
@@ -1018,10 +1069,10 @@
       const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clientsToRender)));
 
       jitteredClients.forEach((c) => {
-        const secId = c.sec;
-        const uniqueKey = `driver_${c.sec}_${c.name}`;
+        const realIdx = c._idx;
+        const uniqueKey = `driver_${realIdx}_${c.sec}`;
 
-        let statusKey = c.estado || 'PENDIENTE';
+        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
         const isVisited = (statusKey !== 'PENDIENTE');
@@ -1035,10 +1086,10 @@
             <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-bold text-blue-900"><i class="fa-solid fa-rotate-right"></i> ¿Repaso Confirmado?:</span>
               <div class="flex gap-1">
-                <button onclick="updateRepasoConfirm(${secId}, 'APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${aptoClass}">
+                <button onclick="updateRepasoConfirm(${realIdx}, 'APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${aptoClass}">
                   👍 APTO
                 </button>
-                <button onclick="updateRepasoConfirm(${secId}, 'NO APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${noAptoClass}">
+                <button onclick="updateRepasoConfirm(${realIdx}, 'NO APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${noAptoClass}">
                   👎 NO APTO
                 </button>
               </div>
@@ -1063,13 +1114,13 @@
           <!-- MOTIVO TEXTO LIBRE CON OPCIONES DESPLEGABLES -->
           <div class="bg-white p-2.5 rounded-lg border space-y-1 mt-2">
             <label class="text-[11px] font-bold text-gray-600 block">📌 Motivo de Rechazo / Observación:</label>
-            <input type="text" id="obsInput_${secId}" value="${c.obs || ''}" onchange="updateClientObs(${secId}, this.value)" placeholder="Escribe o elige un motivo (ej: Sin dinero, No pidió...)" list="motivosSugeridos" class="w-full text-xs font-semibold border rounded-lg px-2.5 py-1.5 bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="text" id="obsInput_${realIdx}" value="${c.obs || ''}" onchange="updateClientObs(${realIdx}, this.value)" placeholder="Escribe o elige un motivo (ej: Sin dinero, No pidió...)" list="motivosSugeridos" class="w-full text-xs font-semibold border rounded-lg px-2.5 py-1.5 bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500">
           </div>
 
           <!-- BOTÓN DIRECTO DE NOTIFICAR A WHATSAPP -->
           ${showWhatsAppBtn ? `
             <div class="pt-1">
-              <button onclick="sendWhatsAppNotification(${secId})" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg shadow flex items-center justify-center gap-2 transition">
+              <button onclick="sendWhatsAppNotification(${realIdx})" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg shadow flex items-center justify-center gap-2 transition">
                 <i class="fa-brands fa-whatsapp text-sm"></i> 📲 Notificar ${statusKey} al Grupo de WhatsApp
               </button>
             </div>
@@ -1082,7 +1133,7 @@
             <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
               <i class="fa-solid fa-map-pin"></i> Maps
             </a>
-            <select onchange="updateClientStatus(${secId}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
+            <select onchange="updateClientStatus(${realIdx}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
               <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
               <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
               <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
@@ -1100,7 +1151,7 @@
           }
 
           currentKeys.add(uniqueKey);
-          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
+          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, true, driverColorMode);
 
           const popupHtml = `
             <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 190px;">
@@ -1118,7 +1169,7 @@
               
               <div style="margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
                 <label style="font-weight: bold; display: block; margin-bottom: 2px;">Cambiar Estado:</label>
-                <select onchange="updateClientStatus(${secId}, this.value)" style="font-size: 11px; font-weight: bold; border: 1px solid #d1d5db; border-radius: 4px; padding: 3px; width: 100%; background-color: #fff;">
+                <select onchange="updateClientStatus(${realIdx}, this.value)" style="font-size: 11px; font-weight: bold; border: 1px solid #d1d5db; border-radius: 4px; padding: 3px; width: 100%; background-color: #fff;">
                   <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
                   <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
                   <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
@@ -1157,47 +1208,55 @@
       }
     }
 
-    async function updateClientStatus(sec, newStatus) {
-      if (!currentDocId || !currentClientsData) return;
+    async function updateClientStatus(idx, newStatus) {
+      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
 
-      const index = currentClientsData.findIndex(c => c.sec == sec);
-      if (index === -1) return;
+      const formattedStatus = newStatus.toString().trim().toUpperCase();
+      currentClientsData[idx].estado = formattedStatus;
 
-      currentClientsData[index].estado = newStatus;
-      if (newStatus === 'ENTREGADO') {
-        currentClientsData[index].horaEntrega = new Date().toLocaleTimeString();
+      if (formattedStatus === 'ENTREGADO') {
+        currentClientsData[idx].horaEntrega = new Date().toLocaleTimeString();
       }
 
       await db.collection('routes').doc(currentDocId).update({
-        clients: currentClientsData,
+        clients: currentClientsData.map(c => {
+          const { _idx, ...rest } = c;
+          return rest;
+        }),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
 
-    async function updateClientObs(sec, newObs) {
-      if (!currentDocId || !currentClientsData) return;
+    async function updateClientObs(idx, newObs) {
+      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
 
-      const index = currentClientsData.findIndex(c => c.sec == sec);
-      if (index === -1) return;
+      currentClientsData[idx].obs = newObs;
 
-      currentClientsData[index].obs = newObs;
+      // SI EL CLIENTE ESTABA PENDIENTE Y SE ESCRIBE UN MOTIVO, SE CAMBIA A RECHAZADO AUTOMÁTICAMENTE
+      const currentSt = (currentClientsData[idx].estado || 'PENDIENTE').toString().trim().toUpperCase();
+      if (currentSt === 'PENDIENTE' && newObs.trim() !== '') {
+        currentClientsData[idx].estado = 'RECHAZADO';
+      }
 
       await db.collection('routes').doc(currentDocId).update({
-        clients: currentClientsData,
+        clients: currentClientsData.map(c => {
+          const { _idx, ...rest } = c;
+          return rest;
+        }),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
 
-    async function updateRepasoConfirm(sec, confirmValue) {
-      if (!currentDocId || !currentClientsData) return;
+    async function updateRepasoConfirm(idx, confirmValue) {
+      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
 
-      const index = currentClientsData.findIndex(c => c.sec == sec);
-      if (index === -1) return;
-
-      currentClientsData[index].repasoConfirm = confirmValue;
+      currentClientsData[idx].repasoConfirm = confirmValue;
 
       await db.collection('routes').doc(currentDocId).update({
-        clients: currentClientsData,
+        clients: currentClientsData.map(c => {
+          const { _idx, ...rest } = c;
+          return rest;
+        }),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
@@ -1243,14 +1302,14 @@
       jitteredClients.forEach(c => {
         if (!c.lat || !c.lon) return;
 
-        const uniqueKey = `admin_${c.tpt || 'R'}_${c.sec}_${c.name}`;
+        const uniqueKey = `admin_${c.tpt || 'R'}_${c._idx}_${c.sec}`;
         currentKeys.add(uniqueKey);
 
-        let statusKey = c.estado || 'PENDIENTE';
+        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
+        const icon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, showLabels, adminColorMode);
 
         const popupHtml = `
           <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 190px;">
@@ -1319,7 +1378,7 @@
       }
 
       tbody.innerHTML = filtered.map(c => {
-        let statusKey = c.estado || 'PENDIENTE';
+        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
@@ -1353,7 +1412,7 @@
       csvContent += "Ruta;Secuencia;Cliente / Razon Social;Direccion;Vendedor;Monto S/;Estado;Motivo / Observacion;Hora Entrega\n";
 
       adminCurrentRawClients.forEach(c => {
-        let st = c.estado || 'PENDIENTE';
+        let st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
         if (st === 'CERRADO') st = 'RECHAZADO';
 
         const row = [
@@ -1391,6 +1450,8 @@
           const clients = doc.data().clients || [];
           allClients = allClients.concat(clients);
         });
+
+        allClients = allClients.map((c, i) => ({ ...c, _idx: i }));
 
         const selectedVal = document.getElementById('selectAdminRoute').value;
         if (!selectedVal) {
@@ -1458,7 +1519,8 @@
 
       adminRouteUnsubscribe = db.collection('routes').doc(code).onSnapshot(doc => {
         if (!doc.exists) return;
-        const clients = doc.data().clients || [];
+        const rawClients = doc.data().clients || [];
+        const clients = rawClients.map((c, i) => ({ ...c, _idx: i }));
 
         updateAdminSummaryStats(clients, `Ruta #${code}`);
         renderAdminMapPoints(clients, true);
