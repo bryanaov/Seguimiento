@@ -179,18 +179,11 @@
               <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta
             </h4>
             
-            <div class="flex flex-wrap items-center gap-2 self-end sm:self-auto">
-              <!-- BOTÓN PARA CAMBIAR MODO DE COLOR EN MAPA -->
-              <button onclick="toggleColorMode('driver')" id="btnDriverColorMode" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold hover:bg-indigo-100 transition shadow-sm">
-                🎨 Color: Por Vendedor
-              </button>
-
-              <div class="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
-                <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer">
-                <label for="chkHideVisited" class="text-xs font-extrabold text-indigo-700 cursor-pointer select-none">
-                  🙈 Ocultar Visitados
-                </label>
-              </div>
+            <div class="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm self-end sm:self-auto">
+              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer">
+              <label for="chkHideVisited" class="text-xs font-extrabold text-indigo-700 cursor-pointer select-none">
+                🙈 Ocultar Visitados
+              </label>
             </div>
           </div>
 
@@ -338,9 +331,6 @@
             </span>
           </div>
           <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <button onclick="toggleColorMode('admin')" id="btnAdminColorMode" class="px-2.5 py-1.5 bg-indigo-50 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-xs hover:bg-indigo-100 transition shadow-sm">
-              🎨 Color: Por Vendedor
-            </button>
             <button onclick="exportAdminReportCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition">
               <i class="fa-solid fa-file-excel"></i> Exportar Reporte CSV
             </button>
@@ -423,84 +413,30 @@
       'REPASO': '#3B82F6'
     };
 
-    // PALETA ESPECÍFICA PARA VENDEDORES (IGUAL A MY MAPS)
-    const KNOWN_VENDOR_COLORS = {
-      '131': '#EA580C', // Naranja
-      '124': '#7C3AED', // Morado
-      '113': '#16A34A', // Verde
-      '114': '#DB2777', // Rosado
-      '126': '#D97706', // Amarillo / Ocre
-      '111': '#0284C7', // Azul / Cyan
-      '112': '#059669', // Esmeralda
-      '125': '#DC2626'  // Rojo
-    };
-
-    const VENDOR_PALETTE = [
-      '#EA580C', '#7C3AED', '#16A34A', '#DB2777', '#D97706', 
-      '#0284C7', '#059669', '#DC2626', '#4F46E5', '#C026D3',
-      '#0891B2', '#4D7C0F', '#16A34A', '#9333EA', '#E11D48'
-    ];
-
-    function getVendorColor(vendorName) {
-      if (!vendorName) return '#9CA3AF';
-      const cleanV = vendorName.toString().trim();
-      if (KNOWN_VENDOR_COLORS[cleanV]) return KNOWN_VENDOR_COLORS[cleanV];
-
-      let hash = 0;
-      for (let i = 0; i < cleanV.length; i++) {
-        hash = cleanV.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      const index = Math.abs(hash) % VENDOR_PALETTE.length;
-      return VENDOR_PALETTE[index];
-    }
-
-    // MODOS DE COLOR POR DEFECTO: POR VENDEDOR
-    let driverColorMode = 'vendor'; // 'vendor' o 'status'
-    let adminColorMode = 'vendor';  // 'vendor' o 'status'
-
-    function toggleColorMode(mode) {
-      if (mode === 'driver') {
-        driverColorMode = (driverColorMode === 'status') ? 'vendor' : 'status';
-        document.getElementById('btnDriverColorMode').innerText = (driverColorMode === 'vendor') ? '🎨 Color: Por Vendedor' : '🎨 Color: Por Estado';
-        applyDriverFilters();
-      } else {
-        adminColorMode = (adminColorMode === 'status') ? 'vendor' : 'status';
-        document.getElementById('btnAdminColorMode').innerText = (adminColorMode === 'vendor') ? '🎨 Color: Por Vendedor' : '🎨 Color: Por Estado';
-        if (adminCurrentRawClients.length > 0) {
-          renderAdminMapPoints(adminCurrentRawClients, true);
-        }
-      }
-    }
-
-    function createCustomMarkerIcon(sec, status, vendor, showLabel = true, colorMode = 'vendor') {
+    // MARCADORES ULTRA LIGEROS SIN SOMBRAS NI CUADROS PESADOS PARA EVITAR LAG
+    function createCustomMarkerIcon(sec, status, showLabel = true) {
       const cleanStatus = (status || 'PENDIENTE').toString().trim().toUpperCase();
-      let mainColor = '#6B7280';
-
-      if (colorMode === 'vendor') {
-        mainColor = getVendorColor(vendor);
-      } else {
-        mainColor = STATUS_COLORS[cleanStatus] || STATUS_COLORS['PENDIENTE'];
-      }
+      const statusColor = STATUS_COLORS[cleanStatus] || STATUS_COLORS['PENDIENTE'];
 
       if (!showLabel) {
         return L.divIcon({
           className: 'custom-map-marker',
-          html: `<div style="width:12px;height:12px;border-radius:50%;background-color:${mainColor};border:2px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>`,
-          iconSize: [12, 12],
-          iconAnchor: [6, 6]
+          html: `<div style="width:10px;height:10px;border-radius:50%;background-color:${statusColor};border:1.5px solid #ffffff;"></div>`,
+          iconSize: [10, 10],
+          iconAnchor: [5, 5]
         });
       }
 
       return L.divIcon({
         className: 'custom-map-marker',
         html: `
-          <div style="display:flex;align-items:center;gap:2px;pointer-events:auto;filter:drop-shadow(0px 1px 2px rgba(0,0,0,0.3));">
-            <div style="width:12px;height:12px;border-radius:50%;background-color:${mainColor};border:2px solid #ffffff;flex-shrink:0;"></div>
-            <span style="background:#ffffff;color:#111827;font-weight:800;font-size:10px;padding:1px 4px;border-radius:3px;border:1px solid #9ca3af;white-space:nowrap;line-height:11px;">${sec}</span>
+          <div style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:auto;">
+            <div style="width:10px;height:10px;border-radius:50%;background-color:${statusColor};border:1.5px solid #ffffff;flex-shrink:0;"></div>
+            <span style="font-size:10px;font-weight:800;color:#0f172a;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;line-height:10px;">${sec}</span>
           </div>
         `,
-        iconSize: [36, 14],
-        iconAnchor: [6, 7]
+        iconSize: [28, 12],
+        iconAnchor: [5, 6]
       });
     }
 
@@ -1168,16 +1104,16 @@
           }
 
           currentKeys.add(uniqueKey);
-          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, true, driverColorMode);
+          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
 
-          // POPUP CON ACCIONES COMPLETAS (CAMBIAR ESTADO, GUARDAR MOTIVO Y ENVIAR A WHATSAPP)
+          // POPUP AL HACER CLIC EN EL PUNTO DEL MAPA
           const popupHtml = `
             <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 210px; padding: 2px;">
               <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px; border-bottom: 2px solid #4f46e5; padding-bottom: 3px; color: #3730a3;">
                 #${c.sec} · ${c.name}
               </div>
               <div><b>SEC:</b> ${c.sec}</div>
-              <div><b>VENDEDOR:</b> <span style="color:${getVendorColor(c.vendedor)}; font-weight:bold;">${c.vendedor || 'Sin asignar'}</span></div>
+              <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
               <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
               <div><b>TPT (Ruta):</b> ${c.tpt || currentRouteCode || '---'}</div>
               <div><b>DOMICILIO:</b> ${c.domicilio}</div>
@@ -1339,7 +1275,7 @@
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        const icon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, showLabels, adminColorMode);
+        const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
 
         const popupHtml = `
           <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 190px;">
@@ -1347,7 +1283,7 @@
               ${c.sec} · ${c.name}
             </div>
             <div><b>SEC:</b> ${c.sec}</div>
-            <div><b>VENDEDOR:</b> <span style="color:${getVendorColor(c.vendedor)}; font-weight:bold;">${c.vendedor || 'Sin asignar'}</span></div>
+            <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
             <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
             <div><b>TPT (Ruta):</b> ${c.tpt || 'S/R'}</div>
             <div><b>RAZON SOCIAL:</b> ${c.name}</div>
