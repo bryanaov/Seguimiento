@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Courier Tracker Pro - Plataforma de Logística de Última Milla</title>
 
+  <!-- Configuración PWA para convertir en App -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CourierApp">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -206,7 +213,7 @@
             <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
               <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer border-slate-300">
               <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">
-  Ocultar Visitados
+                Ocultar Visitados
               </label>
             </div>
           </div>
@@ -430,6 +437,15 @@
 
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+
+    // REGISTRO DE SERVICE WORKER PARA PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('Service Worker Registrado'))
+          .catch(err => console.warn('Error SW:', err));
+      });
+    }
 
     // ACTIVACIÓN DE PERSISTENCIA OFFLINE EN FIRESTORE
     db.enablePersistence({ synchronizeTabs: true }).catch(err => {
@@ -1379,7 +1395,7 @@
       const pendingCount = pendingClients.length;
 
       if (pendingCount === 0) {
-        alert(" No hay pedidos pendientes / no reportados en la vista actual.");
+        alert("No hay pedidos pendientes / no reportados en la vista actual.");
         return;
       }
 
