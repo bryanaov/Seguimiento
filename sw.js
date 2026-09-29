@@ -1,4 +1,4 @@
-const CACHE_NAME = 'courier-pwa-v1';
+const CACHE_NAME = 'courier-pwa-v4';
 const urlsToCache = [
   './',
   './index.html',
