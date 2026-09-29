@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Courier Tracker Pro - Plataforma de Logística de Última Milla</title>
+  <title>COURIER TP - Plataforma de Logística</title>
 
   <!-- Configuración PWA para convertir en App -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="CourierApp">
+  <meta name="apple-mobile-web-app-title" content="COURIER TP">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -92,7 +92,7 @@
         </div>
         <div>
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            Courier Tracker <span class="text-[10px] bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full uppercase font-bold">PRO</span>
+            COURIER TP <span class="text-[10px] bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full uppercase font-bold">PRO</span>
           </h1>
           <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Inteligente de Monitoreo y Distribución</p>
         </div>
@@ -878,7 +878,6 @@
       document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
       document.getElementById('routeKeysList').innerHTML = '<span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
       
-      // Limpiar marcadores admin
       Object.keys(adminMapMarkers).forEach(k => adminMap.removeLayer(adminMapMarkers[k]));
       adminMapMarkers = {};
 
