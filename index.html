@@ -206,7 +206,7 @@
 
         <!-- MAPA MÓVIL CHOFER -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="flex justify-between items-center">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
               <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa Dinámico de Ruta
             </h4>
@@ -218,6 +218,9 @@
               </label>
             </div>
           </div>
+
+          <!-- LEYENDA DE VENDEDORES -->
+          <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold"></div>
 
           <div class="relative">
             <div id="driverMap" class="map-container"></div>
@@ -439,6 +442,31 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    // PALETA DE COLORES VIBRANTES PARA CADA VENDEDOR
+    const VENDOR_COLORS = [
+      '#10B981', // Verde
+      '#2563EB', // Azul
+      '#8B5CF6', // Morado
+      '#EC4899', // Rosado
+      '#F59E0B', // Ámbar
+      '#EF4444', // Rojo
+      '#14B8A6', // Teal
+      '#6366F1', // Índigo
+      '#84CC16', // Lima
+      '#A855F7', // Púrpura
+      '#06B6D4', // Cyan
+      '#F97316'  // Naranja
+    ];
+
+    function getVendorColor(vendorStr) {
+      if (!vendorStr || vendorStr.toString().trim() === '') return '#6B7280';
+      let hash = 0;
+      const str = vendorStr.toString().trim().toUpperCase();
+      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      const index = Math.abs(hash) % VENDOR_COLORS.length;
+      return VENDOR_COLORS[index];
+    }
+
     // REGISTRO DE SERVICE WORKER PARA PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -517,35 +545,39 @@
     window.addEventListener('online', () => { processOfflineQueue(); });
     window.addEventListener('offline', () => { updateOfflineStatusUI(); });
 
-    const STATUS_COLORS = {
-      'PENDIENTE': '#6B7280',
-      'ENTREGADO': '#22C55E',
-      'CERRADO': '#EF4444',
-      'RECHAZADO': '#EF4444',
-      'PARCIAL': '#F97316',
-      'OTRO MOTIVO': '#A855F7',
-      'REPASO': '#3B82F6'
-    };
-
-    function createCustomMarkerIcon(sec, status, showLabel = true) {
+    // CREACIÓN DE MARCADOR: COLORES POR VENDEDOR + ATENUACIÓN AL ENTREGAR
+    function createCustomMarkerIcon(sec, status, vendor, showLabel = true) {
       const cleanStatus = (status || 'PENDIENTE').toString().trim().toUpperCase();
-      const statusColor = STATUS_COLORS[cleanStatus] || STATUS_COLORS['PENDIENTE'];
+      const isDelivered = (cleanStatus === 'ENTREGADO');
+      const vendorColor = getVendorColor(vendor);
+
+      // Si está entregado (descargado): reduce opacidad al 30% y achica el marcador a 7px para no saturar el celular
+      const opacity = isDelivered ? 0.30 : 0.90;
+      const dotSize = isDelivered ? 7 : 11;
+      const borderWidth = isDelivered ? 1 : 1.5;
 
       if (!showLabel) {
         return L.divIcon({
           className: 'custom-map-marker',
-          html: `<div style="width:10px;height:10px;border-radius:50%;background-color:${statusColor};border:1.5px solid #ffffff;"></div>`,
-          iconSize: [10, 10],
-          iconAnchor: [5, 5]
+          html: `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};opacity:${opacity};border:${borderWidth}px solid #ffffff;"></div>`,
+          iconSize: [dotSize, dotSize],
+          iconAnchor: [dotSize / 2, dotSize / 2]
         });
       }
 
       return L.divIcon({
         className: 'custom-map-marker',
         html: `
-          <div style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:auto;">
-            <div style="width:10px;height:10px;border-radius:50%;background-color:${statusColor};border:1.5px solid #ffffff;flex-shrink:0;"></div>
-            <span style="font-size:10px;font-weight:800;color:#0f172a;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;line-height:10px;">${sec}</span>
+          <div style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:auto;opacity:${opacity};">
+            <div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};border:${borderWidth}px solid #ffffff;flex-shrink:0;"></div>
+            <span style="
+              font-size:10px;
+              font-weight:800;
+              color:${isDelivered ? '#9ca3af' : '#0f172a'};
+              ${isDelivered ? 'text-decoration:line-through;' : ''}
+              text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;
+              line-height:10px;
+            ">${sec}</span>
           </div>
         `,
         iconSize: [28, 12],
@@ -711,7 +743,7 @@
         setTimeout(async () => {
           if (!adminMap) {
             adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
-            L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(adminMap);
+            L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps', updateWhenIdle: true, keepBuffer: 2 }).addTo(adminMap);
           }
           adminMap.invalidateSize();
           await loadAvailableRoutesInSelect();
@@ -923,7 +955,7 @@
 
       if (!driverMap) {
         driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
-        L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(driverMap);
+        L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps', updateWhenIdle: true, keepBuffer: 2 }).addTo(driverMap);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
 
@@ -1071,17 +1103,29 @@
 
     function populateVendorFilterDropdown(clients) {
       const select = document.getElementById('driverVendorFilter');
+      const legendDiv = document.getElementById('driverVendorLegend');
       const currentValue = select.value;
       
       const vendors = new Set();
       clients.forEach(c => { if (c.vendedor) vendors.add(c.vendedor); });
 
       select.innerHTML = '<option value="">-- Todos los Vendedores --</option>';
+      if (legendDiv) legendDiv.innerHTML = '';
+
       Array.from(vendors).sort().forEach(v => {
         const option = document.createElement('option');
         option.value = v;
         option.innerText = `Vendedor ${v}`;
         select.appendChild(option);
+
+        if (legendDiv) {
+          const color = getVendorColor(v);
+          legendDiv.innerHTML += `
+            <span class="inline-flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 text-slate-700">
+              <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span> ${v}
+            </span>
+          `;
+        }
       });
 
       select.value = currentValue;
@@ -1129,7 +1173,6 @@
       const listContainer = document.getElementById('driverClientsList');
       listContainer.innerHTML = '';
       
-      // OPTIMIZACIÓN: Fragmento DOM para evitar re-dibujados de UI (elimina lag al hacer scroll)
       const fragment = document.createDocumentFragment();
 
       const bounds = [];
@@ -1170,6 +1213,7 @@
         }
 
         const showWhatsAppBtn = (statusKey === 'RECHAZADO' || statusKey === 'PARCIAL' || statusKey === 'OTRO MOTIVO');
+        const vendorColor = getVendorColor(c.vendedor);
 
         const card = document.createElement('div');
         card.className = "border border-slate-200/80 rounded-2xl p-4 bg-slate-50 space-y-2.5 shadow-xs hover:border-slate-300 transition";
@@ -1179,7 +1223,7 @@
             <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? ' (' + c.repasoConfirm + ')' : ''}</span>
           </div>
           <p class="text-xs text-slate-600 font-medium"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
-          <p class="text-xs text-slate-500 font-semibold"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: ${c.vendedor || 'S/V'} | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
+          <p class="text-xs text-slate-500 font-semibold"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: <b style="color:${vendorColor}">${c.vendedor || 'S/V'}</b> | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
 
           ${repasoHtml}
 
@@ -1221,7 +1265,7 @@
           }
 
           currentKeys.add(uniqueKey);
-          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
+          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, true);
 
           const popupHtml = `
             <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 210px; padding: 2px;">
@@ -1229,7 +1273,7 @@
                 #${c.sec} · ${c.name}
               </div>
               <div><b>SEC:</b> ${c.sec}</div>
-              <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
+              <div><b>VENDEDOR:</b> <span style="font-weight:bold; color:${vendorColor}">${c.vendedor || 'Sin asignar'}</span></div>
               <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
               <div><b>TPT (Ruta):</b> ${c.tpt || currentRouteCode || '---'}</div>
               <div><b>DOMICILIO:</b> ${c.domicilio}</div>
@@ -1276,7 +1320,6 @@
       
       listContainer.appendChild(fragment);
 
-      // Eliminar marcadores que ya no están en la lista actual
       Object.keys(driverMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
           driverMap.removeLayer(driverMapMarkers[k]);
@@ -1502,7 +1545,8 @@
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
+        const icon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, showLabels);
+        const vendorColor = getVendorColor(c.vendedor);
 
         const popupHtml = `
           <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 190px;">
@@ -1510,7 +1554,7 @@
               ${c.sec} · ${c.name}
             </div>
             <div><b>SEC:</b> ${c.sec}</div>
-            <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
+            <div><b>VENDEDOR:</b> <span style="font-weight:bold; color:${vendorColor}">${c.vendedor || 'Sin asignar'}</span></div>
             <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
             <div><b>TPT (Ruta):</b> ${c.tpt || 'S/R'}</div>
             <div><b>RAZON SOCIAL:</b> ${c.name}</div>
