@@ -3,14 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COURIER TP - Plataforma de Logística</title>
-
-  <!-- Configuración PWA para convertir en App -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f172a">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="COURIER TP">
+  <title>Sistema de Seguimiento de Rutas - Courier</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -26,223 +19,165 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <style>
-    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; }
-    
-    .map-container-fullscreen {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      z-index: 99999 !important;
-      border-radius: 0 !important;
-    }
-
-    .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
-    .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
-    .status-ENTREGADO { background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
-    .status-CERRADO, .status-RECHAZADO { background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5; }
-    .status-PARCIAL { background-color: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74; }
-    .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
-    .status-REPASO { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; }
+    .map-container { height: 380px; width: 100%; border-radius: 12px; }
+    .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; }
+    .status-PENDIENTE { background-color: #E5E7EB; color: #374151; }
+    .status-ENTREGADO { background-color: #BBF7D0; color: #166534; }
+    .status-CERRADO { background-color: #FECACA; color: #991B1B; }
+    .status-PARCIAL { background-color: #FFEDD5; color: #9A3412; }
+    .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #6B21A8; }
+    .status-REPASO { background-color: #DBEAFE; color: #1E40AF; }
     
     .custom-map-marker { background: none; border: none; }
 
+    /* Animación del GPS en vivo del chofer */
     @keyframes pulseDriverDot {
-      0% { transform: scale(0.9); opacity: 0.8; }
-      70% { transform: scale(1.1); opacity: 1; }
-      100% { transform: scale(0.9); opacity: 0.8; }
+      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
     }
     .driver-self-marker {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       background-color: #2563EB;
       border: 2px solid #FFFFFF;
       border-radius: 50%;
-      box-shadow: 0 0 10px rgba(37, 99, 235, 0.6);
       animation: pulseDriverDot 2s infinite;
     }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans">
+<body class="bg-gray-100 min-h-screen text-gray-800">
 
-  <!-- BANNER NOTIFICACIÓN DE MODO OFFLINE Y SINCRONIZACIÓN -->
-  <div id="offlineSyncBanner" class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2 text-center sticky top-0 z-[100000] shadow-md flex items-center justify-center gap-2">
-    <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Los cambios se están guardando localmente.</span>
-    <button onclick="processOfflineQueue()" class="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[11px] underline">Sincronizar Ahora</button>
-  </div>
-
-  <!-- SUGERENCIAS RÁPIDAS DE MOTIVOS LIBRES -->
-  <datalist id="motivosSugeridos">
-    <option value="Sin dinero"></option>
-    <option value="No pidió"></option>
-    <option value="Local cerrado"></option>
-    <option value="Cliente no está"></option>
-    <option value="Pedido cancelado"></option>
-    <option value="Cliente rechazó"></option>
-    <option value="Dirección incorrecta"></option>
-  </datalist>
-
-  <!-- ENCABEZADO EJECUTIVO -->
-  <header class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50 border-b border-slate-800">
-    <div class="max-w-7xl mx-auto flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-md">
-          <i class="fa-solid fa-truck-fast text-lg"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full uppercase font-bold">PRO</span>
-          </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Inteligente de Monitoreo y Distribución</p>
-        </div>
-      </div>
+  <!-- ENCABEZADO -->
+  <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <h1 class="text-xl font-bold flex items-center gap-2">
+        <i class="fa-solid fa-truck-fast"></i> Courier Tracker
+      </h1>
       <div class="flex gap-2">
-        <button onclick="switchTab('driver')" id="btnTabDriver" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition shadow-sm flex items-center gap-1.5">
-          <i class="fa-solid fa-mobile-screen-button"></i> Modo Chofer
+        <button onclick="switchTab('driver')" id="btnTabDriver" class="px-3 py-1.5 rounded-lg bg-indigo-900 text-white text-sm font-semibold hover:bg-indigo-800">
+          <i class="fa-solid fa-mobile-screen"></i> Modo Chofer
         </button>
-        <button onclick="requestAdminAccess()" id="btnTabAdmin" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition border border-slate-700 flex items-center gap-1.5">
-          <i class="fa-solid fa-user-shield text-indigo-400"></i> Vista Admin
+        <button onclick="requestAdminAccess()" id="btnTabAdmin" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500">
+          <i class="fa-solid fa-lock"></i> Vista Admin
         </button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto p-3 sm:p-5 space-y-5">
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
 
     <!-- VISTA CHOFER (MÓVIL) -->
     <section id="viewDriver" class="block space-y-4">
-      <div id="driverLoginCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 max-w-lg mx-auto">
-        <div class="text-center space-y-1">
-          <div class="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-1">
-            <i class="fa-solid fa-truck-arrow-right text-2xl"></i>
-          </div>
-          <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
-          <p class="text-xs text-slate-500 font-medium">Ingresa el código asignado a tu unidad de transporte</p>
-        </div>
-        
-        <div class="space-y-3 pt-2">
-          <div>
-            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
-            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14 o T14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
-          </div>
-          <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
+      <div id="driverLoginCard" class="bg-white p-5 rounded-xl shadow space-y-3">
+        <h2 class="text-lg font-bold flex items-center gap-2 text-indigo-700">
+          <i class="fa-solid fa-id-card"></i> Acceso a Ruta de Reparto
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <input type="text" id="inputRouteCode" placeholder="Código (ej: 14 o T14)" class="border rounded-lg px-3 py-2 text-base uppercase font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+          <input type="password" id="inputRoutePin" maxlength="6" placeholder="Clave de Ruta (PIN)" class="border rounded-lg px-3 py-2 text-base font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+          <button onclick="loadDriverRoute()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">
+            Ingresar a Ruta
           </button>
-          <div class="flex items-center gap-2 pt-2 text-xs text-slate-600 justify-center">
-            <input type="checkbox" id="chkRememberDriver" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
-            <label for="chkRememberDriver" class="font-semibold cursor-pointer select-none">Guardar sesión activa (8 horas)</label>
-          </div>
+        </div>
+        <div class="flex items-center gap-2 pt-1 text-xs text-gray-600">
+          <input type="checkbox" id="chkRememberDriver" checked class="w-4 h-4 text-indigo-600 rounded">
+          <label for="chkRememberDriver" class="font-semibold cursor-pointer">Recordar mis datos en este celular (Auto-ingreso)</label>
         </div>
       </div>
 
       <!-- PANEL DE RUTA CARGADA -->
       <div id="driverRouteContainer" class="hidden space-y-4">
         <!-- CABECERA GPS & STATUS -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
-          <div class="space-y-0.5">
-            <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
-            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5" id="driverSubtitle">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Transmisión GPS activada automáticamente
-            </p>
+        <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-3">
+          <div>
+            <h3 class="font-bold text-gray-800 text-lg" id="driverRouteTitle">Ruta #</h3>
+            <p class="text-xs text-emerald-600 font-bold" id="driverSubtitle">📡 Transmisión GPS activada automáticamente</p>
           </div>
-          <div class="flex items-center gap-2 w-full md:w-auto justify-end">
-            <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo
+          <div class="flex items-center gap-2">
+            <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Transmitiendo
             </div>
-            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
+            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-rose-50 hover:text-rose-600 font-bold text-xs rounded-lg border transition flex items-center gap-1">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
             </button>
           </div>
         </div>
 
         <!-- RESUMEN DE PROGRESO CHOFER -->
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="flex justify-between items-center border-b border-slate-100 pb-2.5">
-            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-chart-pie text-indigo-600"></i> Avance de Entregas
+        <div class="bg-white p-4 rounded-xl shadow space-y-3">
+          <div class="flex justify-between items-center border-b pb-2">
+            <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen y Avance de Ruta
             </h4>
-            <span id="driverProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">0% completado</span>
+            <span id="driverProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full">0% completado</span>
           </div>
 
-          <div class="space-y-1.5">
-            <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-200">
-              <div id="driverProgressBarFill" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+          <div class="space-y-1">
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden flex">
+              <div id="driverProgressBarFill" class="bg-emerald-500 h-3 transition-all duration-500" style="width: 0%"></div>
             </div>
-            <div class="flex justify-between text-[11px] font-bold text-slate-500">
-              <span id="driverCompletedCount">Atendidos: 0</span>
-              <span id="driverRemainingCount">Pendientes: 0 (100%)</span>
+            <div class="flex justify-between text-[11px] font-bold text-gray-500">
+              <span id="driverCompletedCount">Visitados: 0</span>
+              <span id="driverRemainingCount">Falta por visitar: 0 (100%)</span>
             </div>
           </div>
 
-          <!-- BOTONES INTERACTIVOS DE MÉTRICAS CHOFER -->
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-2">
-            <div onclick="zoomToStatus('PENDIENTE', 'driver')" class="bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl border border-slate-200 cursor-pointer transition shadow-xs">
-              <span class="block text-slate-500 text-[10px] font-extrabold uppercase">⏳ PENDIENTES</span>
-              <span id="driverCountPendiente" class="text-lg font-black text-slate-800">0</span>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-1">
+            <div class="bg-gray-100 p-2 rounded-lg border">
+              <span class="block text-gray-500 text-[10px]">⏳ PENDIENTES</span>
+              <span id="driverCountPendiente" class="text-base text-gray-800">0</span>
             </div>
-            <div onclick="zoomToStatus('ENTREGADO', 'driver')" class="bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl border border-emerald-200 cursor-pointer transition shadow-xs">
-              <span class="block text-emerald-700 text-[10px] font-extrabold uppercase">✅ ENTREGADOS</span>
-              <span id="driverCountEntregado" class="text-lg font-black text-emerald-800">0</span>
+            <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+              <span class="block text-emerald-600 text-[10px]">✅ ENTREGADOS</span>
+              <span id="driverCountEntregado" class="text-base text-emerald-700">0</span>
             </div>
-            <div onclick="zoomToStatus('RECHAZADO', 'driver')" class="bg-rose-50 hover:bg-rose-100 p-2.5 rounded-xl border border-rose-200 cursor-pointer transition shadow-xs">
-              <span class="block text-rose-700 text-[10px] font-extrabold uppercase">❌ RECHAZADOS</span>
-              <span id="driverCountCerrado" class="text-lg font-black text-rose-800">0</span>
+            <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
+              <span class="block text-rose-600 text-[10px]">❌ CERRADOS</span>
+              <span id="driverCountCerrado" class="text-base text-rose-700">0</span>
             </div>
-            <div onclick="zoomToStatus('PARCIAL', 'driver')" class="bg-orange-50 hover:bg-orange-100 p-2.5 rounded-xl border border-orange-200 cursor-pointer transition shadow-xs">
-              <span class="block text-orange-700 text-[10px] font-extrabold uppercase">🟧 PARCIAL</span>
-              <span id="driverCountParcial" class="text-lg font-black text-orange-800">0</span>
+            <div class="bg-orange-50 p-2 rounded-lg border border-orange-200">
+              <span class="block text-orange-600 text-[10px]">🟧 PARCIAL</span>
+              <span id="driverCountParcial" class="text-base text-orange-700">0</span>
             </div>
-            <div onclick="zoomToStatus('OTRO MOTIVO', 'driver')" class="bg-purple-50 hover:bg-purple-100 p-2.5 rounded-xl border border-purple-200 cursor-pointer transition shadow-xs">
-              <span class="block text-purple-700 text-[10px] font-extrabold uppercase">🟣 OTRO MOTIVO</span>
-              <span id="driverCountOtro" class="text-lg font-black text-purple-800">0</span>
+            <div class="bg-purple-50 p-2 rounded-lg border border-purple-200">
+              <span class="block text-purple-600 text-[10px]">🟣 OTRO MOTIVO</span>
+              <span id="driverCountOtro" class="text-base text-purple-700">0</span>
             </div>
-            <div onclick="zoomToStatus('REPASO', 'driver')" class="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-xl border border-blue-200 cursor-pointer transition shadow-xs">
-              <span class="block text-blue-700 text-[10px] font-extrabold uppercase">🔵 REPASO</span>
-              <span id="driverCountRepaso" class="text-lg font-black text-blue-800">0</span>
+            <div class="bg-blue-50 p-2 rounded-lg border border-blue-200">
+              <span class="block text-blue-600 text-[10px]">🔵 REPASO</span>
+              <span id="driverCountRepaso" class="text-base text-blue-700">0</span>
             </div>
           </div>
         </div>
 
-        <!-- MAPA MÓVIL CHOFER -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="flex justify-between items-center">
-            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa Dinámico de Ruta
+        <!-- MAPA MÓVIL CHOFER CON LEYENDA -->
+        <div class="bg-white p-3 rounded-xl shadow space-y-2">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa de Ruta (Colores por Vendedor)
             </h4>
-            
-            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer border-slate-300">
-              <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                Ocultar Visitados
-              </label>
-            </div>
+            <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold"></div>
           </div>
-
-          <div class="relative">
-            <div id="driverMap" class="map-container"></div>
-            <button id="btnExpandDriverMap" onclick="toggleExpandMap('driverMap', 'btnExpandDriverMap')" class="absolute top-3 right-3 z-[100000] px-3.5 py-2 bg-white/95 hover:bg-white text-indigo-700 border border-slate-200 rounded-xl text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
-              <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
-            </button>
-          </div>
+          <div id="driverMap" class="map-container"></div>
         </div>
 
         <!-- BÚSQUEDA Y FILTRADO -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2 border-b border-slate-100 pb-2">
+        <div class="bg-white p-4 rounded-xl shadow space-y-3">
+          <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2 border-b pb-2">
             <i class="fa-solid fa-filter text-indigo-600"></i> Buscar o Filtrar Clientes
           </h4>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Buscar por Código / Nombre / Dirección:</label>
-              <div class="relative">
-                <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+              <label class="text-xs font-bold text-gray-500">Buscar por Código / Nombre / Dirección:</label>
+              <div class="relative mt-1">
+                <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border rounded-lg pl-8 pr-3 py-1.5 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-gray-400 text-xs"></i>
               </div>
             </div>
             <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Filtrar por Vendedor:</label>
-              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+              <label class="text-xs font-bold text-gray-500">Filtrar por Vendedor:</label>
+              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border rounded-lg px-3 py-1.5 text-sm font-bold text-gray-700 outline-none mt-1">
                 <option value="">-- Todos los Vendedores --</option>
               </select>
             </div>
@@ -250,10 +185,10 @@
         </div>
 
         <!-- LISTA DE CLIENTES CHOFER -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
-          <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2.5">
-            <h4 class="font-bold text-slate-800 text-sm">Clientes en la Ruta</h4>
-            <span id="driverResultsCount" class="text-xs font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">---</span>
+        <div class="bg-white p-4 rounded-xl shadow">
+          <div class="flex justify-between items-center mb-3 border-b pb-2">
+            <h4 class="font-bold text-gray-700">Clientes en la Ruta</h4>
+            <span id="driverResultsCount" class="text-xs font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">---</span>
           </div>
           <div id="driverClientsList" class="space-y-3"></div>
         </div>
@@ -264,153 +199,139 @@
     <section id="viewAdmin" class="hidden space-y-4">
 
       <!-- TARJETA DE ARCHIVO ACTIVO -->
-      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3 shadow-xs">
-        <div class="space-y-1">
+      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-300 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
+        <div class="space-y-0.5">
           <div class="flex items-center gap-2">
-            <span class="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">Archivo Activo</span>
-            <h4 id="activeFileName" class="font-bold text-emerald-950 text-base">---</h4>
+            <span class="bg-emerald-600 text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded">Archivo Activo</span>
+            <h4 id="activeFileName" class="font-bold text-emerald-900 text-base">---</h4>
           </div>
           <p id="activeFileMeta" class="text-xs text-emerald-700 font-medium">---</p>
         </div>
-        <button onclick="clearCurrentDayData()" class="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-2 transition">
+        <button onclick="clearCurrentDayData()" class="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow flex items-center justify-center gap-2 transition">
           <i class="fa-solid fa-trash-can"></i> Borrar datos para nuevo día
         </button>
       </div>
 
       <!-- CARGAR NUEVO ARCHIVO -->
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-          <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar Archivo de Rutas Diarias (CSV)
+      <div class="bg-white p-5 rounded-xl shadow space-y-3">
+        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar Archivo de Rutas (CSV)
         </h2>
-        <p class="text-xs text-slate-500">
+        <p class="text-xs text-gray-500">
           Soporta separadores <code>;</code> o <code>,</code>. Mapea columnas <b>TPT</b>, <b>SEC</b>, <b>RAZON SOCIAL</b>, <b>Y (Lat)</b>, <b>X (Lon)</b>.
         </p>
         <div class="flex flex-col sm:flex-row gap-3 items-center">
-          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-          <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-sm whitespace-nowrap text-xs transition">
-            Procesar y Cargar
+          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+          <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow whitespace-nowrap">
+            Procesar y Guardar
           </button>
         </div>
-        <div id="csvStatus" class="text-xs font-bold"></div>
+        <div id="csvStatus" class="text-sm font-medium"></div>
       </div>
 
-      <!-- PANEL DE RUTAS REGISTRADAS -->
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-2 border-l-4 border-amber-500">
-        <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
-          <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
+      <!-- PANEL DE CLAVES ASIGNADAS -->
+      <div class="bg-white p-4 rounded-xl shadow space-y-2 border-l-4 border-amber-500">
+        <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+          <i class="fa-solid fa-key text-amber-500"></i> Claves de Acceso Asignadas a Choferes
         </h3>
-        <p class="text-xs text-slate-500">Los choferes ingresan directamente digitando solo su código de transporte (ej: 14 o T14):</p>
+        <p class="text-xs text-gray-500">Comparte este PIN con cada chofer para que puedan acceder solo a su ruta:</p>
         <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
-          <span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>
+          <span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>
         </div>
       </div>
 
       <!-- RESUMEN Y AVANCE EN VISTA ADMIN -->
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 border-l-4 border-indigo-600">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-2.5">
-          <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen General <span id="adminScopeLabel" class="text-xs text-indigo-600 font-bold">(General Día)</span>
+      <div class="bg-white p-4 rounded-xl shadow space-y-3 border-l-4 border-indigo-600">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen y Avance <span id="adminScopeLabel" class="text-xs text-indigo-600 font-bold">(General Día)</span>
           </h4>
-          <span id="adminProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">0% completado</span>
+          <span id="adminProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full">0% completado</span>
         </div>
 
-        <div class="space-y-1.5">
-          <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-200">
-            <div id="adminProgressBarFill" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        <div class="space-y-1">
+          <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden flex">
+            <div id="adminProgressBarFill" class="bg-emerald-500 h-3 transition-all duration-500" style="width: 0%"></div>
           </div>
-          <div class="flex justify-between text-[11px] font-bold text-slate-500">
-            <span id="adminCompletedCount">Atendidos / Visitados: 0</span>
-            <span id="adminRemainingCount">Pendientes: 0 (100%)</span>
+          <div class="flex justify-between text-[11px] font-bold text-gray-500">
+            <span id="adminCompletedCount">Visitados / Atendidos: 0</span>
+            <span id="adminRemainingCount">Falta por visitar (Gris): 0 (100%)</span>
           </div>
         </div>
 
-        <!-- BOTONES INTERACTIVOS DE MÉTRICAS ADMIN -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-2">
-          <div onclick="zoomToStatus('PENDIENTE', 'admin')" class="bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl border border-slate-200 cursor-pointer transition shadow-xs">
-            <span class="block text-slate-500 text-[10px] font-extrabold uppercase">⏳ PENDIENTES</span>
-            <span id="adminCountPendiente" class="text-lg font-black text-slate-800">0</span>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-1">
+          <div class="bg-gray-100 p-2 rounded-lg border">
+            <span class="block text-gray-500 text-[10px]">⏳ PENDIENTES</span>
+            <span id="adminCountPendiente" class="text-base text-gray-800">0</span>
           </div>
-          <div onclick="zoomToStatus('ENTREGADO', 'admin')" class="bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl border border-emerald-200 cursor-pointer transition shadow-xs">
-            <span class="block text-emerald-700 text-[10px] font-extrabold uppercase">✅ ENTREGADOS</span>
-            <span id="adminCountEntregado" class="text-lg font-black text-emerald-800">0</span>
+          <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+            <span class="block text-emerald-600 text-[10px]">✅ ENTREGADOS</span>
+            <span id="adminCountEntregado" class="text-base text-emerald-700">0</span>
           </div>
-          <div onclick="zoomToStatus('RECHAZADO', 'admin')" class="bg-rose-50 hover:bg-rose-100 p-2.5 rounded-xl border border-rose-200 cursor-pointer transition shadow-xs">
-            <span class="block text-rose-700 text-[10px] font-extrabold uppercase">❌ RECHAZADOS</span>
-            <span id="adminCountCerrado" class="text-lg font-black text-rose-800">0</span>
+          <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
+            <span class="block text-rose-600 text-[10px]">❌ CERRADOS</span>
+            <span id="adminCountCerrado" class="text-base text-rose-700">0</span>
           </div>
-          <div onclick="zoomToStatus('PARCIAL', 'admin')" class="bg-orange-50 hover:bg-orange-100 p-2.5 rounded-xl border border-orange-200 cursor-pointer transition shadow-xs">
-            <span class="block text-orange-700 text-[10px] font-extrabold uppercase">🟧 PARCIAL</span>
-            <span id="adminCountParcial" class="text-lg font-black text-orange-800">0</span>
+          <div class="bg-orange-50 p-2 rounded-lg border border-orange-200">
+            <span class="block text-orange-600 text-[10px]">🟧 PARCIAL</span>
+            <span id="adminCountParcial" class="text-base text-orange-700">0</span>
           </div>
-          <div onclick="zoomToStatus('OTRO MOTIVO', 'admin')" class="bg-purple-50 hover:bg-purple-100 p-2.5 rounded-xl border border-purple-200 cursor-pointer transition shadow-xs">
-            <span class="block text-purple-700 text-[10px] font-extrabold uppercase">🟣 OTRO MOTIVO</span>
-            <span id="adminCountOtro" class="text-lg font-black text-purple-800">0</span>
+          <div class="bg-purple-50 p-2 rounded-lg border border-purple-200">
+            <span class="block text-purple-600 text-[10px]">🟣 OTRO MOTIVO</span>
+            <span id="adminCountOtro" class="text-base text-purple-700">0</span>
           </div>
-          <div onclick="zoomToStatus('REPASO', 'admin')" class="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-xl border border-blue-200 cursor-pointer transition shadow-xs">
-            <span class="block text-blue-700 text-[10px] font-extrabold uppercase">🔵 REPASO</span>
-            <span id="adminCountRepaso" class="text-lg font-black text-blue-800">0</span>
+          <div class="bg-blue-50 p-2 rounded-lg border border-blue-200">
+            <span class="block text-blue-600 text-[10px]">🔵 REPASO</span>
+            <span id="adminCountRepaso" class="text-base text-blue-700">0</span>
           </div>
         </div>
       </div>
 
-      <!-- MAPA MONITOREO ADMIN Y BARRA DE ACCIONES MASIVAS -->
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+      <!-- MAPA MONITOREO ADMIN -->
+      <div class="bg-white p-4 rounded-xl shadow space-y-3">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
           <div class="flex items-center gap-2">
-            <h3 class="font-black text-slate-900 text-base">Monitoreo General de Rutas</h3>
-            <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo
+            <h3 class="font-bold text-gray-800">Monitoreo General de Rutas</h3>
+            <span class="text-[11px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS Multicamión Activo
             </span>
           </div>
-          
-          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-            <!-- BOTÓN DE ACCIÓN MASIVA PARA ADMIN -->
-            <button onclick="bulkMarkPendingAsDelivered()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition">
-              <i class="fa-solid fa-check-double"></i> ⚡ Marcar Pendientes como ENTREGADO
-            </button>
-            <button onclick="exportAdminReportCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition">
-              <i class="fa-solid fa-file-excel"></i> Exportar CSV
-            </button>
-            <button onclick="manualRefreshAdmin()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 text-xs flex items-center gap-1.5 transition">
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="manualRefreshAdmin()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-xs hover:bg-indigo-100 flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-rotate"></i> Actualizar
             </button>
-            <select id="selectAdminRoute" onchange="onAdminRouteSelect(true)" class="border border-slate-300 rounded-xl px-3 py-1.5 font-bold text-xs text-slate-800 outline-none w-full sm:w-auto bg-white">
+            <label class="text-xs font-bold text-gray-600">Filtrar Ruta:</label>
+            <select id="selectAdminRoute" onchange="onAdminRouteSelect(true)" class="border rounded-lg px-3 py-1.5 font-bold text-gray-700 outline-none w-full sm:w-auto">
               <option value="">-- Todas las Rutas (Vista General) --</option>
             </select>
           </div>
         </div>
 
-        <div class="relative">
-          <div id="adminMap" class="map-container" style="height: 480px;"></div>
-          <button id="btnExpandAdminMap" onclick="toggleExpandMap('adminMap', 'btnExpandAdminMap')" class="absolute top-3 right-3 z-[100000] px-3.5 py-2 bg-white/95 hover:bg-white text-indigo-700 border border-slate-200 rounded-xl text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
-            <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
-          </button>
-        </div>
+        <div id="adminMap" class="map-container" style="height: 480px;"></div>
       </div>
 
       <!-- DETALLE DE ESTADOS DE CLIENTES ADMIN -->
-      <div id="adminClientsDetailCard" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 border-b border-slate-100 pb-2.5">
-          <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+      <div id="adminClientsDetailCard" class="bg-white p-4 rounded-xl shadow space-y-3">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 border-b pb-2">
+          <h4 class="font-bold text-gray-800 text-sm flex items-center gap-2">
             <i class="fa-solid fa-list-check text-indigo-600"></i> Estado Detallado de Clientes <span id="adminTableScope" class="text-xs text-indigo-600 font-bold">(General)</span>
           </h4>
-          <input type="text" id="adminSearchInput" oninput="applyAdminTableFilter()" placeholder="Buscar cliente, sec o dirección..." class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
+          <input type="text" id="adminSearchInput" oninput="applyAdminTableFilter()" placeholder="Buscar cliente, sec o dirección..." class="border rounded-lg px-3 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
         </div>
         <div class="overflow-x-auto max-h-96">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                <th class="p-2.5">Ruta</th>
-                <th class="p-2.5">Sec</th>
-                <th class="p-2.5">Cliente / Razón Social</th>
-                <th class="p-2.5">Dirección</th>
-                <th class="p-2.5">Monto S/</th>
-                <th class="p-2.5">Estado / Motivo</th>
-                <th class="p-2.5">Hora Entrega</th>
+              <tr class="bg-gray-100 border-b text-gray-600 font-bold uppercase text-[10px]">
+                <th class="p-2">Ruta</th>
+                <th class="p-2">Sec</th>
+                <th class="p-2">Cliente / Razón Social</th>
+                <th class="p-2">Dirección</th>
+                <th class="p-2">Estado</th>
+                <th class="p-2">Hora Entrega</th>
               </tr>
             </thead>
             <tbody id="adminClientsTableBody">
-              <tr><td colspan="7" class="text-center p-4 text-slate-400 font-medium">Cargando lista de clientes...</td></tr>
+              <tr><td colspan="6" class="text-center p-4 text-gray-400">Cargando lista de clientes...</td></tr>
             </tbody>
           </table>
         </div>
@@ -421,10 +342,7 @@
   </main>
 
   <script>
-    const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
-
-    const GOOGLE_MAPS_TILE_URL = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
 
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
@@ -439,143 +357,113 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // REGISTRO DE SERVICE WORKER PARA PWA
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(() => console.log('Service Worker Registrado'))
-          .catch(err => console.warn('Error SW:', err));
+    // PALETA DE COLORES DISTINTIVOS PARA CADA VENDEDOR
+    const VENDOR_COLORS = [
+      '#10B981', // Verde
+      '#3B82F6', // Azul
+      '#8B5CF6', // Morado
+      '#EC4899', // Rosado
+      '#F59E0B', // Ámbar
+      '#EF4444', // Rojo
+      '#14B8A6', // Teal
+      '#6366F1', // Índigo
+      '#84CC16', // Lima
+      '#A855F7'  // Púrpura
+    ];
+
+    function getVendorColor(vendorStr) {
+      if (!vendorStr) return '#6B7280'; // Gris por defecto
+      let hash = 0;
+      for (let i = 0; i < vendorStr.length; i++) hash = vendorStr.charCodeAt(i) + ((hash << 5) - hash);
+      const index = Math.abs(hash) % VENDOR_COLORS.length;
+      return VENDOR_COLORS[index];
+    }
+
+    // MAPA ULTRA-LIVIANO (Sin relleno de vegetación ni terrenos pesados)
+    function createOptimizedMap(containerId) {
+      const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        updateWhenIdle: true,
+        keepBuffer: 2
       });
+
+      const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        updateWhenIdle: true,
+        keepBuffer: 2
+      });
+
+      const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        updateWhenIdle: true,
+        keepBuffer: 2
+      });
+
+      const map = L.map(containerId, {
+        preferCanvas: true,          // Renderizado ultra rápido por GPU
+        markerZoomAnimation: false,  // Sin animaciones pesadas
+        layers: [cartoPositron]      // Positron (plano, minimalista)
+      }).setView([-16.3988, -71.5350], 13);
+
+      L.control.layers({
+        "⚪ Minimalista (Sin relleno)": cartoPositron,
+        "🚀 Logístico (Voyager)": cartoVoyager,
+        "🛰️ Satélite (Esri)": esriSatellite
+      }).addTo(map);
+
+      return map;
     }
 
-    // ACTIVACIÓN DE PERSISTENCIA OFFLINE EN FIRESTORE
-    db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-      console.warn("Firestore Persistence Error:", err.code);
-    });
-
-    // COLA LOCAL DE SINCRONIZACIÓN
-    let offlineQueue = JSON.parse(localStorage.getItem('courier_offline_queue') || '[]');
-
-    function updateOfflineStatusUI() {
-      const banner = document.getElementById('offlineSyncBanner');
-      const isOnline = navigator.onLine;
-      const count = offlineQueue.length;
-
-      if (!isOnline || count > 0) {
-        banner.classList.remove('hidden');
-        if (!isOnline) {
-          document.getElementById('offlineText').innerHTML = `<i class="fa-solid fa-wifi-slash text-amber-200"></i> <b>Sin Conexión:</b> Guardando en celular (${count} cambios pendientes).`;
-        } else {
-          document.getElementById('offlineText').innerHTML = `<i class="fa-solid fa-arrows-rotate animate-spin text-white"></i> <b>Sincronizando:</b> Subiendo ${count} cambios a la nube...`;
-        }
-      } else {
-        banner.classList.add('hidden');
-      }
-    }
-
-    async function processOfflineQueue() {
-      if (!navigator.onLine || offlineQueue.length === 0) {
-        updateOfflineStatusUI();
-        return;
-      }
-      updateOfflineStatusUI();
-
-      const currentQueue = [...offlineQueue];
-      offlineQueue = [];
-      localStorage.setItem('courier_offline_queue', JSON.stringify([]));
-
-      for (const item of currentQueue) {
-        try {
-          const docRef = db.collection('routes').doc(item.docId);
-          const docSnap = await docRef.get();
-          if (docSnap.exists) {
-            const clients = docSnap.data().clients || [];
-            if (clients[item.idx]) {
-              if (item.type === 'STATUS') {
-                clients[item.idx].estado = item.val;
-                if (item.val === 'ENTREGADO') clients[item.idx].horaEntrega = new Date().toLocaleTimeString();
-              } else if (item.type === 'OBS') {
-                clients[item.idx].obs = item.val;
-                if ((clients[item.idx].estado || 'PENDIENTE').toUpperCase() === 'PENDIENTE' && item.val.trim() !== '') {
-                  clients[item.idx].estado = 'RECHAZADO';
-                }
-              } else if (item.type === 'REPASO') {
-                clients[item.idx].repasoConfirm = item.val;
-              }
-              await docRef.update({ clients, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-            }
-          }
-        } catch (e) {
-          console.error("Error sincronizando ítem offline:", e);
-          offlineQueue.push(item);
-          localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        }
-      }
-      updateOfflineStatusUI();
-    }
-
-    window.addEventListener('online', () => { processOfflineQueue(); });
-    window.addEventListener('offline', () => { updateOfflineStatusUI(); });
-
-    const STATUS_COLORS = {
-      'PENDIENTE': '#6B7280',
-      'ENTREGADO': '#22C55E',
-      'CERRADO': '#EF4444',
-      'RECHAZADO': '#EF4444',
-      'PARCIAL': '#F97316',
-      'OTRO MOTIVO': '#A855F7',
-      'REPASO': '#3B82F6'
-    };
-
-    function createCustomMarkerIcon(sec, status, showLabel = true) {
-      const cleanStatus = (status || 'PENDIENTE').toString().trim().toUpperCase();
-      const statusColor = STATUS_COLORS[cleanStatus] || STATUS_COLORS['PENDIENTE'];
+    // ICONO CON COLOR DE VENDEDOR + ATENUACIÓN AL ENTREGAR / DESCARGAR
+    function createCustomMarkerIcon(sec, vendor, status, showLabel = true) {
+      const vendorColor = getVendorColor(vendor);
+      const isDelivered = status === 'ENTREGADO';
+      
+      // Si está entregado (descargado), reducimos opacidad al 35% y achicamos el punto para despejar el mapa
+      const opacity = isDelivered ? 0.35 : 0.85;
+      const dotSize = isDelivered ? 8 : 11;
+      const borderWidth = isDelivered ? 1 : 1.5;
 
       if (!showLabel) {
         return L.divIcon({
           className: 'custom-map-marker',
-          html: `<div style="width:10px;height:10px;border-radius:50%;background-color:${statusColor};border:1.5px solid #ffffff;"></div>`,
-          iconSize: [10, 10],
-          iconAnchor: [5, 5]
+          html: `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};opacity:${opacity};border:${borderWidth}px solid #ffffff;"></div>`,
+          iconSize: [dotSize, dotSize],
+          iconAnchor: [dotSize / 2, dotSize / 2]
         });
       }
 
       return L.divIcon({
         className: 'custom-map-marker',
         html: `
-          <div style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:auto;">
-            <div style="width:10px;height:10px;border-radius:50%;background-color:${statusColor};border:1.5px solid #ffffff;flex-shrink:0;"></div>
-            <span style="font-size:10px;font-weight:800;color:#0f172a;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;line-height:10px;">${sec}</span>
+          <div style="display: flex; align-items: center; gap: 2px; opacity: ${opacity}; pointer-events: auto;">
+            <div style="
+              width: ${dotSize}px; 
+              height: ${dotSize}px; 
+              border-radius: 50%; 
+              background-color: ${vendorColor}; 
+              border: ${borderWidth}px solid #ffffff; 
+              flex-shrink: 0;
+            "></div>
+            <span style="
+              background: rgba(255,255,255,0.92); 
+              color: #1f2937; 
+              font-weight: 700; 
+              font-size: 9px; 
+              padding: 0px 3px; 
+              border-radius: 3px; 
+              border: 1px solid #d1d5db;
+              white-space: nowrap;
+              line-height: 12px;
+              ${isDelivered ? 'text-decoration: line-through; color: #9ca3af;' : ''}
+            ">${sec}</span>
           </div>
         `,
-        iconSize: [28, 12],
+        iconSize: [35, 12],
         iconAnchor: [5, 6]
       });
-    }
-
-    function applyJitter(clients) {
-      const offset = 0.00015;
-      const coordMap = {};
-
-      clients.forEach(c => {
-        if (!c.lat || !c.lon) return;
-        const key = `${c.lat.toFixed(4)}_${c.lon.toFixed(4)}`; 
-        if (!coordMap[key]) coordMap[key] = [];
-        coordMap[key].push(c);
-      });
-
-      Object.values(coordMap).forEach(group => {
-        if (group.length > 1) {
-          const angleStep = (2 * Math.PI) / group.length;
-          group.forEach((client, index) => {
-            const angle = index * angleStep;
-            client.lat += offset * Math.cos(angle);
-            client.lon += offset * Math.sin(angle);
-          });
-        }
-      });
-
-      return clients;
     }
 
     let currentRouteCode = null;
@@ -599,91 +487,42 @@
     let driverMapInitialFit = false;
     let adminMapInitialFit = false;
 
-    function zoomToStatus(targetStatus, mode) {
-      const map = (mode === 'driver') ? driverMap : adminMap;
-      const markers = (mode === 'driver') ? driverMapMarkers : adminMapMarkers;
-      const clients = (mode === 'driver') ? currentClientsData : adminCurrentRawClients;
-
-      if (!map || !clients || clients.length === 0) return;
-
-      const matchingClients = clients.filter(c => {
-        const st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (targetStatus === 'RECHAZADO') {
-          return (st === 'RECHAZADO' || st === 'CERRADO') && c.lat && c.lon;
-        }
-        return st === targetStatus && c.lat && c.lon;
-      });
-
-      if (matchingClients.length === 0) {
-        alert(`No hay clientes con estado "${targetStatus === 'RECHAZADO' ? 'RECHAZADO' : targetStatus}".`);
-        return;
-      }
-
-      const mapElementId = (mode === 'driver') ? 'driverMap' : 'adminMap';
-      document.getElementById(mapElementId).scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-      if (matchingClients.length === 1) {
-        const c = matchingClients[0];
-        map.setView([c.lat, c.lon], 20);
-
-        const uniqueKey = (mode === 'driver') 
-          ? `driver_${c._idx}_${c.sec}` 
-          : `admin_${c.tpt || 'R'}_${c._idx}_${c.sec}`;
-        
-        if (markers[uniqueKey]) {
-          markers[uniqueKey].openPopup();
-        }
-      } else {
-        const bounds = matchingClients.map(c => [c.lat, c.lon]);
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 });
-      }
-    }
-
-    function toggleExpandMap(mapId, btnId) {
-      const mapEl = document.getElementById(mapId);
-      const btn = document.getElementById(btnId);
-      const isFull = mapEl.classList.toggle('map-container-fullscreen');
-
-      if (btn) {
-        btn.innerHTML = isFull 
-          ? `<i class="fa-solid fa-compress text-rose-600"></i> Reducir Mapa`
-          : `<i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa`;
-      }
-
-      const targetMap = (mapId === 'driverMap') ? driverMap : adminMap;
-      if (targetMap) {
-        setTimeout(() => targetMap.invalidateSize(), 200);
-      }
-    }
-
     window.addEventListener('DOMContentLoaded', () => {
-      updateOfflineStatusUI();
       const savedCode = localStorage.getItem('courier_driver_code');
-      const savedExp = localStorage.getItem('courier_driver_exp');
-
-      if (savedCode && savedExp) {
-        if (Date.now() < parseInt(savedExp, 10)) {
-          document.getElementById('inputRouteCode').value = savedCode;
-          loadDriverRoute();
-        } else {
-          clearDriverStorage();
-        }
+      const savedPin = localStorage.getItem('courier_driver_pin');
+      if (savedCode && savedPin) {
+        document.getElementById('inputRouteCode').value = savedCode;
+        document.getElementById('inputRoutePin').value = savedPin;
+        loadDriverRoute();
       }
     });
 
-    function clearDriverStorage() {
-      localStorage.removeItem('courier_driver_code');
-      localStorage.removeItem('courier_driver_pin');
-      localStorage.removeItem('courier_driver_exp');
-    }
-
-    function requestAdminAccess() {
+    async function requestAdminAccess() {
       if (isAdminAuthenticated) {
         switchTab('admin');
         return;
       }
+      let storedPass = null;
+      try {
+        const doc = await db.collection('config').doc('admin').get();
+        if (doc.exists) storedPass = doc.data().password;
+      } catch (e) {
+        alert("No se pudo verificar la contraseña. Revisa tu conexión.");
+        return;
+      }
+
+      if (!storedPass) {
+        const newPass = prompt("🔒 Primera vez: crea una contraseña de Administrador (mín. 4 caracteres):");
+        if (newPass === null) return;
+        if (newPass.length < 4) { alert("La contraseña debe tener al menos 4 caracteres."); return; }
+        await db.collection('config').doc('admin').set({ password: newPass });
+        isAdminAuthenticated = true;
+        switchTab('admin');
+        return;
+      }
+
       const pass = prompt("🔒 Ingrese la contraseña de Administrador:");
-      if (pass === ADMIN_PASSWORD) {
+      if (pass === storedPass) {
         isAdminAuthenticated = true;
         switchTab('admin');
       } else if (pass !== null) {
@@ -710,8 +549,12 @@
       if (tab === 'admin') {
         setTimeout(async () => {
           if (!adminMap) {
-            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
-            L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(adminMap);
+            adminMap = createOptimizedMap('adminMap');
+            adminMap.on('zoomend', () => {
+              const code = document.getElementById('selectAdminRoute').value;
+              if (code) onAdminRouteSelect(false);
+              else loadAdminGeneralSummary();
+            });
           }
           adminMap.invalidateSize();
           await loadAvailableRoutesInSelect();
@@ -790,10 +633,9 @@
           subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
           lat: isNaN(lat) ? 0 : lat,
           lon: isNaN(lon) ? 0 : lon,
-          estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toString().trim().toUpperCase() : 'PENDIENTE',
+          estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toUpperCase() : 'PENDIENTE',
           repasoConfirm: '',
-          horaEntrega: '',
-          obs: ''
+          horaEntrega: ''
         });
       }
       return clients;
@@ -804,13 +646,13 @@
       const statusDiv = document.getElementById('csvStatus');
 
       if (!fileInput.files || fileInput.files.length === 0) {
-        statusDiv.className = "text-xs font-bold text-rose-600";
+        statusDiv.className = "text-sm font-bold text-red-600";
         statusDiv.innerText = "Por favor selecciona un archivo .csv";
         return;
       }
 
-      statusDiv.className = "text-xs font-bold text-indigo-600";
-      statusDiv.innerText = "⏳ Procesando archivo y creando rutas...";
+      statusDiv.className = "text-sm font-bold text-indigo-600";
+      statusDiv.innerText = "⏳ Procesando archivo y generando claves de seguridad...";
 
       const file = fileInput.files[0];
       const reader = new FileReader();
@@ -819,7 +661,7 @@
         try {
           const parsedClients = parseCSV(e.target.result);
           if (parsedClients.length === 0) {
-            statusDiv.className = "text-xs font-bold text-rose-600";
+            statusDiv.className = "text-sm font-bold text-red-600";
             statusDiv.innerText = "No se pudieron extraer datos del archivo.";
             return;
           }
@@ -836,8 +678,13 @@
             const group = routesMap[code];
             group.sort((a, b) => a.sec - b.sec);
 
+            let hash = 0;
+            for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
+            const generatedPin = Math.abs(hash % 9000 + 1000).toString();
+
             await db.collection('routes').doc(code).set({
               code: code,
+              pin: generatedPin,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               clients: group
             }, { merge: true });
@@ -851,18 +698,18 @@
             totalRoutes: routeKeys.length
           });
 
-          statusDiv.className = "text-xs font-bold text-emerald-600";
+          statusDiv.className = "text-sm font-bold text-emerald-600";
           statusDiv.innerText = `✅ ¡Éxito! Se guardaron ${parsedClients.length} clientes en las rutas (${routeKeys.join(', ')}).`;
 
           fileInput.value = '';
           await loadAvailableRoutesInSelect();
           loadAdminGeneralSummary();
         } catch (err) {
-          statusDiv.className = "text-xs font-bold text-rose-600";
+          statusDiv.className = "text-sm font-bold text-red-600";
           statusDiv.innerText = `Error: ${err.message}`;
         }
       };
-      reader.readAsText(file, 'UTF-8');
+      reader.readAsText(file, 'ISO-8859-1');
     }
 
     async function clearCurrentDayData() {
@@ -876,7 +723,7 @@
       await db.collection('meta').doc('active_file').delete();
 
       document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
-      document.getElementById('routeKeysList').innerHTML = '<span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
+      document.getElementById('routeKeysList').innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
       
       Object.keys(adminMapMarkers).forEach(k => adminMap.removeLayer(adminMapMarkers[k]));
       adminMapMarkers = {};
@@ -886,8 +733,10 @@
 
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
+      let inputPin = document.getElementById('inputRoutePin').value.trim();
 
       if (!inputCode) return alert("Ingresa tu código de ruta.");
+      if (!inputPin) return alert("Ingresa tu clave de acceso (PIN).");
 
       let docRef = db.collection('routes').doc(inputCode);
       let docSnap = await docRef.get();
@@ -904,12 +753,16 @@
 
       const routeData = docSnap.data();
 
+      if (routeData.pin && routeData.pin !== inputPin) {
+        return alert("🔒 Clave de acceso incorrecta para esta ruta.");
+      }
+
       if (document.getElementById('chkRememberDriver').checked) {
-        const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
         localStorage.setItem('courier_driver_code', inputCode);
-        localStorage.setItem('courier_driver_exp', (Date.now() + EIGHT_HOURS_MS).toString());
+        localStorage.setItem('courier_driver_pin', inputPin);
       } else {
-        clearDriverStorage();
+        localStorage.removeItem('courier_driver_code');
+        localStorage.removeItem('courier_driver_pin');
       }
 
       currentDocId = docRef.id;
@@ -922,8 +775,8 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
-        L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps' }).addTo(driverMap);
+        driverMap = createOptimizedMap('driverMap');
+        driverMap.on('zoomend', () => applyDriverFilters());
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
 
@@ -931,8 +784,7 @@
 
       driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
-          const rawClients = doc.data().clients || [];
-          currentClientsData = rawClients.map((c, i) => ({ ...c, _idx: i }));
+          currentClientsData = doc.data().clients || [];
           updateDriverSummaryStats(currentClientsData);
           populateVendorFilterDropdown(currentClientsData);
           applyDriverFilters();
@@ -943,7 +795,8 @@
     }
 
     function logoutDriverSession() {
-      clearDriverStorage();
+      localStorage.removeItem('courier_driver_code');
+      localStorage.removeItem('courier_driver_pin');
       if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
       if (driverUnsubscribe) driverUnsubscribe();
 
@@ -951,11 +804,9 @@
         driverMap.removeLayer(driverSelfMarker);
         driverSelfMarker = null;
       }
-      
-      Object.keys(driverMapMarkers).forEach(k => driverMap.removeLayer(driverMapMarkers[k]));
-      driverMapMarkers = {};
 
       document.getElementById('inputRouteCode').value = '';
+      document.getElementById('inputRoutePin').value = '';
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
     }
@@ -976,8 +827,8 @@
             const selfIcon = L.divIcon({
               className: 'custom-map-marker',
               html: `<div class="driver-self-marker" title="Tu ubicación actual"></div>`,
-              iconSize: [14, 14],
-              iconAnchor: [7, 7]
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
             });
 
             if (!driverSelfMarker) {
@@ -1025,8 +876,8 @@
 
       document.getElementById('driverProgressPct').innerText = `${stats.pctAvance}% completado`;
       document.getElementById('driverProgressBarFill').style.width = `${stats.pctAvance}%`;
-      document.getElementById('driverCompletedCount').innerText = `Atendidos: ${stats.atendidos} de ${stats.total}`;
-      document.getElementById('driverRemainingCount').innerText = `Pendientes: ${stats.pendientes} (${stats.pctFalta}%)`;
+      document.getElementById('driverCompletedCount').innerText = `Visitados / Atendidos: ${stats.atendidos} de ${stats.total}`;
+      document.getElementById('driverRemainingCount').innerText = `Falta por visitar (Gris): ${stats.pendientes} (${stats.pctFalta}%)`;
     }
 
     function updateAdminSummaryStats(clients, label) {
@@ -1043,8 +894,8 @@
 
       document.getElementById('adminProgressPct').innerText = `${stats.pctAvance}% completado`;
       document.getElementById('adminProgressBarFill').style.width = `${stats.pctAvance}%`;
-      document.getElementById('adminCompletedCount').innerText = `Atendidos / Visitados: ${stats.atendidos} de ${stats.total}`;
-      document.getElementById('adminRemainingCount').innerText = `Pendientes: ${stats.pendientes} (${stats.pctFalta}%)`;
+      document.getElementById('adminCompletedCount').innerText = `Visitados / Atendidos: ${stats.atendidos} de ${stats.total}`;
+      document.getElementById('adminRemainingCount').innerText = `Falta por visitar (Gris): ${stats.pendientes} (${stats.pctFalta}%)`;
     }
 
     function calculateStats(clients) {
@@ -1052,10 +903,10 @@
       let pendientes = 0, entregados = 0, cerrados = 0, parciales = 0, otros = 0, repasos = 0;
 
       clients.forEach(c => {
-        const st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
+        const st = c.estado || 'PENDIENTE';
         if (st === 'PENDIENTE') pendientes++;
         else if (st === 'ENTREGADO') entregados++;
-        else if (st === 'CERRADO' || st === 'RECHAZADO') cerrados++;
+        else if (st === 'CERRADO') cerrados++;
         else if (st === 'PARCIAL') parciales++;
         else if (st === 'OTRO MOTIVO') otros++;
         else if (st === 'REPASO') repasos++;
@@ -1071,17 +922,28 @@
 
     function populateVendorFilterDropdown(clients) {
       const select = document.getElementById('driverVendorFilter');
+      const legendDiv = document.getElementById('driverVendorLegend');
       const currentValue = select.value;
       
       const vendors = new Set();
       clients.forEach(c => { if (c.vendedor) vendors.add(c.vendedor); });
 
       select.innerHTML = '<option value="">-- Todos los Vendedores --</option>';
+      legendDiv.innerHTML = '';
+
       Array.from(vendors).sort().forEach(v => {
         const option = document.createElement('option');
         option.value = v;
         option.innerText = `Vendedor ${v}`;
         select.appendChild(option);
+
+        // LEYENDA EN PANTALLA CON LOS COLORES DE VENDEDORES
+        const color = getVendorColor(v);
+        legendDiv.innerHTML += `
+          <span class="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-md border text-gray-700">
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span> ${v}
+          </span>
+        `;
       });
 
       select.value = currentValue;
@@ -1105,63 +967,38 @@
       renderDriverClientsAndMap(filtered);
     }
 
-    function sendWhatsAppNotification(idx) {
-      const client = currentClientsData.find(c => c._idx === idx);
-      if (!client) return;
-
-      let routeCode = currentRouteCode || client.tpt || '';
-      if (routeCode && !routeCode.toUpperCase().startsWith('T')) {
-        routeCode = 'T' + routeCode;
-      }
-
-      let clientCode = client.name || client.sec;
-
-      const message = `🚛 ${routeCode}\n` +
-        `Cliente ${clientCode}\n` +
-        `*Estado:* ${client.estado || 'PENDIENTE'}\n` +
-        `*Motivo:* ${client.obs || 'Sin motivo registrado'}`;
-
-      const encodedMessage = encodeURIComponent(message);
-      window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
-    }
-
     function renderDriverClientsAndMap(clientsToRender) {
       const listContainer = document.getElementById('driverClientsList');
       listContainer.innerHTML = '';
-      
-      // OPTIMIZACIÓN: Fragmento DOM para evitar re-dibujados de UI (elimina lag al hacer scroll)
-      const fragment = document.createDocumentFragment();
 
       const bounds = [];
       const currentKeys = new Set();
-      const hideVisited = document.getElementById('chkHideVisited') ? document.getElementById('chkHideVisited').checked : false;
+
+      const showLabels = driverMap ? (driverMap.getZoom() >= 14) : true;
 
       document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
 
-      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clientsToRender)));
+      clientsToRender.forEach((c) => {
+        const originalIndex = currentClientsData.findIndex(item => item.sec === c.sec && item.name === c.name);
+        const uniqueKey = `driver_${c.sec}_${c.name}`;
+        currentKeys.add(uniqueKey);
 
-      jitteredClients.forEach((c) => {
-        const realIdx = c._idx;
-        const uniqueKey = `driver_${realIdx}_${c.sec}`;
-
-        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
+        let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
-        const isVisited = (statusKey !== 'PENDIENTE');
 
         let repasoHtml = '';
         if (statusKey === 'REPASO') {
-          let aptoClass = c.repasoConfirm === 'APTO' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700';
-          let noAptoClass = c.repasoConfirm === 'NO APTO' ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-700';
+          let aptoClass = c.repasoConfirm === 'APTO' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700';
+          let noAptoClass = c.repasoConfirm === 'NO APTO' ? 'bg-rose-600 text-white' : 'bg-gray-200 text-gray-700';
 
           repasoHtml = `
-            <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
+            <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-bold text-blue-900"><i class="fa-solid fa-rotate-right"></i> ¿Repaso Confirmado?:</span>
               <div class="flex gap-1">
-                <button onclick="updateRepasoConfirm(${realIdx}, 'APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${aptoClass}">
+                <button onclick="updateRepasoConfirm(${originalIndex}, 'APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${aptoClass}">
                   👍 APTO
                 </button>
-                <button onclick="updateRepasoConfirm(${realIdx}, 'NO APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${noAptoClass}">
+                <button onclick="updateRepasoConfirm(${originalIndex}, 'NO APTO')" class="px-2.5 py-1 text-xs font-extrabold rounded shadow-sm transition ${noAptoClass}">
                   👎 NO APTO
                 </button>
               </div>
@@ -1169,114 +1006,69 @@
           `;
         }
 
-        const showWhatsAppBtn = (statusKey === 'RECHAZADO' || statusKey === 'PARCIAL' || statusKey === 'OTRO MOTIVO');
-
         const card = document.createElement('div');
-        card.className = "border border-slate-200/80 rounded-2xl p-4 bg-slate-50 space-y-2.5 shadow-xs hover:border-slate-300 transition";
+        card.className = "border rounded-xl p-4 bg-gray-50 space-y-2 shadow-sm";
         card.innerHTML = `
-          <div class="flex justify-between items-start gap-2">
-            <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
+          <div class="flex justify-between items-start">
+            <span class="font-bold text-indigo-700 text-sm">#${c.sec} · ${c.name}</span>
             <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? ' (' + c.repasoConfirm + ')' : ''}</span>
           </div>
-          <p class="text-xs text-slate-600 font-medium"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
-          <p class="text-xs text-slate-500 font-semibold"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: ${c.vendedor || 'S/V'} | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
+          <p class="text-xs text-gray-600"><i class="fa-solid fa-location-dot text-red-500"></i> ${c.domicilio}</p>
+          <p class="text-xs text-gray-500"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: <b style="color:${getVendorColor(c.vendedor)}">${c.vendedor || 'S/V'}</b> | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
 
           ${repasoHtml}
 
-          <div class="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 mt-2">
-            <label class="text-[11px] font-bold text-slate-600 block">📌 Motivo de Rechazo / Observación:</label>
-            <input type="text" id="obsInput_${realIdx}" value="${c.obs || ''}" onchange="updateClientObs(${realIdx}, this.value)" placeholder="Escribe o elige un motivo (ej: Sin dinero, No pidió...)" list="motivosSugeridos" class="w-full text-xs font-semibold border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-
-          ${showWhatsAppBtn ? `
-            <div class="pt-1">
-              <button onclick="sendWhatsAppNotification(${realIdx})" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition">
-                <i class="fa-brands fa-whatsapp text-sm"></i> 📲 Notificar ${statusKey} al Grupo de WhatsApp
-              </button>
-            </div>
-          ` : ''}
-
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-200 items-center">
-            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-sky-500 text-white rounded-xl hover:bg-sky-600 transition shadow-xs">
+          <div class="flex flex-wrap gap-2 pt-2 border-t items-center">
+            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-sky-500 text-white rounded hover:bg-sky-600">
               <i class="fa-brands fa-waze"></i> Waze
             </a>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition shadow-xs">
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700">
               <i class="fa-solid fa-map-pin"></i> Maps
             </a>
-            <select onchange="updateClientStatus(${realIdx}, this.value)" class="ml-auto text-xs font-bold border border-slate-300 rounded-xl px-2.5 py-1.5 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
+            <select onchange="updateClientStatus(${originalIndex}, this.value)" class="ml-auto text-xs font-bold border rounded px-2 py-1 bg-white outline-none">
               <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
               <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
+              <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
               <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
               <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
               <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
             </select>
           </div>
         `;
-        fragment.appendChild(card);
+        listContainer.appendChild(card);
 
         if (c.lat && c.lon) {
-          if (hideVisited && isVisited) {
-            return;
-          }
-
-          currentKeys.add(uniqueKey);
-          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, true);
-
-          const popupHtml = `
-            <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 210px; padding: 2px;">
-              <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px; border-bottom: 2px solid #4f46e5; padding-bottom: 3px; color: #3730a3;">
-                #${c.sec} · ${c.name}
-              </div>
-              <div><b>SEC:</b> ${c.sec}</div>
-              <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
-              <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
-              <div><b>TPT (Ruta):</b> ${c.tpt || currentRouteCode || '---'}</div>
-              <div><b>DOMICILIO:</b> ${c.domicilio}</div>
-              <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
-              
-              <div style="margin-top: 6px; background-color: #f9fafb; padding: 6px; border-radius: 6px; border: 1px solid #e5e7eb;">
-                <label style="font-weight: bold; display: block; margin-bottom: 2px; color: #4b5563;">📌 Motivo / Observación:</label>
-                <input type="text" id="popupObs_${realIdx}" value="${c.obs || ''}" onchange="updateClientObs(${realIdx}, this.value)" placeholder="Escribe o elige un motivo..." list="motivosSugeridos" style="font-size: 11px; width: 100%; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px; outline: none; background: #fff;">
-              </div>
-
-              <div style="margin-top: 6px;">
-                <label style="font-weight: bold; display: block; margin-bottom: 2px; color: #4b5563;">Cambiar Estado:</label>
-                <select onchange="updateClientStatus(${realIdx}, this.value)" style="font-size: 11px; font-weight: bold; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px; width: 100%; background-color: #fff;">
-                  <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
-                  <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                  <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
-                  <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
-                  <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
-                  <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
-                </select>
-              </div>
-
-              <div style="margin-top: 8px;">
-                <button onclick="sendWhatsAppNotification(${realIdx})" style="width: 100%; background-color: #059669; color: white; font-weight: bold; font-size: 11px; padding: 6px; border-radius: 6px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                  <i class="fa-brands fa-whatsapp"></i> 📲 Notificar por WhatsApp
-                </button>
-              </div>
-            </div>
-          `;
-
+          const markerIcon = createCustomMarkerIcon(c.sec, c.vendedor, statusKey, showLabels);
+          
           if (!driverMapMarkers[uniqueKey]) {
             const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
-            marker.bindPopup(popupHtml);
+            marker.bindPopup(`
+              <div class="space-y-1">
+                <b>${c.sec} · ${c.name}</b><br>
+                <span class="text-xs text-gray-600">${c.domicilio}</span><br>
+                <span class="text-xs font-bold">Vendedor: ${c.vendedor}</span><br>
+                <div class="pt-1">
+                  <label class="text-xs font-bold">Cambiar Estado:</label>
+                  <select onchange="updateClientStatus(${originalIndex}, this.value)" class="text-xs font-bold border rounded p-1 w-full mt-1">
+                    <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+                    <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+                    <option value="CERRADO" ${statusKey === 'CERRADO' ? 'selected' : ''}>❌ CERRADO</option>
+                    <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
+                    <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
+                    <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
+                  </select>
+                </div>
+              </div>
+            `);
             driverMapMarkers[uniqueKey] = marker;
           } else {
             driverMapMarkers[uniqueKey].setIcon(markerIcon);
-            driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
-            driverMapMarkers[uniqueKey].setPopupContent(popupHtml);
           }
 
           bounds.push([c.lat, c.lon]);
         }
       });
-      
-      listContainer.appendChild(fragment);
 
-      // Eliminar marcadores que ya no están en la lista actual
       Object.keys(driverMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
           driverMap.removeLayer(driverMapMarkers[k]);
@@ -1290,168 +1082,29 @@
       }
     }
 
-    async function updateClientStatus(idx, newStatus) {
-      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
+    async function updateClientStatus(index, newStatus) {
+      if (!currentDocId || !currentClientsData[index]) return;
 
-      const formattedStatus = newStatus.toString().trim().toUpperCase();
-      currentClientsData[idx].estado = formattedStatus;
-
-      if (formattedStatus === 'ENTREGADO') {
-        currentClientsData[idx].horaEntrega = new Date().toLocaleTimeString();
+      currentClientsData[index].estado = newStatus;
+      if (newStatus === 'ENTREGADO') {
+        currentClientsData[index].horaEntrega = new Date().toLocaleTimeString();
       }
 
-      if (!navigator.onLine) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'STATUS', val: formattedStatus });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-        updateDriverSummaryStats(currentClientsData);
-        applyDriverFilters();
-        return;
-      }
-
-      try {
-        await db.collection('routes').doc(currentDocId).update({
-          clients: currentClientsData.map(c => {
-            const { _idx, ...rest } = c;
-            return rest;
-          }),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (e) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'STATUS', val: formattedStatus });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-      }
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
 
-    async function updateClientObs(idx, newObs) {
-      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
+    async function updateRepasoConfirm(index, confirmValue) {
+      if (!currentDocId || !currentClientsData[index]) return;
 
-      currentClientsData[idx].obs = newObs;
+      currentClientsData[index].repasoConfirm = confirmValue;
 
-      const currentSt = (currentClientsData[idx].estado || 'PENDIENTE').toString().trim().toUpperCase();
-      if (currentSt === 'PENDIENTE' && newObs.trim() !== '') {
-        currentClientsData[idx].estado = 'RECHAZADO';
-      }
-
-      if (!navigator.onLine) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'OBS', val: newObs });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-        updateDriverSummaryStats(currentClientsData);
-        applyDriverFilters();
-        return;
-      }
-
-      try {
-        await db.collection('routes').doc(currentDocId).update({
-          clients: currentClientsData.map(c => {
-            const { _idx, ...rest } = c;
-            return rest;
-          }),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (e) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'OBS', val: newObs });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-      }
-    }
-
-    async function updateRepasoConfirm(idx, confirmValue) {
-      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
-
-      currentClientsData[idx].repasoConfirm = confirmValue;
-
-      if (!navigator.onLine) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'REPASO', val: confirmValue });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-        updateDriverSummaryStats(currentClientsData);
-        applyDriverFilters();
-        return;
-      }
-
-      try {
-        await db.collection('routes').doc(currentDocId).update({
-          clients: currentClientsData.map(c => {
-            const { _idx, ...rest } = c;
-            return rest;
-          }),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (e) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'REPASO', val: confirmValue });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-      }
-    }
-
-    async function bulkMarkPendingAsDelivered() {
-      const selectedRoute = document.getElementById('selectAdminRoute').value;
-
-      if (!adminCurrentRawClients || adminCurrentRawClients.length === 0) {
-        alert("No hay clientes cargados en la vista actual.");
-        return;
-      }
-
-      const pendingClients = adminCurrentRawClients.filter(c => (c.estado || 'PENDIENTE').toString().trim().toUpperCase() === 'PENDIENTE');
-      const pendingCount = pendingClients.length;
-
-      if (pendingCount === 0) {
-        alert("No hay pedidos pendientes / no reportados en la vista actual.");
-        return;
-      }
-
-      const scopeText = selectedRoute ? `la Ruta #${selectedRoute}` : 'TODAS las rutas activas del día';
-      
-      if (!confirm(`⚠️ ACCIÓN MASIVA DE ADMINISTRADOR:\n\nSe marcarán ${pendingCount} pedidos NO REPORTADOS/PENDIENTES como "ENTREGADO" en ${scopeText}.\n\n¿Deseas confirmar la actualización?`)) {
-        return;
-      }
-
-      try {
-        if (selectedRoute) {
-          const docRef = db.collection('routes').doc(selectedRoute);
-          const docSnap = await docRef.get();
-          if (docSnap.exists) {
-            const clients = docSnap.data().clients || [];
-            const nowTime = new Date().toLocaleTimeString();
-            const updatedClients = clients.map(c => {
-              if ((c.estado || 'PENDIENTE').toString().trim().toUpperCase() === 'PENDIENTE') {
-                return { ...c, estado: 'ENTREGADO', horaEntrega: nowTime };
-              }
-              return c;
-            });
-            await docRef.update({ clients: updatedClients, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-          }
-        } else {
-          const snapshot = await db.collection('routes').get();
-          const batch = db.batch();
-          const nowTime = new Date().toLocaleTimeString();
-
-          snapshot.forEach(doc => {
-            const clients = doc.data().clients || [];
-            let isModified = false;
-            const updatedClients = clients.map(c => {
-              if ((c.estado || 'PENDIENTE').toString().trim().toUpperCase() === 'PENDIENTE') {
-                isModified = true;
-                return { ...c, estado: 'ENTREGADO', horaEntrega: nowTime };
-              }
-              return c;
-            });
-
-            if (isModified) {
-              batch.update(doc.ref, { clients: updatedClients, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-            }
-          });
-
-          await batch.commit();
-        }
-
-        alert(`✅ Se actualizaron masivamente ${pendingCount} pedidos a "ENTREGADO".`);
-      } catch (err) {
-        alert(`❌ Error al ejecutar actualización masiva: ${err.message}`);
-      }
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
 
     async function loadAvailableRoutesInSelect() {
@@ -1463,22 +1116,25 @@
 
       const snapshot = await db.collection('routes').get();
       if (snapshot.empty) {
-        keysDiv.innerHTML = '<span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
+        keysDiv.innerHTML = '<span class="text-gray-400 font-normal">Carga un CSV para generar las claves de cada chofer...</span>';
         return;
       }
 
       snapshot.forEach(doc => {
+        const data = doc.data();
         const routeId = doc.id;
         const option = document.createElement('option');
         option.value = routeId;
         option.innerText = `Ruta #${routeId}`;
         select.appendChild(option);
 
-        keysDiv.innerHTML += `
-          <span class="bg-slate-50 border border-slate-200 text-slate-800 px-3 py-1.5 rounded-xl shadow-xs">
-            Ruta <b>#${routeId}</b>
-          </span>
-        `;
+        if (data.pin) {
+          keysDiv.innerHTML += `
+            <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg shadow-sm">
+              Ruta <b>#${routeId}</b> 🔑 Clave: <u class="text-indigo-900 font-extrabold text-sm">${data.pin}</u>
+            </span>
+          `;
+        }
       });
 
       if (savedValue && select.querySelector(`option[value="${savedValue}"]`)) {
@@ -1486,49 +1142,34 @@
       }
     }
 
-    function renderAdminMapPoints(clients, showLabels = true) {
+    function renderAdminMapPoints(clients, forceLabels = null) {
       const bounds = [];
       const currentKeys = new Set();
 
-      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clients)));
+      const showLabels = forceLabels !== null ? forceLabels : (adminMap ? (adminMap.getZoom() >= 14) : true);
 
-      jitteredClients.forEach(c => {
+      clients.forEach(c => {
         if (!c.lat || !c.lon) return;
 
-        const uniqueKey = `admin_${c.tpt || 'R'}_${c._idx}_${c.sec}`;
+        const uniqueKey = `admin_${c.tpt || 'R'}_${c.sec}_${c.name}`;
         currentKeys.add(uniqueKey);
 
-        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
+        let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        const icon = createCustomMarkerIcon(c.sec, statusKey, showLabels);
-
-        const popupHtml = `
-          <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 190px;">
-            <div style="font-weight: bold; font-size: 13px; margin-bottom: 6px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; color: #3730a3;">
-              ${c.sec} · ${c.name}
-            </div>
-            <div><b>SEC:</b> ${c.sec}</div>
-            <div><b>VENDEDOR:</b> ${c.vendedor || 'Sin asignar'}</div>
-            <div><b>TELEFONO:</b> ${c.telefono || 'Ningún valor'}</div>
-            <div><b>TPT (Ruta):</b> ${c.tpt || 'S/R'}</div>
-            <div><b>RAZON SOCIAL:</b> ${c.name}</div>
-            <div><b>DOMICILIO:</b> ${c.domicilio}</div>
-            <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
-            <div style="margin-top: 4px;"><b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey}</span></div>
-            ${c.obs ? `<div style="color: #6b21a8; margin-top: 2px;"><b>MOTIVO:</b> ${c.obs}</div>` : ''}
-          </div>
-        `;
+        const icon = createCustomMarkerIcon(c.sec, c.vendedor, statusKey, showLabels);
 
         if (!adminMapMarkers[uniqueKey]) {
           const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
-          marker.bindPopup(popupHtml);
+          marker.bindPopup(`
+            <b>Ruta: ${c.tpt || 'S/R'} | Sec: ${c.sec} · ${c.name}</b><br>
+            <span class="text-xs text-gray-600">${c.domicilio}</span><br>
+            <b>Vend:</b> ${c.vendedor || 'S/V'}<br>
+            <b>Estado:</b> <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
+          `);
           adminMapMarkers[uniqueKey] = marker;
         } else {
           adminMapMarkers[uniqueKey].setIcon(icon);
-          adminMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
-          adminMapMarkers[uniqueKey].setPopupContent(popupHtml);
         }
 
         bounds.push([c.lat, c.lon]);
@@ -1561,75 +1202,29 @@
           (c.tpt && c.tpt.toLowerCase().includes(searchText)) ||
           (c.sec && c.sec.toString().includes(searchText)) ||
           (c.name && c.name.toLowerCase().includes(searchText)) ||
-          (c.domicilio && c.domicilio.toLowerCase().includes(searchText)) ||
-          (c.obs && c.obs.toLowerCase().includes(searchText));
+          (c.domicilio && c.domicilio.toLowerCase().includes(searchText));
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-slate-400 font-semibold">No se encontraron clientes para la búsqueda.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400 font-semibold">No se encontraron clientes para la búsqueda.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(c => {
-        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
+        let statusKey = c.estado || 'PENDIENTE';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
         return `
-          <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition">
-            <td class="p-2.5 font-bold text-indigo-700">#${c.tpt || 'S/R'}</td>
-            <td class="p-2.5 font-black text-slate-800">${c.sec}</td>
-            <td class="p-2.5 font-semibold text-slate-800">${c.name}</td>
-            <td class="p-2.5 text-slate-600 text-[11px]">${c.domicilio}</td>
-            <td class="p-2.5 font-bold text-slate-800 text-[11px]">S/ ${c.subtotal || '0.00'}</td>
-            <td class="p-2.5">
-              <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span>
-              ${c.obs ? `<div class="text-[10px] text-slate-500 font-bold mt-0.5">📌 ${c.obs}</div>` : ''}
-            </td>
-            <td class="p-2.5 font-mono text-slate-500 text-[11px]">${c.horaEntrega || '---'}</td>
+          <tr class="border-b hover:bg-gray-50 transition">
+            <td class="p-2 font-bold text-indigo-700">#${c.tpt || 'S/R'}</td>
+            <td class="p-2 font-extrabold text-gray-800">${c.sec}</td>
+            <td class="p-2 font-semibold">${c.name}</td>
+            <td class="p-2 text-gray-600 text-[11px]">${c.domicilio}</td>
+            <td class="p-2"><span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? '(' + c.repasoConfirm + ')' : ''}</span></td>
+            <td class="p-2 font-mono text-gray-500 text-[11px]">${c.horaEntrega || '---'}</td>
           </tr>
         `;
       }).join('');
-    }
-
-    function exportAdminReportCSV() {
-      if (!adminCurrentRawClients || adminCurrentRawClients.length === 0) {
-        alert("No hay datos de clientes para exportar.");
-        return;
-      }
-
-      const selectedRoute = document.getElementById('selectAdminRoute').value;
-      const fileName = selectedRoute ? `Reporte_Ruta_${selectedRoute}.csv` : `Reporte_General_UltimaMilla.csv`;
-
-      let csvContent = "\uFEFF";
-      csvContent += "Ruta;Secuencia;Cliente / Razon Social;Direccion;Vendedor;Monto S/;Estado;Motivo / Observacion;Hora Entrega\n";
-
-      adminCurrentRawClients.forEach(c => {
-        let st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (st === 'CERRADO') st = 'RECHAZADO';
-
-        const row = [
-          `"${c.tpt || ''}"`,
-          `"${c.sec || ''}"`,
-          `"${(c.name || '').replace(/"/g, '""')}"`,
-          `"${(c.domicilio || '').replace(/"/g, '""')}"`,
-          `"${c.vendedor || ''}"`,
-          `"${c.subtotal || '0.00'}"`,
-          `"${st}"`,
-          `"${(c.obs || '').replace(/"/g, '""')}"`,
-          `"${c.horaEntrega || ''}"`
-        ];
-        csvContent += row.join(";") + "\n";
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", fileName);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     }
 
     function loadAdminGeneralSummary() {
@@ -1644,12 +1239,10 @@
           allClients = allClients.concat(clients);
         });
 
-        allClients = allClients.map((c, i) => ({ ...c, _idx: i }));
-
         const selectedVal = document.getElementById('selectAdminRoute').value;
         if (!selectedVal) {
           updateAdminSummaryStats(allClients, "General Día");
-          renderAdminMapPoints(allClients, false);
+          renderAdminMapPoints(allClients);
           renderAdminClientsTable(allClients);
         }
       });
@@ -1667,7 +1260,7 @@
 
           if (!allTruckMarkers[routeCode]) {
             const truckIcon = L.divIcon({
-              html: `<div style="background:#4F46E5;color:white;padding:3px 7px;border-radius:10px;border:2px solid white;font-size:10px;font-weight:bold;white-space:nowrap;display:flex;align-items:center;gap:3px;"><i class="fa-solid fa-truck"></i> ${routeCode}</div>`,
+              html: `<div style="background:#4F46E5;color:white;padding:3px 7px;border-radius:10px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:10px;font-weight:bold;white-space:nowrap;display:flex;align-items:center;gap:3px;"><i class="fa-solid fa-truck"></i> ${routeCode}</div>`,
               className: '',
               iconSize: [50, 22]
             });
@@ -1712,11 +1305,10 @@
 
       adminRouteUnsubscribe = db.collection('routes').doc(code).onSnapshot(doc => {
         if (!doc.exists) return;
-        const rawClients = doc.data().clients || [];
-        const clients = rawClients.map((c, i) => ({ ...c, _idx: i }));
+        const clients = doc.data().clients || [];
 
         updateAdminSummaryStats(clients, `Ruta #${code}`);
-        renderAdminMapPoints(clients, true);
+        renderAdminMapPoints(clients);
         renderAdminClientsTable(clients);
       });
     }
