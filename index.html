@@ -545,21 +545,47 @@
     window.addEventListener('online', () => { processOfflineQueue(); });
     window.addEventListener('offline', () => { updateOfflineStatusUI(); });
 
-    // CREACIÓN DE MARCADOR: COLORES POR VENDEDOR + ATENUACIÓN AL ENTREGAR
+    // CREACIÓN DE MARCADOR REVISADA: VENDEDOR + ESTADO CLARO Y VISIBLE
     function createCustomMarkerIcon(sec, status, vendor, showLabel = true) {
       const cleanStatus = (status || 'PENDIENTE').toString().trim().toUpperCase();
-      const isDelivered = (cleanStatus === 'ENTREGADO');
       const vendorColor = getVendorColor(vendor);
 
-      // Si está entregado (descargado): reduce opacidad al 30% y achica el marcador a 7px para no saturar el celular
-      const opacity = isDelivered ? 0.30 : 0.90;
-      const dotSize = isDelivered ? 7 : 11;
-      const borderWidth = isDelivered ? 1 : 1.5;
+      let borderColor = '#FFFFFF';
+      let borderWidth = 1.5;
+      let opacity = 0.78; // Translucidez inicial suave
+      let dotSize = 10;
+      let textDecoration = '';
+      let textColor = '#0f172a';
+
+      if (cleanStatus === 'ENTREGADO') {
+        borderColor = '#22C55E'; // Borde Verde claro
+        borderWidth = 2;
+        opacity = 0.50; // Visible para poder corregir si te equivocas
+        dotSize = 9;
+        textDecoration = 'line-through';
+        textColor = '#6b7280';
+      } else if (cleanStatus === 'RECHAZADO' || cleanStatus === 'CERRADO') {
+        borderColor = '#EF4444'; // Borde Rojo
+        borderWidth = 2.5;
+        opacity = 0.90;
+      } else if (cleanStatus === 'PARCIAL') {
+        borderColor = '#F97316'; // Borde Naranja
+        borderWidth = 2.5;
+        opacity = 0.90;
+      } else if (cleanStatus === 'OTRO MOTIVO') {
+        borderColor = '#A855F7'; // Borde Morado
+        borderWidth = 2.5;
+        opacity = 0.90;
+      } else if (cleanStatus === 'REPASO') {
+        borderColor = '#3B82F6'; // Borde Azul
+        borderWidth = 2.5;
+        opacity = 0.90;
+      }
 
       if (!showLabel) {
         return L.divIcon({
           className: 'custom-map-marker',
-          html: `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};opacity:${opacity};border:${borderWidth}px solid #ffffff;"></div>`,
+          html: `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};opacity:${opacity};border:${borderWidth}px solid ${borderColor};"></div>`,
           iconSize: [dotSize, dotSize],
           iconAnchor: [dotSize / 2, dotSize / 2]
         });
@@ -569,12 +595,12 @@
         className: 'custom-map-marker',
         html: `
           <div style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:auto;opacity:${opacity};">
-            <div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};border:${borderWidth}px solid #ffffff;flex-shrink:0;"></div>
+            <div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};border:${borderWidth}px solid ${borderColor};flex-shrink:0;"></div>
             <span style="
               font-size:10px;
               font-weight:800;
-              color:${isDelivered ? '#9ca3af' : '#0f172a'};
-              ${isDelivered ? 'text-decoration:line-through;' : ''}
+              color:${textColor};
+              ${textDecoration ? 'text-decoration:' + textDecoration + ';' : ''}
               text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;
               line-height:10px;
             ">${sec}</span>
