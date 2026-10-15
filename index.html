@@ -48,6 +48,19 @@
     
     .custom-map-marker { background: none; border: none; }
 
+    /* Tooltip ultra liviano sobre Canvas */
+    .canvas-marker-tooltip {
+      background: rgba(255, 255, 255, 0.95) !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 6px !important;
+      padding: 1px 5px !important;
+      font-size: 10px !important;
+      font-weight: 800 !important;
+      color: #0f172a !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12) !important;
+    }
+    .canvas-marker-tooltip::before { display: none !important; }
+
     @keyframes pulseDriverDot {
       0% { transform: scale(0.9); opacity: 0.8; }
       70% { transform: scale(1.1); opacity: 1; }
@@ -230,7 +243,7 @@
           </div>
         </div>
 
-        <!-- BÚSQUEDA Y FILTRADO -->
+        <!-- BÚSQUEDA Y FILTRADO CON DEBOUNCE ANTI-LAG -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2 border-b border-slate-100 pb-2">
             <i class="fa-solid fa-filter text-indigo-600"></i> Buscar o Filtrar Clientes
@@ -239,7 +252,7 @@
             <div>
               <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Buscar por Código / Nombre / Dirección:</label>
               <div class="relative">
-                <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="driverSearchInput" oninput="debouncedApplyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
               </div>
             </div>
@@ -252,13 +265,20 @@
           </div>
         </div>
 
-        <!-- LISTA DE CLIENTES CHOFER -->
+        <!-- LISTA DE CLIENTES CHOFER CON PAGINACIÓN VIRTUAL -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
           <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2.5">
             <h4 class="font-bold text-slate-800 text-sm">Clientes en la Ruta</h4>
             <span id="driverResultsCount" class="text-xs font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">---</span>
           </div>
           <div id="driverClientsList" class="space-y-3"></div>
+          
+          <!-- BOTÓN PAGINACIÓN PARA FLUIDEZ EN MÓVIL -->
+          <div id="btnLoadMoreContainer" class="hidden text-center pt-3">
+            <button onclick="renderMoreClients()" class="px-5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition">
+              <i class="fa-solid fa-angles-down"></i> Cargar más clientes...
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -427,6 +447,7 @@
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
+    // TILE URL OPTIMIZADA PARA RENDIMIENTO MÓVIL
     const GOOGLE_MAPS_TILE_URL = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
 
     const firebaseConfig = {
@@ -444,18 +465,8 @@
 
     // PALETA DE COLORES VIBRANTES PARA CADA VENDEDOR
     const VENDOR_COLORS = [
-      '#10B981', // Verde
-      '#2563EB', // Azul
-      '#8B5CF6', // Morado
-      '#EC4899', // Rosado
-      '#F59E0B', // Ámbar
-      '#EF4444', // Rojo
-      '#14B8A6', // Teal
-      '#6366F1', // Índigo
-      '#84CC16', // Lima
-      '#A855F7', // Púrpura
-      '#06B6D4', // Cyan
-      '#F97316'  // Naranja
+      '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
+      '#EF4444', '#14B8A6', '#6366F1', '#84CC16', '#A855F7', '#06B6D4', '#F97316'
     ];
 
     function getVendorColor(vendorStr) {
@@ -467,7 +478,6 @@
       return VENDOR_COLORS[index];
     }
 
-    // REGISTRO DE SERVICE WORKER PARA PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -476,12 +486,10 @@
       });
     }
 
-    // ACTIVACIÓN DE PERSISTENCIA OFFLINE EN FIRESTORE
     db.enablePersistence({ synchronizeTabs: true }).catch(err => {
       console.warn("Firestore Persistence Error:", err.code);
     });
 
-    // COLA LOCAL DE SINCRONIZACIÓN
     let offlineQueue = JSON.parse(localStorage.getItem('courier_offline_queue') || '[]');
 
     function updateOfflineStatusUI() {
@@ -545,70 +553,53 @@
     window.addEventListener('online', () => { processOfflineQueue(); });
     window.addEventListener('offline', () => { updateOfflineStatusUI(); });
 
-    // CREACIÓN DE MARCADOR REVISADA: VENDEDOR + ESTADO CLARO Y VISIBLE
-    function createCustomMarkerIcon(sec, status, vendor, showLabel = true) {
+    // ESTILOS VECTORIALES PARA MARCADORES EN CANVAS
+    function getCircleMarkerOptions(status, vendor) {
       const cleanStatus = (status || 'PENDIENTE').toString().trim().toUpperCase();
       const vendorColor = getVendorColor(vendor);
 
-      let borderColor = '#FFFFFF';
-      let borderWidth = 1.5;
-      let opacity = 0.78; // Translucidez inicial suave
-      let dotSize = 10;
-      let textDecoration = '';
-      let textColor = '#0f172a';
+      let color = '#FFFFFF';
+      let weight = 1.5;
+      let opacity = 0.85;
+      let radius = 6;
+      let fillOpacity = 0.85;
 
       if (cleanStatus === 'ENTREGADO') {
-        borderColor = '#22C55E'; // Borde Verde claro
-        borderWidth = 2;
-        opacity = 0.50; // Visible para poder corregir si te equivocas
-        dotSize = 9;
-        textDecoration = 'line-through';
-        textColor = '#6b7280';
+        color = '#22C55E';
+        weight = 1.5;
+        opacity = 0.45;
+        radius = 5;
+        fillOpacity = 0.40;
       } else if (cleanStatus === 'RECHAZADO' || cleanStatus === 'CERRADO') {
-        borderColor = '#EF4444'; // Borde Rojo
-        borderWidth = 2.5;
-        opacity = 0.90;
+        color = '#EF4444';
+        weight = 2.5;
+        radius = 7;
+        fillOpacity = 0.90;
       } else if (cleanStatus === 'PARCIAL') {
-        borderColor = '#F97316'; // Borde Naranja
-        borderWidth = 2.5;
-        opacity = 0.90;
+        color = '#F97316';
+        weight = 2.5;
+        radius = 7;
+        fillOpacity = 0.90;
       } else if (cleanStatus === 'OTRO MOTIVO') {
-        borderColor = '#A855F7'; // Borde Morado
-        borderWidth = 2.5;
-        opacity = 0.90;
+        color = '#A855F7';
+        weight = 2.5;
+        radius = 7;
+        fillOpacity = 0.90;
       } else if (cleanStatus === 'REPASO') {
-        borderColor = '#3B82F6'; // Borde Azul
-        borderWidth = 2.5;
-        opacity = 0.90;
+        color = '#3B82F6';
+        weight = 2.5;
+        radius = 7;
+        fillOpacity = 0.90;
       }
 
-      if (!showLabel) {
-        return L.divIcon({
-          className: 'custom-map-marker',
-          html: `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};opacity:${opacity};border:${borderWidth}px solid ${borderColor};"></div>`,
-          iconSize: [dotSize, dotSize],
-          iconAnchor: [dotSize / 2, dotSize / 2]
-        });
-      }
-
-      return L.divIcon({
-        className: 'custom-map-marker',
-        html: `
-          <div style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:auto;opacity:${opacity};">
-            <div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background-color:${vendorColor};border:${borderWidth}px solid ${borderColor};flex-shrink:0;"></div>
-            <span style="
-              font-size:10px;
-              font-weight:800;
-              color:${textColor};
-              ${textDecoration ? 'text-decoration:' + textDecoration + ';' : ''}
-              text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;
-              line-height:10px;
-            ">${sec}</span>
-          </div>
-        `,
-        iconSize: [28, 12],
-        iconAnchor: [5, 6]
-      });
+      return {
+        radius: radius,
+        fillColor: vendorColor,
+        color: color,
+        weight: weight,
+        opacity: opacity,
+        fillOpacity: fillOpacity
+      };
     }
 
     function applyJitter(clients) {
@@ -639,9 +630,14 @@
     let currentRouteCode = null;
     let currentDocId = null;
     let currentClientsData = [];
+    let filteredClientsData = [];
+    let currentRenderPage = 1;
+    const PAGE_SIZE = 25;
+
     let driverUnsubscribe = null;
     let gpsWatchId = null;
     let lastGpsSentTime = 0;
+    let filterDebounceTimer = null;
 
     let adminMap = null;
     let adminMapMarkers = {};
@@ -768,7 +764,12 @@
       if (tab === 'admin') {
         setTimeout(async () => {
           if (!adminMap) {
-            adminMap = L.map('adminMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
+            // INICIALIZAR MAPA ADMIN CON RENDERIZADOR CANVAS PARA ALTO RENDIMIENTO
+            adminMap = L.map('adminMap', { 
+              preferCanvas: true, 
+              renderer: L.canvas({ padding: 0.5 }), 
+              maxZoom: 20 
+            }).setView([-16.3988, -71.5350], 13);
             L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps', updateWhenIdle: true, keepBuffer: 2 }).addTo(adminMap);
           }
           adminMap.invalidateSize();
@@ -980,7 +981,12 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       if (!driverMap) {
-        driverMap = L.map('driverMap', { preferCanvas: true, maxZoom: 20 }).setView([-16.3988, -71.5350], 13);
+        // INICIALIZAR MAPA CHOFER CON RENDERIZADOR CANVAS DIRECTO EN GPU MÓVIL
+        driverMap = L.map('driverMap', { 
+          preferCanvas: true, 
+          renderer: L.canvas({ padding: 0.5 }), 
+          maxZoom: 20 
+        }).setView([-16.3988, -71.5350], 13);
         L.tileLayer(GOOGLE_MAPS_TILE_URL, { maxZoom: 20, attribution: 'Google Maps', updateWhenIdle: true, keepBuffer: 2 }).addTo(driverMap);
       }
       setTimeout(() => driverMap.invalidateSize(), 150);
@@ -1157,11 +1163,19 @@
       select.value = currentValue;
     }
 
+    // DEBOUNCE ANTI-LAG PARA BÚSQUEDA
+    function debouncedApplyDriverFilters() {
+      clearTimeout(filterDebounceTimer);
+      filterDebounceTimer = setTimeout(() => {
+        applyDriverFilters();
+      }, 250);
+    }
+
     function applyDriverFilters() {
       const searchText = document.getElementById('driverSearchInput').value.toLowerCase().trim();
       const selectedVendor = document.getElementById('driverVendorFilter').value;
 
-      const filtered = currentClientsData.filter(c => {
+      filteredClientsData = currentClientsData.filter(c => {
         const matchVendor = !selectedVendor || c.vendedor.toString() === selectedVendor;
         const matchSearch = !searchText || 
           c.name.toLowerCase().includes(searchText) || 
@@ -1172,7 +1186,8 @@
         return matchVendor && matchSearch;
       });
 
-      renderDriverClientsAndMap(filtered);
+      currentRenderPage = 1;
+      renderDriverClientsAndMap();
     }
 
     function sendWhatsAppNotification(idx) {
@@ -1197,103 +1212,34 @@
       window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
     }
 
-    function renderDriverClientsAndMap(clientsToRender) {
+    // RENDERIZADO FLUIDO CON CANVAS CIRCLEMARKERS Y PAGINACIÓN VIRTUAL
+    function renderDriverClientsAndMap() {
       const listContainer = document.getElementById('driverClientsList');
       listContainer.innerHTML = '';
       
-      const fragment = document.createDocumentFragment();
-
       const bounds = [];
       const currentKeys = new Set();
       const hideVisited = document.getElementById('chkHideVisited') ? document.getElementById('chkHideVisited').checked : false;
 
-      document.getElementById('driverResultsCount').innerText = `${clientsToRender.length} de ${currentClientsData.length} clientes`;
+      document.getElementById('driverResultsCount').innerText = `${filteredClientsData.length} de ${currentClientsData.length} clientes`;
 
-      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(clientsToRender)));
+      const jitteredClients = applyJitter(JSON.parse(JSON.stringify(filteredClientsData)));
 
+      // 1. DIBUJAR PUNTOS EN MAPA USANDO CANVAS CIRCLEMARKER (SÚPER RÁPIDO)
       jitteredClients.forEach((c) => {
         const realIdx = c._idx;
         const uniqueKey = `driver_${realIdx}_${c.sec}`;
 
         let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
-        let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
         const isVisited = (statusKey !== 'PENDIENTE');
 
-        let repasoHtml = '';
-        if (statusKey === 'REPASO') {
-          let aptoClass = c.repasoConfirm === 'APTO' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700';
-          let noAptoClass = c.repasoConfirm === 'NO APTO' ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-700';
-
-          repasoHtml = `
-            <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
-              <span class="text-xs font-bold text-blue-900"><i class="fa-solid fa-rotate-right"></i> ¿Repaso Confirmado?:</span>
-              <div class="flex gap-1">
-                <button onclick="updateRepasoConfirm(${realIdx}, 'APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${aptoClass}">
-                  👍 APTO
-                </button>
-                <button onclick="updateRepasoConfirm(${realIdx}, 'NO APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${noAptoClass}">
-                  👎 NO APTO
-                </button>
-              </div>
-            </div>
-          `;
-        }
-
-        const showWhatsAppBtn = (statusKey === 'RECHAZADO' || statusKey === 'PARCIAL' || statusKey === 'OTRO MOTIVO');
-        const vendorColor = getVendorColor(c.vendedor);
-
-        const card = document.createElement('div');
-        card.className = "border border-slate-200/80 rounded-2xl p-4 bg-slate-50 space-y-2.5 shadow-xs hover:border-slate-300 transition";
-        card.innerHTML = `
-          <div class="flex justify-between items-start gap-2">
-            <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
-            <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? ' (' + c.repasoConfirm + ')' : ''}</span>
-          </div>
-          <p class="text-xs text-slate-600 font-medium"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
-          <p class="text-xs text-slate-500 font-semibold"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: <b style="color:${vendorColor}">${c.vendedor || 'S/V'}</b> | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
-
-          ${repasoHtml}
-
-          <div class="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 mt-2">
-            <label class="text-[11px] font-bold text-slate-600 block">📌 Motivo de Rechazo / Observación:</label>
-            <input type="text" id="obsInput_${realIdx}" value="${c.obs || ''}" onchange="updateClientObs(${realIdx}, this.value)" placeholder="Escribe o elige un motivo (ej: Sin dinero, No pidió...)" list="motivosSugeridos" class="w-full text-xs font-semibold border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-
-          ${showWhatsAppBtn ? `
-            <div class="pt-1">
-              <button onclick="sendWhatsAppNotification(${realIdx})" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition">
-                <i class="fa-brands fa-whatsapp text-sm"></i> 📲 Notificar ${statusKey} al Grupo de WhatsApp
-              </button>
-            </div>
-          ` : ''}
-
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-200 items-center">
-            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-sky-500 text-white rounded-xl hover:bg-sky-600 transition shadow-xs">
-              <i class="fa-brands fa-waze"></i> Waze
-            </a>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition shadow-xs">
-              <i class="fa-solid fa-map-pin"></i> Maps
-            </a>
-            <select onchange="updateClientStatus(${realIdx}, this.value)" class="ml-auto text-xs font-bold border border-slate-300 rounded-xl px-2.5 py-1.5 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
-              <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
-              <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
-              <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
-              <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
-            </select>
-          </div>
-        `;
-        fragment.appendChild(card);
-
         if (c.lat && c.lon) {
-          if (hideVisited && isVisited) {
-            return;
-          }
+          if (hideVisited && isVisited) return;
 
           currentKeys.add(uniqueKey);
-          const markerIcon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, true);
+          const circleOpts = getCircleMarkerOptions(statusKey, c.vendedor);
+          const vendorColor = getVendorColor(c.vendedor);
 
           const popupHtml = `
             <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 210px; padding: 2px;">
@@ -1333,11 +1279,12 @@
           `;
 
           if (!driverMapMarkers[uniqueKey]) {
-            const marker = L.marker([c.lat, c.lon], { icon: markerIcon }).addTo(driverMap);
+            const marker = L.circleMarker([c.lat, c.lon], circleOpts).addTo(driverMap);
+            marker.bindTooltip(`#${c.sec}`, { permanent: true, direction: 'right', className: 'canvas-marker-tooltip' });
             marker.bindPopup(popupHtml);
             driverMapMarkers[uniqueKey] = marker;
           } else {
-            driverMapMarkers[uniqueKey].setIcon(markerIcon);
+            driverMapMarkers[uniqueKey].setStyle(circleOpts);
             driverMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
             driverMapMarkers[uniqueKey].setPopupContent(popupHtml);
           }
@@ -1345,9 +1292,8 @@
           bounds.push([c.lat, c.lon]);
         }
       });
-      
-      listContainer.appendChild(fragment);
 
+      // REMOVER NODOS VIEJOS DE MAPA
       Object.keys(driverMapMarkers).forEach(k => {
         if (!currentKeys.has(k)) {
           driverMap.removeLayer(driverMapMarkers[k]);
@@ -1358,6 +1304,102 @@
       if (bounds.length > 0 && !driverMapInitialFit) {
         driverMap.fitBounds(bounds, { padding: [30, 30] });
         driverMapInitialFit = true;
+      }
+
+      // 2. RENDEREAR LISTA PAGINADA PARA EVITAR CONGELAMIENTO DE DOM
+      renderMoreClients();
+    }
+
+    function renderMoreClients() {
+      const listContainer = document.getElementById('driverClientsList');
+      const loadMoreBtn = document.getElementById('btnLoadMoreContainer');
+      const fragment = document.createDocumentFragment();
+
+      const startIndex = (currentRenderPage - 1) * PAGE_SIZE;
+      const endIndex = Math.min(startIndex + PAGE_SIZE, filteredClientsData.length);
+      const visibleBatch = filteredClientsData.slice(startIndex, endIndex);
+
+      visibleBatch.forEach(c => {
+        const realIdx = c._idx;
+        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
+        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
+        let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
+
+        let repasoHtml = '';
+        if (statusKey === 'REPASO') {
+          let aptoClass = c.repasoConfirm === 'APTO' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700';
+          let noAptoClass = c.repasoConfirm === 'NO APTO' ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-700';
+
+          repasoHtml = `
+            <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-bold text-blue-900"><i class="fa-solid fa-rotate-right"></i> ¿Repaso Confirmado?:</span>
+              <div class="flex gap-1">
+                <button onclick="updateRepasoConfirm(${realIdx}, 'APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${aptoClass}">
+                  👍 APTO
+                </button>
+                <button onclick="updateRepasoConfirm(${realIdx}, 'NO APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${noAptoClass}">
+                  👎 NO APTO
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        const showWhatsAppBtn = (statusKey === 'RECHAZADO' || statusKey === 'PARCIAL' || statusKey === 'OTRO MOTIVO');
+        const vendorColor = getVendorColor(c.vendedor);
+
+        const card = document.createElement('div');
+        card.className = "border border-slate-200/80 rounded-2xl p-4 bg-slate-50 space-y-2.5 shadow-xs hover:border-slate-300 transition";
+        card.innerHTML = `
+          <div class="flex justify-between items-start gap-2">
+            <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
+            <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? ' (' + c.repasoConfirm + ')' : ''}</span>
+          </div>
+          <p class="text-xs text-slate-600 font-medium"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
+          <p class="text-xs text-slate-500 font-semibold"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: <b style="color:${vendorColor}">${c.vendedor || 'S/V'}</b> | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
+
+          ${repasoHtml}
+
+          <div class="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 mt-2">
+            <label class="text-[11px] font-bold text-slate-600 block">📌 Motivo de Rechazo / Observación:</label>
+            <input type="text" id="obsInput_${realIdx}" value="${c.obs || ''}" onchange="updateClientObs(${realIdx}, this.value)" placeholder="Escribe o elige un motivo..." list="motivosSugeridos" class="w-full text-xs font-semibold border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+
+          ${showWhatsAppBtn ? `
+            <div class="pt-1">
+              <button onclick="sendWhatsAppNotification(${realIdx})" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition">
+                <i class="fa-brands fa-whatsapp text-sm"></i> 📲 Notificar ${statusKey} al Grupo de WhatsApp
+              </button>
+            </div>
+          ` : ''}
+
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-200 items-center">
+            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-sky-500 text-white rounded-xl hover:bg-sky-600 transition shadow-xs">
+              <i class="fa-brands fa-waze"></i> Waze
+            </a>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition shadow-xs">
+              <i class="fa-solid fa-map-pin"></i> Maps
+            </a>
+            <select onchange="updateClientStatus(${realIdx}, this.value)" class="ml-auto text-xs font-bold border border-slate-300 rounded-xl px-2.5 py-1.5 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+              <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+              <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
+              <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
+              <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
+              <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
+            </select>
+          </div>
+        `;
+        fragment.appendChild(card);
+      });
+
+      listContainer.appendChild(fragment);
+
+      if (endIndex < filteredClientsData.length) {
+        loadMoreBtn.classList.remove('hidden');
+        currentRenderPage++;
+      } else {
+        loadMoreBtn.classList.add('hidden');
       }
     }
 
@@ -1573,7 +1615,7 @@
         if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
         let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
 
-        const icon = createCustomMarkerIcon(c.sec, statusKey, c.vendedor, showLabels);
+        const circleOpts = getCircleMarkerOptions(statusKey, c.vendedor);
         const vendorColor = getVendorColor(c.vendedor);
 
         const popupHtml = `
@@ -1594,11 +1636,14 @@
         `;
 
         if (!adminMapMarkers[uniqueKey]) {
-          const marker = L.marker([c.lat, c.lon], { icon: icon }).addTo(adminMap);
+          const marker = L.circleMarker([c.lat, c.lon], circleOpts).addTo(adminMap);
+          if (showLabels) {
+            marker.bindTooltip(`#${c.sec}`, { permanent: true, direction: 'right', className: 'canvas-marker-tooltip' });
+          }
           marker.bindPopup(popupHtml);
           adminMapMarkers[uniqueKey] = marker;
         } else {
-          adminMapMarkers[uniqueKey].setIcon(icon);
+          adminMapMarkers[uniqueKey].setStyle(circleOpts);
           adminMapMarkers[uniqueKey].setLatLng([c.lat, c.lon]);
           adminMapMarkers[uniqueKey].setPopupContent(popupHtml);
         }
