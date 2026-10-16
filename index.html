@@ -29,7 +29,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <style>
-    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; }
+    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #e5e7eb; }
     
     .map-container-fullscreen {
       position: fixed !important;
@@ -64,7 +64,6 @@
       animation: pulseDriverDot 2s infinite;
     }
 
-    /* Estilo para la caja de selección táctil / ratón */
     .selection-box {
       position: absolute;
       background: rgba(99, 102, 241, 0.25);
@@ -73,7 +72,6 @@
       z-index: 999;
     }
 
-    /* Popups Ultra Livianos de MapLibre */
     .maplibregl-popup-content {
       padding: 10px !important;
       border-radius: 12px !important;
@@ -467,23 +465,27 @@
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
-    // ESTILO MAPLIBRE VECTORIAL RAPIDÍSIMO
+    // ESTILO MAPLIBRE RASTER COMPATIBLE CON CARTO Y OPENSTREETMAP ULTRA ESTABLE
     const MAP_STYLE_RASTER = {
       version: 8,
       sources: {
-        'carto-tiles': {
+        'osm-tiles': {
           type: 'raster',
-          tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'],
+          tiles: [
+            'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          ],
           tileSize: 256,
-          attribution: 'CARTO / OpenStreetMap'
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }
       },
       layers: [{
-        id: 'carto-tiles-layer',
+        id: 'osm-tiles-layer',
         type: 'raster',
-        source: 'carto-tiles',
+        source: 'osm-tiles',
         minzoom: 0,
-        maxzoom: 20
+        maxzoom: 19
       }]
     };
 
@@ -698,8 +700,7 @@
               container: 'adminMap',
               style: MAP_STYLE_RASTER,
               center: [-71.5350, -16.3988],
-              zoom: 12,
-              fadeDuration: 0
+              zoom: 12
             });
             adminMap.addControl(new maplibregl.NavigationControl(), 'top-left');
           }
@@ -715,11 +716,11 @@
           } else {
             loadAdminGeneralSummary();
           }
-        }, 100);
+        }, 150);
       } else {
         setTimeout(() => {
           if (driverMap) driverMap.resize();
-        }, 100);
+        }, 150);
       }
     }
 
@@ -912,18 +913,20 @@
           container: 'driverMap',
           style: MAP_STYLE_RASTER,
           center: [-71.5350, -16.3988],
-          zoom: 13,
-          fadeDuration: 0
+          zoom: 13
         });
         driverMap.addControl(new maplibregl.NavigationControl(), 'top-left');
 
         driverMap.on('load', () => {
           setupDriverMapLayers();
           setupBoxSelectionEvents();
+          if (currentClientsData.length > 0) {
+            renderDriverClientsAndMap();
+          }
         });
-      } else {
-        setTimeout(() => driverMap.resize(), 150);
       }
+
+      setTimeout(() => driverMap.resize(), 200);
 
       if (driverUnsubscribe) driverUnsubscribe();
 
@@ -1125,7 +1128,6 @@
       window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
     }
 
-    // MODO DE SELECCIÓN POR CAJA / MULTI-SELECCIÓN DE PUNTOS
     function toggleBoxSelectMode() {
       isBoxSelectActive = !isBoxSelectActive;
       const btn = document.getElementById('btnToggleBoxSelect');
@@ -1280,7 +1282,6 @@
       clearSelectedPoints();
     }
 
-    // CONFIGURACIÓN DE CAPAS GEOJSON EN MAPLIBRE WEBGL
     function setupDriverMapLayers() {
       if (!driverMap.getSource('driver-clients')) {
         driverMap.addSource('driver-clients', {
@@ -1288,7 +1289,6 @@
           data: { type: 'FeatureCollection', features: [] }
         });
 
-        // Capa de círculos pintados en GPU
         driverMap.addLayer({
           id: 'driver-circles',
           type: 'circle',
@@ -1313,12 +1313,11 @@
           }
         });
 
-        // OPTIMIZACIÓN: Números pequeños (size: 9) y visibles solo desde zoom 14.5
         driverMap.addLayer({
           id: 'driver-labels',
           type: 'symbol',
           source: 'driver-clients',
-          minzoom: 14.5,
+          minzoom: 13.5,
           layout: {
             'text-field': ['get', 'secStr'],
             'text-size': 9,
@@ -1410,16 +1409,28 @@
         }
       });
 
-      if (driverMap && driverMap.isStyleLoaded()) {
-        setupDriverMapLayers();
-        const source = driverMap.getSource('driver-clients');
-        if (source) {
-          source.setData({ type: 'FeatureCollection', features: features });
-        }
+      if (driverMap) {
+        if (!driverMap.isStyleLoaded()) {
+          driverMap.once('load', () => {
+            setupDriverMapLayers();
+            const source = driverMap.getSource('driver-clients');
+            if (source) source.setData({ type: 'FeatureCollection', features: features });
+            if (validBoundsCount > 0 && !driverMapInitialFit) {
+              driverMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
+              driverMapInitialFit = true;
+            }
+          });
+        } else {
+          setupDriverMapLayers();
+          const source = driverMap.getSource('driver-clients');
+          if (source) {
+            source.setData({ type: 'FeatureCollection', features: features });
+          }
 
-        if (validBoundsCount > 0 && !driverMapInitialFit) {
-          driverMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
-          driverMapInitialFit = true;
+          if (validBoundsCount > 0 && !driverMapInitialFit) {
+            driverMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
+            driverMapInitialFit = true;
+          }
         }
       }
 
@@ -1708,7 +1719,7 @@
           id: 'admin-labels',
           type: 'symbol',
           source: 'admin-clients',
-          minzoom: 14.5,
+          minzoom: 13.5,
           layout: {
             'text-field': ['get', 'secStr'],
             'text-size': 9,
@@ -1750,14 +1761,26 @@
         validBoundsCount++;
       });
 
-      if (adminMap && adminMap.isStyleLoaded()) {
-        setupAdminMapLayers();
-        const source = adminMap.getSource('admin-clients');
-        if (source) source.setData({ type: 'FeatureCollection', features: features });
+      if (adminMap) {
+        if (!adminMap.isStyleLoaded()) {
+          adminMap.once('load', () => {
+            setupAdminMapLayers();
+            const source = adminMap.getSource('admin-clients');
+            if (source) source.setData({ type: 'FeatureCollection', features: features });
+            if (validBoundsCount > 0 && !adminMapInitialFit) {
+              adminMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
+              adminMapInitialFit = true;
+            }
+          });
+        } else {
+          setupAdminMapLayers();
+          const source = adminMap.getSource('admin-clients');
+          if (source) source.setData({ type: 'FeatureCollection', features: features });
 
-        if (validBoundsCount > 0 && !adminMapInitialFit) {
-          adminMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
-          adminMapInitialFit = true;
+          if (validBoundsCount > 0 && !adminMapInitialFit) {
+            adminMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
+            adminMapInitialFit = true;
+          }
         }
       }
     }
