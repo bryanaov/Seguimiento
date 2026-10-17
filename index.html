@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COURIER TP - Plataforma de Logística Ultra Fluida</title>
+  <title>COURIER TP - Plataforma con Google Maps & Tráfico</title>
 
   <!-- Configuración PWA -->
   <link rel="manifest" href="manifest.json">
@@ -17,16 +17,15 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- MapLibre GL JS CSS & JS -->
-  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
-  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-
-  <!-- Turf.js para Selección Multicapa -->
+  <!-- Turf.js para Cálculos -->
   <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
-  <!-- Firebase JS SDK (Compat Mode) -->
+  <!-- Firebase JS SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <!-- GOOGLE MAPS API CON TRAFICO -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=&libraries=places,geometry"></script>
 
   <style>
     .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #e5e7eb; }
@@ -49,34 +48,17 @@
     .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
     .status-REPASO { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; }
 
-    @keyframes pulseDriverDot {
-      0% { transform: scale(0.9); opacity: 0.8; }
-      70% { transform: scale(1.1); opacity: 1; }
-      100% { transform: scale(0.9); opacity: 0.8; }
-    }
-    .driver-self-marker {
-      width: 16px;
-      height: 16px;
-      background-color: #2563EB;
-      border: 2px solid #FFFFFF;
-      border-radius: 50%;
-      box-shadow: 0 0 12px rgba(37, 99, 235, 0.8);
-      animation: pulseDriverDot 2s infinite;
-    }
-
-    .selection-box {
-      position: absolute;
-      background: rgba(99, 102, 241, 0.25);
-      border: 2px dashed #4f46e5;
-      pointer-events: none;
-      z-index: 999;
-    }
-
-    .maplibregl-popup-content {
-      padding: 10px !important;
-      border-radius: 12px !important;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
-      font-family: inherit !important;
+    /* ESTILO DE ETIQUETA SECUENCIA FLOTANTE */
+    .sec-label-marker {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #1e293b;
+      border-radius: 4px;
+      padding: 1px 3px;
+      font-size: 9px;
+      font-weight: 800;
+      color: #0f172a;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      white-space: nowrap;
     }
   </style>
 </head>
@@ -84,11 +66,10 @@
 
   <!-- BANNER NOTIFICACIÓN DE MODO OFFLINE -->
   <div id="offlineSyncBanner" class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2 text-center sticky top-0 z-[100000] shadow-md flex items-center justify-center gap-2">
-    <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Los cambios se están guardando localmente.</span>
+    <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Guardando localmente.</span>
     <button onclick="processOfflineQueue()" class="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[11px] underline">Sincronizar Ahora</button>
   </div>
 
-  <!-- SUGERENCIAS RÁPIDAS DE MOTIVOS -->
   <datalist id="motivosSugeridos">
     <option value="Sin dinero"></option>
     <option value="No pidió"></option>
@@ -108,9 +89,9 @@
         </div>
         <div>
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">PRO WebGL</span>
+            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps + Tráfico</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Selección Múltiple y Mapa Optimizado</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Secuencias, Selección Múltiple y Tráfico en Vivo</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -140,32 +121,24 @@
         <div class="space-y-3 pt-2">
           <div>
             <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
-            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14 o T14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14 o T14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
           </div>
           <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta Ultra Rápida
           </button>
-          <div class="flex items-center gap-2 pt-2 text-xs text-slate-600 justify-center">
-            <input type="checkbox" id="chkRememberDriver" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
-            <label for="chkRememberDriver" class="font-semibold cursor-pointer select-none">Guardar sesión activa (8 horas)</label>
-          </div>
         </div>
       </div>
 
       <!-- PANEL DE RUTA CARGADA -->
       <div id="driverRouteContainer" class="hidden space-y-4">
-        <!-- CABECERA GPS & STATUS -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
             <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5" id="driverSubtitle">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Transmisión GPS activada automáticamente
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo + Google Traffic Activo
             </p>
           </div>
           <div class="flex items-center gap-2 w-full md:w-auto justify-end">
-            <div id="gpsStatusBadge" class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo
-            </div>
             <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
             </button>
@@ -191,272 +164,106 @@
             </div>
           </div>
 
-          <!-- MÉTRICAS INTERACTIVAS -->
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-2">
-            <div onclick="zoomToStatus('PENDIENTE', 'driver')" class="bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl border border-slate-200 cursor-pointer transition shadow-xs">
+            <div onclick="filterByStatus('PENDIENTE')" class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
               <span class="block text-slate-500 text-[10px] font-extrabold uppercase">⏳ PENDIENTES</span>
               <span id="driverCountPendiente" class="text-lg font-black text-slate-800">0</span>
             </div>
-            <div onclick="zoomToStatus('ENTREGADO', 'driver')" class="bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl border border-emerald-200 cursor-pointer transition shadow-xs">
+            <div onclick="filterByStatus('ENTREGADO')" class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 cursor-pointer">
               <span class="block text-emerald-700 text-[10px] font-extrabold uppercase">✅ ENTREGADOS</span>
               <span id="driverCountEntregado" class="text-lg font-black text-emerald-800">0</span>
             </div>
-            <div onclick="zoomToStatus('RECHAZADO', 'driver')" class="bg-rose-50 hover:bg-rose-100 p-2.5 rounded-xl border border-rose-200 cursor-pointer transition shadow-xs">
+            <div onclick="filterByStatus('RECHAZADO')" class="bg-rose-50 p-2.5 rounded-xl border border-rose-200 cursor-pointer">
               <span class="block text-rose-700 text-[10px] font-extrabold uppercase">❌ RECHAZADOS</span>
               <span id="driverCountCerrado" class="text-lg font-black text-rose-800">0</span>
             </div>
-            <div onclick="zoomToStatus('PARCIAL', 'driver')" class="bg-orange-50 hover:bg-orange-100 p-2.5 rounded-xl border border-orange-200 cursor-pointer transition shadow-xs">
+            <div onclick="filterByStatus('PARCIAL')" class="bg-orange-50 p-2.5 rounded-xl border border-orange-200 cursor-pointer">
               <span class="block text-orange-700 text-[10px] font-extrabold uppercase">🟧 PARCIAL</span>
               <span id="driverCountParcial" class="text-lg font-black text-orange-800">0</span>
             </div>
-            <div onclick="zoomToStatus('OTRO MOTIVO', 'driver')" class="bg-purple-50 hover:bg-purple-100 p-2.5 rounded-xl border border-purple-200 cursor-pointer transition shadow-xs">
+            <div onclick="filterByStatus('OTRO MOTIVO')" class="bg-purple-50 p-2.5 rounded-xl border border-purple-200 cursor-pointer">
               <span class="block text-purple-700 text-[10px] font-extrabold uppercase">🟣 OTRO MOTIVO</span>
               <span id="driverCountOtro" class="text-lg font-black text-purple-800">0</span>
             </div>
-            <div onclick="zoomToStatus('REPASO', 'driver')" class="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-xl border border-blue-200 cursor-pointer transition shadow-xs">
+            <div onclick="filterByStatus('REPASO')" class="bg-blue-50 p-2.5 rounded-xl border border-blue-200 cursor-pointer">
               <span class="block text-blue-700 text-[10px] font-extrabold uppercase">🔵 REPASO</span>
               <span id="driverCountRepaso" class="text-lg font-black text-blue-800">0</span>
             </div>
           </div>
         </div>
 
-        <!-- BARRA DE ACCIÓN DE SELECCIÓN MÚLTIPLE EN MAPA -->
-        <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2 transition-all">
+        <!-- BARRA MASIVA O INDIVIDUAL DE PUNTOS SELECCIONADOS -->
+        <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Aplica cambios masivos en el mapa:</p>
+            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1">
-              <i class="fa-solid fa-check"></i> Marcar ENTREGADO
-            </button>
-            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1">
-              <i class="fa-solid fa-xmark"></i> Marcar CERRADO/RECHAZADO
-            </button>
-            <button onclick="clearSelectedPoints()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition border border-slate-700">
-              Cancelar
-            </button>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
+            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">❌ RECHAZADO (1 o Varios)</button>
+            <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold">🟧 PARCIAL</button>
+            <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold">🟣 OTRO</button>
+            <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Limpiar</button>
           </div>
         </div>
 
-        <!-- MAPA WEBGL NATIVO -->
+        <!-- MAPA GOOGLE MAPS CON TRAFICO Y ETIQUETAS DE SECUENCIA -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div class="flex justify-between items-center">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-pinned text-indigo-600"></i> Mapa con Selección Múltiple (Caja de Selección)
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Google Maps + Capa de Tráfico
             </h4>
-            
-            <div class="flex items-center gap-2">
-              <button id="btnToggleBoxSelect" onclick="toggleBoxSelectMode()" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
-                <i class="fa-solid fa-object-group"></i> Modode Selección Múltiple (Desactivado)
-              </button>
-              <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded cursor-pointer border-slate-300">
-                <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                  Ocultar Visitados
-                </label>
-              </div>
+            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
+              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
+              <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
             </div>
           </div>
 
-          <!-- LEYENDA -->
           <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold"></div>
 
           <div class="relative">
-            <div id="driverMap" class="map-container"></div>
-            <button id="btnExpandDriverMap" onclick="toggleExpandMap('driverMap', 'btnExpandDriverMap')" class="absolute top-3 right-3 z-[1000] px-3.5 py-2 bg-white/95 hover:bg-white text-indigo-700 border border-slate-200 rounded-xl text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
-              <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
-            </button>
+            <div id="driverGoogleMap" class="map-container"></div>
           </div>
         </div>
 
-        <!-- BÚSQUEDA Y FILTRADO -->
+        <!-- BÚSQUEDA Y LISTA DE CLIENTES -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2 border-b border-slate-100 pb-2">
-            <i class="fa-solid fa-filter text-indigo-600"></i> Buscar o Filtrar Clientes
-          </h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Buscar por Código / Nombre / Dirección:</label>
-              <div class="relative">
-                <input type="text" id="driverSearchInput" oninput="debouncedApplyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
-              </div>
+              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Buscar Cliente / Sec / Dirección:</label>
+              <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Filtrar por Vendedor:</label>
-              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Filtrar por Vendedor:</label>
+              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-white">
                 <option value="">-- Todos los Vendedores --</option>
               </select>
             </div>
           </div>
         </div>
 
-        <!-- LISTA DE CLIENTES -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
-          <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2.5">
-            <h4 class="font-bold text-slate-800 text-sm">Clientes en la Ruta</h4>
-            <span id="driverResultsCount" class="text-xs font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">---</span>
-          </div>
           <div id="driverClientsList" class="space-y-3"></div>
-          
-          <div id="btnLoadMoreContainer" class="hidden text-center pt-3">
-            <button onclick="renderMoreClients()" class="px-5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition">
-              <i class="fa-solid fa-angles-down"></i> Cargar más clientes...
-            </button>
-          </div>
         </div>
       </div>
     </section>
 
     <!-- VISTA ADMINISTRADOR -->
     <section id="viewAdmin" class="hidden space-y-4">
-
-      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3 shadow-xs">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">Archivo Activo</span>
-            <h4 id="activeFileName" class="font-bold text-emerald-950 text-base">---</h4>
-          </div>
-          <p id="activeFileMeta" class="text-xs text-emerald-700 font-medium">---</p>
-        </div>
-        <button onclick="clearCurrentDayData()" class="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xs shadow-xs flex items-center justify-center gap-2 transition">
-          <i class="fa-solid fa-trash-can"></i> Borrar datos para nuevo día
-        </button>
-      </div>
-
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-          <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar Archivo de Rutas Diarias (CSV)
+          <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar CSV de Rutas
         </h2>
-        <p class="text-xs text-slate-500">
-          Soporta separadores <code>;</code> o <code>,</code>. Mapea columnas <b>TPT</b>, <b>SEC</b>, <b>RAZON SOCIAL</b>, <b>Y (Lat)</b>, <b>X (Lon)</b>.
-        </p>
-        <div class="flex flex-col sm:flex-row gap-3 items-center">
-          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-          <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-sm whitespace-nowrap text-xs transition">
-            Procesar y Cargar
-          </button>
+        <div class="flex gap-3">
+          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500">
+          <button onclick="processAndUploadCSV()" class="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs">Cargar Archivo</button>
         </div>
         <div id="csvStatus" class="text-xs font-bold"></div>
       </div>
 
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-2 border-l-4 border-amber-500">
-        <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
-          <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
-        </h3>
-        <p class="text-xs text-slate-500">Los choferes ingresan directamente digitando solo su código de transporte (ej: 14 o T14):</p>
-        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
-          <span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>
-        </div>
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+        <div id="adminGoogleMap" class="map-container"></div>
       </div>
-
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 border-l-4 border-indigo-600">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-2.5">
-          <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen General <span id="adminScopeLabel" class="text-xs text-indigo-600 font-bold">(General Día)</span>
-          </h4>
-          <span id="adminProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">0% completado</span>
-        </div>
-
-        <div class="space-y-1.5">
-          <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-200">
-            <div id="adminProgressBarFill" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
-          </div>
-          <div class="flex justify-between text-[11px] font-bold text-slate-500">
-            <span id="adminCompletedCount">Atendidos / Visitados: 0</span>
-            <span id="adminRemainingCount">Pendientes: 0 (100%)</span>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-2">
-          <div onclick="zoomToStatus('PENDIENTE', 'admin')" class="bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl border border-slate-200 cursor-pointer transition shadow-xs">
-            <span class="block text-slate-500 text-[10px] font-extrabold uppercase">⏳ PENDIENTES</span>
-            <span id="adminCountPendiente" class="text-lg font-black text-slate-800">0</span>
-          </div>
-          <div onclick="zoomToStatus('ENTREGADO', 'admin')" class="bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl border border-emerald-200 cursor-pointer transition shadow-xs">
-            <span class="block text-emerald-700 text-[10px] font-extrabold uppercase">✅ ENTREGADOS</span>
-            <span id="adminCountEntregado" class="text-lg font-black text-emerald-800">0</span>
-          </div>
-          <div onclick="zoomToStatus('RECHAZADO', 'admin')" class="bg-rose-50 hover:bg-rose-100 p-2.5 rounded-xl border border-rose-200 cursor-pointer transition shadow-xs">
-            <span class="block text-rose-700 text-[10px] font-extrabold uppercase">❌ RECHAZADOS</span>
-            <span id="adminCountCerrado" class="text-lg font-black text-rose-800">0</span>
-          </div>
-          <div onclick="zoomToStatus('PARCIAL', 'admin')" class="bg-orange-50 hover:bg-orange-100 p-2.5 rounded-xl border border-orange-200 cursor-pointer transition shadow-xs">
-            <span class="block text-orange-700 text-[10px] font-extrabold uppercase">🟧 PARCIAL</span>
-            <span id="adminCountParcial" class="text-lg font-black text-orange-800">0</span>
-          </div>
-          <div onclick="zoomToStatus('OTRO MOTIVO', 'admin')" class="bg-purple-50 hover:bg-purple-100 p-2.5 rounded-xl border border-purple-200 cursor-pointer transition shadow-xs">
-            <span class="block text-purple-700 text-[10px] font-extrabold uppercase">🟣 OTRO MOTIVO</span>
-            <span id="adminCountOtro" class="text-lg font-black text-purple-800">0</span>
-          </div>
-          <div onclick="zoomToStatus('REPASO', 'admin')" class="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-xl border border-blue-200 cursor-pointer transition shadow-xs">
-            <span class="block text-blue-700 text-[10px] font-extrabold uppercase">🔵 REPASO</span>
-            <span id="adminCountRepaso" class="text-lg font-black text-blue-800">0</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
-          <div class="flex items-center gap-2">
-            <h3 class="font-black text-slate-900 text-base">Monitoreo General (MapLibre WebGL)</h3>
-            <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo
-            </span>
-          </div>
-          
-          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-            <button onclick="bulkMarkPendingAsDelivered()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition">
-              <i class="fa-solid fa-check-double"></i> ⚡ Marcar Pendientes como ENTREGADO
-            </button>
-            <button onclick="exportAdminReportCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition">
-              <i class="fa-solid fa-file-excel"></i> Exportar CSV
-            </button>
-            <button onclick="manualRefreshAdmin()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 text-xs flex items-center gap-1.5 transition">
-              <i class="fa-solid fa-rotate"></i> Actualizar
-            </button>
-            <select id="selectAdminRoute" onchange="onAdminRouteSelect(true)" class="border border-slate-300 rounded-xl px-3 py-1.5 font-bold text-xs text-slate-800 outline-none w-full sm:w-auto bg-white">
-              <option value="">-- Todas las Rutas (Vista General) --</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="relative">
-          <div id="adminMap" class="map-container" style="height: 480px;"></div>
-          <button id="btnExpandAdminMap" onclick="toggleExpandMap('adminMap', 'btnExpandAdminMap')" class="absolute top-3 right-3 z-[1000] px-3.5 py-2 bg-white/95 hover:bg-white text-indigo-700 border border-slate-200 rounded-xl text-xs font-extrabold shadow-md flex items-center gap-1.5 transition">
-            <i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa
-          </button>
-        </div>
-      </div>
-
-      <div id="adminClientsDetailCard" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 border-b border-slate-100 pb-2.5">
-          <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-list-check text-indigo-600"></i> Estado Detallado de Clientes <span id="adminTableScope" class="text-xs text-indigo-600 font-bold">(General)</span>
-          </h4>
-          <input type="text" id="adminSearchInput" oninput="applyAdminTableFilter()" placeholder="Buscar cliente, sec o dirección..." class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
-        </div>
-        <div class="overflow-x-auto max-h-96">
-          <table class="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                <th class="p-2.5">Ruta</th>
-                <th class="p-2.5">Sec</th>
-                <th class="p-2.5">Cliente / Razón Social</th>
-                <th class="p-2.5">Dirección</th>
-                <th class="p-2.5">Monto S/</th>
-                <th class="p-2.5">Estado / Motivo</th>
-                <th class="p-2.5">Hora Entrega</th>
-              </tr>
-            </thead>
-            <tbody id="adminClientsTableBody">
-              <tr><td colspan="7" class="text-center p-4 text-slate-400 font-medium">Cargando lista de clientes...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
     </section>
 
   </main>
@@ -465,411 +272,46 @@
     const ADMIN_PASSWORD = "bra151106";
     let isAdminAuthenticated = false;
 
-    // ESTILO MAPLIBRE RASTER COMPATIBLE CON CARTO Y OPENSTREETMAP ULTRA ESTABLE
-    const MAP_STYLE_RASTER = {
-      version: 8,
-      sources: {
-        'osm-tiles': {
-          type: 'raster',
-          tiles: [
-            'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-          ],
-          tileSize: 256,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        }
-      },
-      layers: [{
-        id: 'osm-tiles-layer',
-        type: 'raster',
-        source: 'osm-tiles',
-        minzoom: 0,
-        maxzoom: 19
-      }]
-    };
-
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
       authDomain: "courier-4ecda.firebaseapp.com",
       projectId: "courier-4ecda",
       storageBucket: "courier-4ecda.firebasestorage.app",
       messagingSenderId: "226032355815",
-      appId: "1:226032355815:web:0e7e78e217ca77363a1542",
-      measurementId: "G-899HW8W4XJ"
+      appId: "1:226032355815:web:0e7e78e217ca77363a1542"
     };
 
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    const VENDOR_COLORS = [
-      '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
-      '#EF4444', '#14B8A6', '#6366F1', '#84CC16', '#A855F7', '#06B6D4', '#F97316'
-    ];
-
-    function getVendorColor(vendorStr) {
-      if (!vendorStr || vendorStr.toString().trim() === '') return '#6B7280';
-      let hash = 0;
-      const str = vendorStr.toString().trim().toUpperCase();
-      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-      return VENDOR_COLORS[Math.abs(hash) % VENDOR_COLORS.length];
-    }
-
-    function getStatusColor(statusStr) {
-      const st = (statusStr || 'PENDIENTE').toString().trim().toUpperCase();
-      if (st === 'ENTREGADO') return '#22C55E';
-      if (st === 'RECHAZADO' || st === 'CERRADO') return '#EF4444';
-      if (st === 'PARCIAL') return '#F97316';
-      if (st === 'OTRO MOTIVO') return '#A855F7';
-      if (st === 'REPASO') return '#3B82F6';
-      return '#6B7280';
-    }
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-      });
-    }
-
-    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-
-    let offlineQueue = JSON.parse(localStorage.getItem('courier_offline_queue') || '[]');
-
-    function updateOfflineStatusUI() {
-      const banner = document.getElementById('offlineSyncBanner');
-      const isOnline = navigator.onLine;
-      const count = offlineQueue.length;
-
-      if (!isOnline || count > 0) {
-        banner.classList.remove('hidden');
-        if (!isOnline) {
-          document.getElementById('offlineText').innerHTML = `<i class="fa-solid fa-wifi-slash text-amber-200"></i> <b>Sin Conexión:</b> Guardando en celular (${count} cambios pendientes).`;
-        } else {
-          document.getElementById('offlineText').innerHTML = `<i class="fa-solid fa-arrows-rotate animate-spin text-white"></i> <b>Sincronizando:</b> Subiendo ${count} cambios a la nube...`;
-        }
-      } else {
-        banner.classList.add('hidden');
-      }
-    }
-
-    async function processOfflineQueue() {
-      if (!navigator.onLine || offlineQueue.length === 0) {
-        updateOfflineStatusUI();
-        return;
-      }
-      updateOfflineStatusUI();
-
-      const currentQueue = [...offlineQueue];
-      offlineQueue = [];
-      localStorage.setItem('courier_offline_queue', JSON.stringify([]));
-
-      for (const item of currentQueue) {
-        try {
-          const docRef = db.collection('routes').doc(item.docId);
-          const docSnap = await docRef.get();
-          if (docSnap.exists) {
-            const clients = docSnap.data().clients || [];
-            if (clients[item.idx]) {
-              if (item.type === 'STATUS') {
-                clients[item.idx].estado = item.val;
-                if (item.val === 'ENTREGADO') clients[item.idx].horaEntrega = new Date().toLocaleTimeString();
-              } else if (item.type === 'OBS') {
-                clients[item.idx].obs = item.val;
-                if ((clients[item.idx].estado || 'PENDIENTE').toUpperCase() === 'PENDIENTE' && item.val.trim() !== '') {
-                  clients[item.idx].estado = 'RECHAZADO';
-                }
-              } else if (item.type === 'REPASO') {
-                clients[item.idx].repasoConfirm = item.val;
-              }
-              await docRef.update({ clients, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-            }
-          }
-        } catch (e) {
-          offlineQueue.push(item);
-          localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        }
-      }
-      updateOfflineStatusUI();
-    }
-
-    window.addEventListener('online', processOfflineQueue);
-    window.addEventListener('offline', updateOfflineStatusUI);
-
-    let currentRouteCode = null;
-    let currentDocId = null;
+    let driverGMap = null;
+    let adminGMap = null;
+    let driverMarkers = [];
+    let driverLabels = [];
     let currentClientsData = [];
     let filteredClientsData = [];
-    let currentRenderPage = 1;
-    const PAGE_SIZE = 25;
-
-    let driverUnsubscribe = null;
-    let gpsWatchId = null;
-    let lastGpsSentTime = 0;
-    let filterDebounceTimer = null;
-
-    let adminMap = null;
-    let driverMap = null;
-    let driverSelfMarker = null;
-    let driverMapInitialFit = false;
-    let adminMapInitialFit = false;
-
+    let currentRouteCode = null;
+    let currentDocId = null;
     let selectedPointIndexes = new Set();
-    let isBoxSelectActive = false;
-    let startPoint = null;
-    let currentPoint = null;
-    let boxElem = null;
+    let trafficLayer = null;
 
-    let adminGlobalTrackingUnsubscribe = null;
-    let adminRouteUnsubscribe = null;
-    let adminAllRoutesUnsubscribe = null;
-    let adminCurrentRawClients = [];
-    let adminTruckMarkers = {};
+    const VENDOR_COLORS = ['#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#14B8A6', '#6366F1'];
 
-    function toggleExpandMap(mapId, btnId) {
-      const mapEl = document.getElementById(mapId);
-      const btn = document.getElementById(btnId);
-      const isFull = mapEl.classList.toggle('map-container-fullscreen');
-
-      if (btn) {
-        btn.innerHTML = isFull 
-          ? `<i class="fa-solid fa-compress text-rose-600"></i> Reducir Mapa`
-          : `<i class="fa-solid fa-expand text-indigo-600"></i> Pantalla Completa`;
-      }
-
-      const targetMap = (mapId === 'driverMap') ? driverMap : adminMap;
-      if (targetMap) {
-        setTimeout(() => targetMap.resize(), 200);
-      }
+    function getVendorColor(v) {
+      if (!v) return '#6B7280';
+      let hash = 0;
+      for (let i = 0; i < v.length; i++) hash = v.charCodeAt(i) + ((hash << 5) - hash);
+      return VENDOR_COLORS[Math.abs(hash) % VENDOR_COLORS.length];
     }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      updateOfflineStatusUI();
-      const savedCode = localStorage.getItem('courier_driver_code');
-      const savedExp = localStorage.getItem('courier_driver_exp');
-
-      if (savedCode && savedExp) {
-        if (Date.now() < parseInt(savedExp, 10)) {
-          document.getElementById('inputRouteCode').value = savedCode;
-          loadDriverRoute();
-        } else {
-          clearDriverStorage();
-        }
-      }
-    });
-
-    function clearDriverStorage() {
-      localStorage.removeItem('courier_driver_code');
-      localStorage.removeItem('courier_driver_pin');
-      localStorage.removeItem('courier_driver_exp');
-    }
-
-    function requestAdminAccess() {
-      if (isAdminAuthenticated) {
-        switchTab('admin');
-        return;
-      }
-      const pass = prompt("🔒 Ingrese la contraseña de Administrador:");
-      if (pass === ADMIN_PASSWORD) {
-        isAdminAuthenticated = true;
-        switchTab('admin');
-      } else if (pass !== null) {
-        alert("❌ Contraseña incorrecta.");
-      }
-    }
-
-    db.collection('meta').doc('active_file').onSnapshot(doc => {
-      const card = document.getElementById('activeFileCard');
-      if (doc && doc.exists) {
-        const data = doc.data();
-        document.getElementById('activeFileName').innerText = data.fileName || 'Archivo cargado';
-        document.getElementById('activeFileMeta').innerText = `Subido el ${data.uploadDate || ''} · ${data.totalClients || 0} clientes en ${data.totalRoutes || 0} rutas.`;
-        card.classList.remove('hidden');
-      } else {
-        card.classList.add('hidden');
-      }
-    });
 
     function switchTab(tab) {
       document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
       document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
-      
-      if (tab === 'admin') {
-        setTimeout(async () => {
-          if (!adminMap) {
-            adminMap = new maplibregl.Map({
-              container: 'adminMap',
-              style: MAP_STYLE_RASTER,
-              center: [-71.5350, -16.3988],
-              zoom: 12
-            });
-            adminMap.addControl(new maplibregl.NavigationControl(), 'top-left');
-          }
-          adminMap.resize();
-          await loadAvailableRoutesInSelect();
-          startAdminGlobalTracking();
-
-          const savedRoute = localStorage.getItem('courier_admin_selected_route');
-          const select = document.getElementById('selectAdminRoute');
-          if (savedRoute && select.querySelector(`option[value="${savedRoute}"]`)) {
-            select.value = savedRoute;
-            onAdminRouteSelect(true);
-          } else {
-            loadAdminGeneralSummary();
-          }
-        }, 150);
-      } else {
-        setTimeout(() => {
-          if (driverMap) driverMap.resize();
-        }, 150);
-      }
     }
 
-    function parseCSV(text) {
-      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-      if (lines.length === 0) return [];
-
-      const firstLine = lines[0];
-      let delimiter = ';';
-      if ((firstLine.match(/,/g) || []).length > (firstLine.match(/;/g) || []).length) delimiter = ',';
-
-      function parseRow(rowStr) {
-        const result = [];
-        let current = '';
-        let inQuotes = false;
-        for (let i = 0; i < rowStr.length; i++) {
-          const char = rowStr[i];
-          if (char === '"') inQuotes = !inQuotes;
-          else if (char === delimiter && !inQuotes) { result.push(current.trim()); current = ''; }
-          else current += char;
-        }
-        result.push(current.trim());
-        return result;
-      }
-
-      const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
-      const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
-
-      const idxTpt = getIndex(['TPT', 'RUTA', 'CHOFER', 'CODIGO']);
-      const idxSec = getIndex(['SEC', 'SECUENCIA', 'ORDEN']);
-      const idxVend = getIndex(['VENDEDOR', 'VEND']);
-      const idxName = getIndex(['RAZON SOCIAL', 'NAME', 'CLIENTE']);
-      const idxTel = getIndex(['TELEFONO', 'TEL', 'CELULAR']);
-      const idxDom = getIndex(['DOMICILIO', 'DIRECCION']);
-      const idxSub = getIndex(['SUBTOTAL FINAL', 'SUBTOTAL', 'MONTO']);
-      const idxY = getIndex(['Y', 'LAT', 'LATITUD']);
-      const idxX = getIndex(['X', 'LON', 'LONGITUD']);
-      const idxEstado = getIndex(['ESTADO', 'STATUS']);
-
-      const clients = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = parseRow(lines[i]);
-        if (cols.length < 2) continue;
-
-        let tpt = idxTpt !== -1 ? cols[idxTpt] : 'DEFAULT';
-        if (!tpt) continue;
-
-        let lat = idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) : 0;
-        let lon = idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) : 0;
-
-        clients.push({
-          tpt: tpt.toString().trim(),
-          sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
-          vendedor: idxVend !== -1 ? cols[idxVend].toString().trim() : '',
-          name: idxName !== -1 ? cols[idxName] : 'Cliente ' + i,
-          telefono: idxTel !== -1 ? cols[idxTel] : '',
-          domicilio: idxDom !== -1 ? cols[idxDom] : '',
-          subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
-          lat: isNaN(lat) ? 0 : lat,
-          lon: isNaN(lon) ? 0 : lon,
-          estado: (idxEstado !== -1 && cols[idxEstado]) ? cols[idxEstado].toString().trim().toUpperCase() : 'PENDIENTE',
-          repasoConfirm: '',
-          horaEntrega: '',
-          obs: ''
-        });
-      }
-      return clients;
-    }
-
-    async function processAndUploadCSV() {
-      const fileInput = document.getElementById('inputCsvFile');
-      const statusDiv = document.getElementById('csvStatus');
-
-      if (!fileInput.files || fileInput.files.length === 0) {
-        statusDiv.className = "text-xs font-bold text-rose-600";
-        statusDiv.innerText = "Por favor selecciona un archivo .csv";
-        return;
-      }
-
-      statusDiv.className = "text-xs font-bold text-indigo-600";
-      statusDiv.innerText = "⏳ Procesando archivo y creando rutas...";
-
-      const file = fileInput.files[0];
-      const reader = new FileReader();
-
-      reader.onload = async (e) => {
-        try {
-          const parsedClients = parseCSV(e.target.result);
-          if (parsedClients.length === 0) {
-            statusDiv.className = "text-xs font-bold text-rose-600";
-            statusDiv.innerText = "No se pudieron extraer datos del archivo.";
-            return;
-          }
-
-          const routesMap = {};
-          parsedClients.forEach(client => {
-            const rawCode = client.tpt;
-            if (!routesMap[rawCode]) routesMap[rawCode] = [];
-            routesMap[rawCode].push(client);
-          });
-
-          const routeKeys = Object.keys(routesMap);
-          for (const code of routeKeys) {
-            const group = routesMap[code];
-            group.sort((a, b) => a.sec - b.sec);
-
-            await db.collection('routes').doc(code).set({
-              code: code,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              clients: group
-            }, { merge: true });
-          }
-
-          const nowStr = new Date().toLocaleString();
-          await db.collection('meta').doc('active_file').set({
-            fileName: file.name,
-            uploadDate: nowStr,
-            totalClients: parsedClients.length,
-            totalRoutes: routeKeys.length
-          });
-
-          statusDiv.className = "text-xs font-bold text-emerald-600";
-          statusDiv.innerText = `✅ ¡Éxito! Se guardaron ${parsedClients.length} clientes en las rutas (${routeKeys.join(', ')}).`;
-
-          fileInput.value = '';
-          await loadAvailableRoutesInSelect();
-          loadAdminGeneralSummary();
-        } catch (err) {
-          statusDiv.className = "text-xs font-bold text-rose-600";
-          statusDiv.innerText = `Error: ${err.message}`;
-        }
-      };
-      reader.readAsText(file, 'UTF-8');
-    }
-
-    async function clearCurrentDayData() {
-      if (!confirm("¿Estás seguro de borrar las rutas del día?")) return;
-
-      const snapshot = await db.collection('routes').get();
-      const batch = db.batch();
-      snapshot.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-
-      await db.collection('meta').doc('active_file').delete();
-
-      document.getElementById('selectAdminRoute').innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
-      document.getElementById('routeKeysList').innerHTML = '<span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
-      
-      alert("✅ Datos eliminados correctamente.");
+    function requestAdminAccess() {
+      const pass = prompt("🔒 Ingrese la contraseña de Administrador:");
+      if (pass === ADMIN_PASSWORD) switchTab('admin');
     }
 
     async function loadDriverRoute() {
@@ -885,368 +327,125 @@
         docSnap = await docRef.get();
       }
 
-      if (!docSnap.exists) {
-        return alert(`❌ La ruta #${inputCode} no existe en el sistema.`);
-      }
-
-      const routeData = docSnap.data();
-
-      if (document.getElementById('chkRememberDriver').checked) {
-        const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
-        localStorage.setItem('courier_driver_code', inputCode);
-        localStorage.setItem('courier_driver_exp', (Date.now() + EIGHT_HOURS_MS).toString());
-      } else {
-        clearDriverStorage();
-      }
+      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
 
       currentDocId = docRef.id;
-      currentRouteCode = routeData.code || inputCode;
-
-      driverMapInitialFit = false;
+      currentRouteCode = docSnap.data().code || inputCode;
 
       document.getElementById('driverLoginCard').classList.add('hidden');
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
-      if (!driverMap) {
-        driverMap = new maplibregl.Map({
-          container: 'driverMap',
-          style: MAP_STYLE_RASTER,
-          center: [-71.5350, -16.3988],
-          zoom: 13
-        });
-        driverMap.addControl(new maplibregl.NavigationControl(), 'top-left');
+      initGoogleMapDriver();
 
-        driverMap.on('load', () => {
-          setupDriverMapLayers();
-          setupBoxSelectionEvents();
-          if (currentClientsData.length > 0) {
-            renderDriverClientsAndMap();
-          }
-        });
-      }
-
-      setTimeout(() => driverMap.resize(), 200);
-
-      if (driverUnsubscribe) driverUnsubscribe();
-
-      driverUnsubscribe = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
+      db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
-          const rawClients = doc.data().clients || [];
-          currentClientsData = rawClients.map((c, i) => ({ ...c, _idx: i }));
-          updateDriverSummaryStats(currentClientsData);
-          populateVendorFilterDropdown(currentClientsData);
+          currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
           applyDriverFilters();
         }
       });
-
-      startGPSTrackingAuto();
     }
 
-    function logoutDriverSession() {
-      clearDriverStorage();
-      if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
-      if (driverUnsubscribe) driverUnsubscribe();
+    function initGoogleMapDriver() {
+      if (!driverGMap) {
+        const centerArequipa = { lat: -16.3988, lng: -71.5350 };
+        driverGMap = new google.maps.Map(document.getElementById('driverGoogleMap'), {
+          zoom: 14,
+          center: centerArequipa,
+          mapTypeId: 'roadmap',
+          zoomControl: true,
+          streetViewControl: false
+        });
 
-      if (driverSelfMarker) {
-        driverSelfMarker.remove();
-        driverSelfMarker = null;
+        // CAPA DE TRAFICO EN VIVO GOOGLE
+        trafficLayer = new google.maps.TrafficLayer();
+        trafficLayer.setMap(driverGMap);
       }
-
-      document.getElementById('inputRouteCode').value = '';
-      document.getElementById('driverRouteContainer').classList.add('hidden');
-      document.getElementById('driverLoginCard').classList.remove('hidden');
-    }
-
-    function startGPSTrackingAuto() {
-      if (!navigator.geolocation) return;
-
-      if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
-
-      gpsWatchId = navigator.geolocation.watchPosition(
-        pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-
-          if (driverMap) {
-            if (!driverSelfMarker) {
-              const el = document.createElement('div');
-              el.className = 'driver-self-marker';
-              driverSelfMarker = new maplibregl.Marker({ element: el })
-                .setLngLat([lng, lat])
-                .setPopup(new maplibregl.Popup().setHTML("<b>📍 Tu ubicación actual</b>"))
-                .addTo(driverMap);
-            } else {
-              driverSelfMarker.setLngLat([lng, lat]);
-            }
-          }
-
-          const now = Date.now();
-          if (now - lastGpsSentTime < 3000) return;
-          lastGpsSentTime = now;
-
-          const payload = {
-            code: currentRouteCode,
-            lat: lat,
-            lng: lng,
-            timestamp: now,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          };
-
-          db.collection('tracking').doc(currentDocId).set(payload);
-        },
-        err => {},
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-      );
-    }
-
-    function updateDriverSummaryStats(clients) {
-      const stats = calculateStats(clients);
-
-      document.getElementById('driverCountPendiente').innerText = stats.pendientes;
-      document.getElementById('driverCountEntregado').innerText = stats.entregados;
-      document.getElementById('driverCountCerrado').innerText = stats.cerrados;
-      document.getElementById('driverCountParcial').innerText = stats.parciales;
-      document.getElementById('driverCountOtro').innerText = stats.otros;
-      document.getElementById('driverCountRepaso').innerText = stats.repasos;
-
-      document.getElementById('driverProgressPct').innerText = `${stats.pctAvance}% completado`;
-      document.getElementById('driverProgressBarFill').style.width = `${stats.pctAvance}%`;
-      document.getElementById('driverCompletedCount').innerText = `Atendidos: ${stats.atendidos} de ${stats.total}`;
-      document.getElementById('driverRemainingCount').innerText = `Pendientes: ${stats.pendientes} (${stats.pctFalta}%)`;
-    }
-
-    function updateAdminSummaryStats(clients, label) {
-      const stats = calculateStats(clients);
-
-      document.getElementById('adminScopeLabel').innerText = label ? `(${label})` : '(General Día)';
-      document.getElementById('adminTableScope').innerText = label ? `(${label})` : '(General Día)';
-      document.getElementById('adminCountPendiente').innerText = stats.pendientes;
-      document.getElementById('adminCountEntregado').innerText = stats.entregados;
-      document.getElementById('adminCountCerrado').innerText = stats.cerrados;
-      document.getElementById('adminCountParcial').innerText = stats.parciales;
-      document.getElementById('adminCountOtro').innerText = stats.otros;
-      document.getElementById('adminCountRepaso').innerText = stats.repasos;
-
-      document.getElementById('adminProgressPct').innerText = `${stats.pctAvance}% completado`;
-      document.getElementById('adminProgressBarFill').style.width = `${stats.pctAvance}%`;
-      document.getElementById('adminCompletedCount').innerText = `Atendidos / Visitados: ${stats.atendidos} de ${stats.total}`;
-      document.getElementById('adminRemainingCount').innerText = `Pendientes: ${stats.pendientes} (${stats.pctFalta}%)`;
-    }
-
-    function calculateStats(clients) {
-      const total = clients.length;
-      let pendientes = 0, entregados = 0, cerrados = 0, parciales = 0, otros = 0, repasos = 0;
-
-      clients.forEach(c => {
-        const st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (st === 'PENDIENTE') pendientes++;
-        else if (st === 'ENTREGADO') entregados++;
-        else if (st === 'CERRADO' || st === 'RECHAZADO') cerrados++;
-        else if (st === 'PARCIAL') parciales++;
-        else if (st === 'OTRO MOTIVO') otros++;
-        else if (st === 'REPASO') repasos++;
-        else pendientes++;
-      });
-
-      const atendidos = total - pendientes;
-      const pctAvance = total > 0 ? Math.round((atendidos / total) * 100) : 0;
-      const pctFalta = 100 - pctAvance;
-
-      return { total, pendientes, entregados, cerrados, parciales, otros, repasos, atendidos, pctAvance, pctFalta };
-    }
-
-    function populateVendorFilterDropdown(clients) {
-      const select = document.getElementById('driverVendorFilter');
-      const legendDiv = document.getElementById('driverVendorLegend');
-      const currentValue = select.value;
-      
-      const vendors = new Set();
-      clients.forEach(c => { if (c.vendedor) vendors.add(c.vendedor); });
-
-      select.innerHTML = '<option value="">-- Todos los Vendedores --</option>';
-      if (legendDiv) legendDiv.innerHTML = '';
-
-      Array.from(vendors).sort().forEach(v => {
-        const option = document.createElement('option');
-        option.value = v;
-        option.innerText = `Vendedor ${v}`;
-        select.appendChild(option);
-
-        if (legendDiv) {
-          const color = getVendorColor(v);
-          legendDiv.innerHTML += `
-            <span class="inline-flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 text-slate-700">
-              <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span> ${v}
-            </span>
-          `;
-        }
-      });
-
-      select.value = currentValue;
-    }
-
-    function debouncedApplyDriverFilters() {
-      clearTimeout(filterDebounceTimer);
-      filterDebounceTimer = setTimeout(() => {
-        applyDriverFilters();
-      }, 250);
     }
 
     function applyDriverFilters() {
       const searchText = document.getElementById('driverSearchInput').value.toLowerCase().trim();
-      const selectedVendor = document.getElementById('driverVendorFilter').value;
+      const hideVisited = document.getElementById('chkHideVisited').checked;
 
       filteredClientsData = currentClientsData.filter(c => {
-        const matchVendor = !selectedVendor || c.vendedor.toString() === selectedVendor;
+        const isVisited = (c.estado || 'PENDIENTE') !== 'PENDIENTE';
+        if (hideVisited && isVisited) return false;
+
         const matchSearch = !searchText || 
           c.name.toLowerCase().includes(searchText) || 
           c.domicilio.toLowerCase().includes(searchText) || 
           c.sec.toString().includes(searchText);
-        
-        return matchVendor && matchSearch;
+
+        return matchSearch;
       });
 
-      currentRenderPage = 1;
-      renderDriverClientsAndMap();
+      renderGoogleMapPoints();
+      renderClientsList();
     }
 
-    function sendWhatsAppNotification(idx) {
-      const client = currentClientsData.find(c => c._idx === idx);
-      if (!client) return;
+    function renderGoogleMapPoints() {
+      // Limpiar marcadores anteriores
+      driverMarkers.forEach(m => m.setMap(null));
+      driverLabels.forEach(l => l.setMap(null));
+      driverMarkers = [];
+      driverLabels = [];
 
-      let routeCode = currentRouteCode || client.tpt || '';
-      if (routeCode && !routeCode.toUpperCase().startsWith('T')) routeCode = 'T' + routeCode;
+      const bounds = new google.maps.LatLngBounds();
 
-      const message = `${routeCode}\n` +
-        `Cliente ${client.name || client.sec}\n` +
-        `*Vendedor:* ${client.vendedor || 'Sin asignar'}\n` +
-        `*Monto:* S/ ${client.subtotal || '0.00'}\n` +
-        `*Estado:* ${client.estado || 'PENDIENTE'}\n` +
-        `*Motivo:* ${client.obs || 'Sin motivo registrado'}`;
+      filteredClientsData.forEach(c => {
+        if (!c.lat || !c.lon) return;
 
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
-    }
+        const latLng = { lat: parseFloat(c.lat), lng: parseFloat(c.lon) };
+        const isSelected = selectedPointIndexes.has(c._idx);
+        const color = getVendorColor(c.vendedor);
 
-    function toggleBoxSelectMode() {
-      isBoxSelectActive = !isBoxSelectActive;
-      const btn = document.getElementById('btnToggleBoxSelect');
-
-      if (isBoxSelectActive) {
-        btn.innerHTML = `<i class="fa-solid fa-object-group"></i> Modode Selección Múltiple (ACTIVADO)`;
-        btn.className = "px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md";
-        driverMap.dragPan.disable();
-      } else {
-        btn.innerHTML = `<i class="fa-solid fa-object-group"></i> Modode Selección Múltiple (Desactivado)`;
-        btn.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5";
-        driverMap.dragPan.enable();
-        clearSelectedPoints();
-      }
-    }
-
-    function setupBoxSelectionEvents() {
-      const canvas = driverMap.getCanvasContainer();
-
-      canvas.addEventListener('mousedown', onMouseDown, true);
-      canvas.addEventListener('touchstart', onTouchStart, true);
-
-      function mousePos(e) {
-        const rect = canvas.getBoundingClientRect();
-        return new maplibregl.Point(
-          e.clientX - rect.left - canvas.clientLeft,
-          e.clientY - rect.top - canvas.clientTop
-        );
-      }
-
-      function touchPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        return new maplibregl.Point(
-          e.touches[0].clientX - rect.left - canvas.clientLeft,
-          e.touches[0].clientY - rect.top - canvas.clientTop
-        );
-      }
-
-      function onMouseDown(e) {
-        if (!isBoxSelectActive) return;
-        startPoint = mousePos(e);
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      }
-
-      function onTouchStart(e) {
-        if (!isBoxSelectActive || e.touches.length > 1) return;
-        startPoint = touchPos(e);
-        document.addEventListener('touchmove', onTouchMove);
-        document.addEventListener('touchend', onTouchEnd);
-      }
-
-      function onMouseMove(e) {
-        if (!startPoint) return;
-        currentPoint = mousePos(e);
-        updateSelectionBox();
-      }
-
-      function onTouchMove(e) {
-        if (!startPoint) return;
-        currentPoint = touchPos(e);
-        updateSelectionBox();
-      }
-
-      function updateSelectionBox() {
-        if (!boxElem) {
-          boxElem = document.createElement('div');
-          boxElem.className = 'selection-box';
-          canvas.appendChild(boxElem);
-        }
-
-        const minX = Math.min(startPoint.x, currentPoint.x);
-        const maxX = Math.max(startPoint.x, currentPoint.x);
-        const minY = Math.min(startPoint.y, currentPoint.y);
-        const maxY = Math.max(startPoint.y, currentPoint.y);
-
-        boxElem.style.left = minX + 'px';
-        boxElem.style.top = minY + 'px';
-        boxElem.style.width = (maxX - minX) + 'px';
-        boxElem.style.height = (maxY - minY) + 'px';
-      }
-
-      function onMouseUp(e) {
-        finishSelection(mousePos(e));
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      }
-
-      function onTouchEnd(e) {
-        finishSelection(currentPoint || startPoint);
-        document.removeEventListener('touchmove', onTouchMove);
-        document.removeEventListener('touchend', onTouchEnd);
-      }
-
-      function finishSelection(endPt) {
-        if (boxElem) {
-          boxElem.parentNode.removeChild(boxElem);
-          boxElem = null;
-        }
-
-        if (!startPoint || !endPt) return;
-
-        const bbox = [
-          [Math.min(startPoint.x, endPt.x), Math.min(startPoint.y, endPt.y)],
-          [Math.max(startPoint.x, endPt.x), Math.max(startPoint.y, endPt.y)]
-        ];
-
-        const features = driverMap.queryRenderedFeatures(bbox, { layers: ['driver-circles'] });
-
-        features.forEach(f => {
-          if (f.properties && f.properties.realIdx !== undefined) {
-            selectedPointIndexes.add(f.properties.realIdx);
+        // CIRCULO SÚPER PEQUEÑO (PUNTO NETO)
+        const marker = new google.maps.Marker({
+          position: latLng,
+          map: driverGMap,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: isSelected ? 6 : 3.5, // TAMAÑO ULTRA PEQUEÑO
+            fillColor: isSelected ? '#4F46E5' : color,
+            fillOpacity: 1,
+            strokeWeight: isSelected ? 2 : 1,
+            strokeColor: '#FFFFFF'
           }
         });
 
-        startPoint = null;
-        currentPoint = null;
+        // ETIQUETA FLOTANTE CON EL NÚMERO DE SECUENCIA (#SEC)
+        const labelMarker = new google.maps.Marker({
+          position: latLng,
+          map: driverGMap,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 0
+          },
+          label: {
+            text: `#${c.sec}`,
+            color: '#1e293b',
+            fontSize: '10px',
+            fontWeight: 'bold'
+          }
+        });
 
-        updateSelectedPointsUI();
+        // TOCAR PUNTO PARA SUMAR/RESTAR A SELECCIÓN MULTIPLE O CAMBIAR ESTADO
+        marker.addListener('click', () => {
+          if (selectedPointIndexes.has(c._idx)) {
+            selectedPointIndexes.delete(c._idx);
+          } else {
+            selectedPointIndexes.add(c._idx);
+          }
+          updateSelectedPointsUI();
+        });
+
+        driverMarkers.push(marker);
+        driverLabels.push(labelMarker);
+        bounds.extend(latLng);
+      });
+
+      if (filteredClientsData.length > 0 && driverGMap) {
+        driverGMap.fitBounds(bounds);
       }
     }
 
@@ -1261,7 +460,7 @@
         bar.classList.add('hidden');
       }
 
-      renderDriverClientsAndMap();
+      renderGoogleMapPoints();
     }
 
     function clearSelectedPoints() {
@@ -1272,658 +471,51 @@
     async function applyBulkStatusFromMap(newStatus) {
       if (selectedPointIndexes.size === 0) return;
 
-      if (!confirm(`¿Deseas cambiar a "${newStatus}" los ${selectedPointIndexes.size} clientes seleccionados?`)) return;
-
       const idxs = Array.from(selectedPointIndexes);
       for (const idx of idxs) {
-        await updateClientStatus(idx, newStatus);
+        currentClientsData[idx].estado = newStatus;
       }
+
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
+      });
 
       clearSelectedPoints();
     }
 
-    function setupDriverMapLayers() {
-      if (!driverMap.getSource('driver-clients')) {
-        driverMap.addSource('driver-clients', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        });
-
-        driverMap.addLayer({
-          id: 'driver-circles',
-          type: 'circle',
-          source: 'driver-clients',
-          paint: {
-            'circle-radius': [
-              'case',
-              ['boolean', ['get', 'isSelected'], false], 11,
-              7
-            ],
-            'circle-color': ['get', 'vendorColor'],
-            'circle-stroke-width': [
-              'case',
-              ['boolean', ['get', 'isSelected'], false], 3.5,
-              1.5
-            ],
-            'circle-stroke-color': [
-              'case',
-              ['boolean', ['get', 'isSelected'], false], '#4F46E5',
-              ['get', 'statusColor']
-            ]
-          }
-        });
-
-        driverMap.addLayer({
-          id: 'driver-labels',
-          type: 'symbol',
-          source: 'driver-clients',
-          minzoom: 13.5,
-          layout: {
-            'text-field': ['get', 'secStr'],
-            'text-size': 9,
-            'text-offset': [0.7, 0],
-            'text-anchor': 'left',
-            'text-allow-overlap': false
-          },
-          paint: {
-            'text-color': '#1e293b',
-            'text-halo-color': '#ffffff',
-            'text-halo-width': 1.2
-          }
-        });
-
-        driverMap.on('click', 'driver-circles', (e) => {
-          const props = e.features[0].properties;
-          const idx = props.realIdx;
-
-          if (isBoxSelectActive) {
-            if (selectedPointIndexes.has(idx)) selectedPointIndexes.delete(idx);
-            else selectedPointIndexes.add(idx);
-            updateSelectedPointsUI();
-          } else {
-            const coords = e.features[0].geometry.coordinates.slice();
-            const popupHtml = `
-              <div style="font-size: 11px; line-height: 1.4; color: #1f2937; min-width: 200px;">
-                <div style="font-weight: bold; font-size: 12px; margin-bottom: 4px; border-bottom: 2px solid #4f46e5; padding-bottom: 3px; color: #3730a3;">
-                  #${props.sec} · ${props.name}
-                </div>
-                <div><b>SEC:</b> ${props.sec}</div>
-                <div><b>VENDEDOR:</b> <span style="font-weight:bold; color:${props.vendorColor}">${props.vendedor}</span></div>
-                <div><b>DOMICILIO:</b> ${props.domicilio}</div>
-                <div><b>Monto:</b> S/ ${props.subtotal}</div>
-                <div style="margin-top: 6px;">
-                  <button onclick="sendWhatsAppNotification(${props.realIdx})" style="width:100%; background:#059669; color:white; font-weight:bold; padding:5px; border-radius:6px; border:none; cursor:pointer;">
-                    <i class="fa-brands fa-whatsapp"></i> WhatsApp
-                  </button>
-                </div>
-              </div>
-            `;
-            new maplibregl.Popup().setLngLat(coords).setHTML(popupHtml).addTo(driverMap);
-          }
-        });
-
-        driverMap.on('mouseenter', 'driver-circles', () => driverMap.getCanvas().style.cursor = 'pointer');
-        driverMap.on('mouseleave', 'driver-circles', () => driverMap.getCanvas().style.cursor = '');
-      }
-    }
-
-    function renderDriverClientsAndMap() {
-      document.getElementById('driverResultsCount').innerText = `${filteredClientsData.length} de ${currentClientsData.length} clientes`;
-      const hideVisited = document.getElementById('chkHideVisited') ? document.getElementById('chkHideVisited').checked : false;
-
-      const features = [];
-      const bounds = new maplibregl.LngLatBounds();
-      let validBoundsCount = 0;
-
-      filteredClientsData.forEach(c => {
-        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
-        const isVisited = (statusKey !== 'PENDIENTE');
-
-        if (c.lat && c.lon) {
-          if (hideVisited && isVisited) return;
-
-          const vendorColor = getVendorColor(c.vendedor);
-          const statusColor = getStatusColor(statusKey);
-          const isSelected = selectedPointIndexes.has(c._idx);
-
-          features.push({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
-            properties: {
-              realIdx: c._idx,
-              sec: c.sec,
-              secStr: `#${c.sec}`,
-              name: c.name,
-              domicilio: c.domicilio,
-              vendedor: c.vendedor || 'S/V',
-              subtotal: c.subtotal || '0.00',
-              vendorColor: vendorColor,
-              statusColor: statusColor,
-              isSelected: isSelected
-            }
-          });
-
-          bounds.extend([c.lon, c.lat]);
-          validBoundsCount++;
-        }
-      });
-
-      if (driverMap) {
-        if (!driverMap.isStyleLoaded()) {
-          driverMap.once('load', () => {
-            setupDriverMapLayers();
-            const source = driverMap.getSource('driver-clients');
-            if (source) source.setData({ type: 'FeatureCollection', features: features });
-            if (validBoundsCount > 0 && !driverMapInitialFit) {
-              driverMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
-              driverMapInitialFit = true;
-            }
-          });
-        } else {
-          setupDriverMapLayers();
-          const source = driverMap.getSource('driver-clients');
-          if (source) {
-            source.setData({ type: 'FeatureCollection', features: features });
-          }
-
-          if (validBoundsCount > 0 && !driverMapInitialFit) {
-            driverMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
-            driverMapInitialFit = true;
-          }
-        }
-      }
-
-      renderMoreClients();
-    }
-
-    function renderMoreClients() {
-      const listContainer = document.getElementById('driverClientsList');
-      if (currentRenderPage === 1) listContainer.innerHTML = '';
-
-      const loadMoreBtn = document.getElementById('btnLoadMoreContainer');
-      const fragment = document.createDocumentFragment();
-
-      const startIndex = (currentRenderPage - 1) * PAGE_SIZE;
-      const endIndex = Math.min(startIndex + PAGE_SIZE, filteredClientsData.length);
-      const visibleBatch = filteredClientsData.slice(startIndex, endIndex);
-
-      visibleBatch.forEach(c => {
-        const realIdx = c._idx;
-        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
-        let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
-
-        let repasoHtml = '';
-        if (statusKey === 'REPASO') {
-          let aptoClass = c.repasoConfirm === 'APTO' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700';
-          let noAptoClass = c.repasoConfirm === 'NO APTO' ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-700';
-
-          repasoHtml = `
-            <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
-              <span class="text-xs font-bold text-blue-900"><i class="fa-solid fa-rotate-right"></i> ¿Repaso Confirmado?:</span>
-              <div class="flex gap-1">
-                <button onclick="updateRepasoConfirm(${realIdx}, 'APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${aptoClass}">👍 APTO</button>
-                <button onclick="updateRepasoConfirm(${realIdx}, 'NO APTO')" class="px-2.5 py-1 text-xs font-black rounded-lg shadow-xs transition ${noAptoClass}">👎 NO APTO</button>
-              </div>
-            </div>
-          `;
-        }
-
-        const showWhatsAppBtn = (statusKey === 'RECHAZADO' || statusKey === 'PARCIAL' || statusKey === 'OTRO MOTIVO');
-        const vendorColor = getVendorColor(c.vendedor);
-
-        const card = document.createElement('div');
-        card.className = "border border-slate-200/80 rounded-2xl p-4 bg-slate-50 space-y-2.5 shadow-xs hover:border-slate-300 transition";
-        card.innerHTML = `
-          <div class="flex justify-between items-start gap-2">
+    function renderClientsList() {
+      const list = document.getElementById('driverClientsList');
+      list.innerHTML = filteredClientsData.map(c => `
+        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+          <div class="flex justify-between items-center">
             <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
-            <span class="status-badge ${badgeClass}">${statusKey} ${c.repasoConfirm ? ' (' + c.repasoConfirm + ')' : ''}</span>
+            <span class="status-badge status-${(c.estado||'PENDIENTE')}">${c.estado || 'PENDIENTE'}</span>
           </div>
-          <p class="text-xs text-slate-600 font-medium"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
-          <p class="text-xs text-slate-500 font-semibold"><i class="fa-solid fa-user-tag text-indigo-500"></i> Vend: <b style="color:${vendorColor}">${c.vendedor || 'S/V'}</b> | ${c.telefono || 'Sin tel'} | S/ ${c.subtotal}</p>
-
-          ${repasoHtml}
-
-          <div class="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 mt-2">
-            <label class="text-[11px] font-bold text-slate-600 block">📌 Motivo de Rechazo / Observación:</label>
-            <input type="text" value="${c.obs || ''}" onchange="updateClientObs(${realIdx}, this.value)" placeholder="Escribe o elige un motivo..." list="motivosSugeridos" class="w-full text-xs font-semibold border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-
-          ${showWhatsAppBtn ? `
-            <div class="pt-1">
-              <button onclick="sendWhatsAppNotification(${realIdx})" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition">
-                <i class="fa-brands fa-whatsapp text-sm"></i> 📲 Notificar al Grupo de WhatsApp
-              </button>
-            </div>
-          ` : ''}
-
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-200 items-center">
-            <a href="https://waze.com/ul?ll=${c.lat},${c.lon}&navigate=yes" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-sky-500 text-white rounded-xl hover:bg-sky-600 transition shadow-xs">
-              <i class="fa-brands fa-waze"></i> Waze
-            </a>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition shadow-xs">
-              <i class="fa-solid fa-map-pin"></i> Maps
-            </a>
-            <select onchange="updateClientStatus(${realIdx}, this.value)" class="ml-auto text-xs font-bold border border-slate-300 rounded-xl px-2.5 py-1.5 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="PENDIENTE" ${statusKey === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
-              <option value="ENTREGADO" ${statusKey === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="RECHAZADO" ${statusKey === 'RECHAZADO' || statusKey === 'CERRADO' ? 'selected' : ''}>❌ RECHAZADO</option>
-              <option value="PARCIAL" ${statusKey === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
-              <option value="OTRO MOTIVO" ${statusKey === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
-              <option value="REPASO" ${statusKey === 'REPASO' ? 'selected' : ''}>🔵 REPASO</option>
+          <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
+          <div class="flex justify-between items-center pt-2">
+            <span class="text-xs font-bold">S/ ${c.subtotal}</span>
+            <select onchange="updateClientStatusDirect(${c._idx}, this.value)" class="text-xs font-bold border rounded-lg px-2 py-1 bg-white">
+              <option value="PENDIENTE" ${c.estado === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+              <option value="ENTREGADO" ${c.estado === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+              <option value="RECHAZADO" ${c.estado === 'RECHAZADO' ? 'selected' : ''}>❌ RECHAZADO</option>
+              <option value="PARCIAL" ${c.estado === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
+              <option value="OTRO MOTIVO" ${c.estado === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
             </select>
           </div>
-        `;
-        fragment.appendChild(card);
-      });
-
-      listContainer.appendChild(fragment);
-
-      if (endIndex < filteredClientsData.length) {
-        loadMoreBtn.classList.remove('hidden');
-        currentRenderPage++;
-      } else {
-        loadMoreBtn.classList.add('hidden');
-      }
+        </div>
+      `).join('');
     }
 
-    async function updateClientStatus(idx, newStatus) {
-      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
-
-      const formattedStatus = newStatus.toString().trim().toUpperCase();
-      currentClientsData[idx].estado = formattedStatus;
-      if (formattedStatus === 'ENTREGADO') currentClientsData[idx].horaEntrega = new Date().toLocaleTimeString();
-
-      if (!navigator.onLine) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'STATUS', val: formattedStatus });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-        updateDriverSummaryStats(currentClientsData);
-        applyDriverFilters();
-        return;
-      }
-
-      try {
-        await db.collection('routes').doc(currentDocId).update({
-          clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; }),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (e) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'STATUS', val: formattedStatus });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-      }
-    }
-
-    async function updateClientObs(idx, newObs) {
-      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
-
-      currentClientsData[idx].obs = newObs;
-      const currentSt = (currentClientsData[idx].estado || 'PENDIENTE').toString().trim().toUpperCase();
-      if (currentSt === 'PENDIENTE' && newObs.trim() !== '') {
-        currentClientsData[idx].estado = 'RECHAZADO';
-      }
-
-      if (!navigator.onLine) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'OBS', val: newObs });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-        updateDriverSummaryStats(currentClientsData);
-        applyDriverFilters();
-        return;
-      }
-
-      try {
-        await db.collection('routes').doc(currentDocId).update({
-          clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; }),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (e) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'OBS', val: newObs });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-      }
-    }
-
-    async function updateRepasoConfirm(idx, confirmValue) {
-      if (!currentDocId || !currentClientsData || idx < 0 || idx >= currentClientsData.length) return;
-
-      currentClientsData[idx].repasoConfirm = confirmValue;
-
-      if (!navigator.onLine) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'REPASO', val: confirmValue });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-        updateDriverSummaryStats(currentClientsData);
-        applyDriverFilters();
-        return;
-      }
-
-      try {
-        await db.collection('routes').doc(currentDocId).update({
-          clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; }),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (e) {
-        offlineQueue.push({ docId: currentDocId, idx: idx, type: 'REPASO', val: confirmValue });
-        localStorage.setItem('courier_offline_queue', JSON.stringify(offlineQueue));
-        updateOfflineStatusUI();
-      }
-    }
-
-    async function zoomToStatus(targetStatus, mode) {
-      const map = (mode === 'driver') ? driverMap : adminMap;
-      const clients = (mode === 'driver') ? currentClientsData : adminCurrentRawClients;
-
-      if (!map || !clients || clients.length === 0) return;
-
-      const matchingClients = clients.filter(c => {
-        const st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (targetStatus === 'RECHAZADO') return (st === 'RECHAZADO' || st === 'CERRADO') && c.lat && c.lon;
-        return st === targetStatus && c.lat && c.lon;
-      });
-
-      if (matchingClients.length === 0) {
-        alert(`No hay clientes con estado "${targetStatus}".`);
-        return;
-      }
-
-      const bounds = new maplibregl.LngLatBounds();
-      matchingClients.forEach(c => bounds.extend([c.lon, c.lat]));
-      map.fitBounds(bounds, { padding: 50, maxZoom: 18 });
-    }
-
-    async function bulkMarkPendingAsDelivered() {
-      const selectedRoute = document.getElementById('selectAdminRoute').value;
-
-      if (!adminCurrentRawClients || adminCurrentRawClients.length === 0) return alert("No hay clientes cargados.");
-
-      const pendingClients = adminCurrentRawClients.filter(c => (c.estado || 'PENDIENTE').toString().trim().toUpperCase() === 'PENDIENTE');
-      const pendingCount = pendingClients.length;
-
-      if (pendingCount === 0) return alert("No hay pedidos pendientes.");
-
-      if (!confirm(`⚠️ ¿Marcar ${pendingCount} pedidos NO REPORTADOS como ENTREGADO?`)) return;
-
-      try {
-        if (selectedRoute) {
-          const docRef = db.collection('routes').doc(selectedRoute);
-          const docSnap = await docRef.get();
-          if (docSnap.exists) {
-            const clients = docSnap.data().clients || [];
-            const nowTime = new Date().toLocaleTimeString();
-            const updatedClients = clients.map(c => {
-              if ((c.estado || 'PENDIENTE').toString().trim().toUpperCase() === 'PENDIENTE') {
-                return { ...c, estado: 'ENTREGADO', horaEntrega: nowTime };
-              }
-              return c;
-            });
-            await docRef.update({ clients: updatedClients, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-          }
-        }
-        alert(`✅ Se actualizaron masivamente ${pendingCount} pedidos.`);
-      } catch (err) {
-        alert(`❌ Error: ${err.message}`);
-      }
-    }
-
-    async function loadAvailableRoutesInSelect() {
-      const select = document.getElementById('selectAdminRoute');
-      const savedValue = select.value || localStorage.getItem('courier_admin_selected_route') || '';
-      const keysDiv = document.getElementById('routeKeysList');
-      select.innerHTML = '<option value="">-- Todas las Rutas (Vista General) --</option>';
-      keysDiv.innerHTML = '';
-
-      const snapshot = await db.collection('routes').get();
-      if (snapshot.empty) {
-        keysDiv.innerHTML = '<span class="text-slate-400 font-normal">Carga un CSV para ver las rutas disponibles...</span>';
-        return;
-      }
-
-      snapshot.forEach(doc => {
-        const routeId = doc.id;
-        const option = document.createElement('option');
-        option.value = routeId;
-        option.innerText = `Ruta #${routeId}`;
-        select.appendChild(option);
-
-        keysDiv.innerHTML += `<span class="bg-slate-50 border border-slate-200 text-slate-800 px-3 py-1.5 rounded-xl">Ruta <b>#${routeId}</b></span>`;
-      });
-
-      if (savedValue && select.querySelector(`option[value="${savedValue}"]`)) {
-        select.value = savedValue;
-      }
-    }
-
-    function setupAdminMapLayers() {
-      if (!adminMap.getSource('admin-clients')) {
-        adminMap.addSource('admin-clients', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        });
-
-        adminMap.addLayer({
-          id: 'admin-circles',
-          type: 'circle',
-          source: 'admin-clients',
-          paint: {
-            'circle-radius': 6,
-            'circle-color': ['get', 'vendorColor'],
-            'circle-stroke-width': 1.5,
-            'circle-stroke-color': ['get', 'statusColor']
-          }
-        });
-
-        adminMap.addLayer({
-          id: 'admin-labels',
-          type: 'symbol',
-          source: 'admin-clients',
-          minzoom: 13.5,
-          layout: {
-            'text-field': ['get', 'secStr'],
-            'text-size': 9,
-            'text-offset': [0.7, 0],
-            'text-anchor': 'left',
-            'text-allow-overlap': false
-          },
-          paint: {
-            'text-color': '#1e293b',
-            'text-halo-color': '#ffffff',
-            'text-halo-width': 1.2
-          }
-        });
-      }
-    }
-
-    function renderAdminMapPoints(clients) {
-      const features = [];
-      const bounds = new maplibregl.LngLatBounds();
-      let validBoundsCount = 0;
-
-      clients.forEach(c => {
-        if (!c.lat || !c.lon) return;
-
-        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
-
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
-          properties: {
-            secStr: `#${c.sec}`,
-            vendorColor: getVendorColor(c.vendedor),
-            statusColor: getStatusColor(statusKey)
-          }
-        });
-
-        bounds.extend([c.lon, c.lat]);
-        validBoundsCount++;
-      });
-
-      if (adminMap) {
-        if (!adminMap.isStyleLoaded()) {
-          adminMap.once('load', () => {
-            setupAdminMapLayers();
-            const source = adminMap.getSource('admin-clients');
-            if (source) source.setData({ type: 'FeatureCollection', features: features });
-            if (validBoundsCount > 0 && !adminMapInitialFit) {
-              adminMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
-              adminMapInitialFit = true;
-            }
-          });
-        } else {
-          setupAdminMapLayers();
-          const source = adminMap.getSource('admin-clients');
-          if (source) source.setData({ type: 'FeatureCollection', features: features });
-
-          if (validBoundsCount > 0 && !adminMapInitialFit) {
-            adminMap.fitBounds(bounds, { padding: 40, maxZoom: 17 });
-            adminMapInitialFit = true;
-          }
-        }
-      }
-    }
-
-    function renderAdminClientsTable(clients) {
-      adminCurrentRawClients = clients;
-      applyAdminTableFilter();
-    }
-
-    function applyAdminTableFilter() {
-      const tbody = document.getElementById('adminClientsTableBody');
-      const searchText = document.getElementById('adminSearchInput').value.toLowerCase().trim();
-
-      const filtered = adminCurrentRawClients.filter(c => {
-        return !searchText || 
-          (c.tpt && c.tpt.toLowerCase().includes(searchText)) ||
-          (c.sec && c.sec.toString().includes(searchText)) ||
-          (c.name && c.name.toLowerCase().includes(searchText)) ||
-          (c.domicilio && c.domicilio.toLowerCase().includes(searchText));
-      });
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-slate-400 font-semibold">No se encontraron clientes.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = filtered.map(c => {
-        let statusKey = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        if (statusKey === 'CERRADO') statusKey = 'RECHAZADO';
-        let badgeClass = 'status-' + statusKey.replace(/\s+/g, '_');
-
-        return `
-          <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition">
-            <td class="p-2.5 font-bold text-indigo-700">#${c.tpt || 'S/R'}</td>
-            <td class="p-2.5 font-black text-slate-800">${c.sec}</td>
-            <td class="p-2.5 font-semibold text-slate-800">${c.name}</td>
-            <td class="p-2.5 text-slate-600 text-[11px]">${c.domicilio}</td>
-            <td class="p-2.5 font-bold text-slate-800 text-[11px]">S/ ${c.subtotal || '0.00'}</td>
-            <td class="p-2.5">
-              <span class="status-badge ${badgeClass}">${statusKey}</span>
-              ${c.obs ? `<div class="text-[10px] text-slate-500 font-bold mt-0.5">📌 ${c.obs}</div>` : ''}
-            </td>
-            <td class="p-2.5 font-mono text-slate-500 text-[11px]">${c.horaEntrega || '---'}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function exportAdminReportCSV() {
-      if (!adminCurrentRawClients || adminCurrentRawClients.length === 0) return alert("No hay datos.");
-
-      let csvContent = "\uFEFFRuta;Secuencia;Cliente;Direccion;Vendedor;Monto S/;Estado;Motivo;Hora Entrega\n";
-      adminCurrentRawClients.forEach(c => {
-        let st = (c.estado || 'PENDIENTE').toString().trim().toUpperCase();
-        csvContent += `"${c.tpt || ''}";"${c.sec || ''}";"${(c.name || '').replace(/"/g, '""')}";"${(c.domicilio || '').replace(/"/g, '""')}";"${c.vendedor || ''}";"${c.subtotal || '0.00'}";"${st}";"${(c.obs || '').replace(/"/g, '""')}";"${c.horaEntrega || ''}"\n`;
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `Reporte_General_UltimaMilla.csv`;
-      link.click();
-    }
-
-    function loadAdminGeneralSummary() {
-      localStorage.setItem('courier_admin_selected_route', '');
-      if (adminRouteUnsubscribe) { adminRouteUnsubscribe(); adminRouteUnsubscribe = null; }
-      if (adminAllRoutesUnsubscribe) { adminAllRoutesUnsubscribe(); adminAllRoutesUnsubscribe = null; }
-
-      adminAllRoutesUnsubscribe = db.collection('routes').onSnapshot(snapshot => {
-        let allClients = [];
-        snapshot.forEach(doc => {
-          allClients = allClients.concat(doc.data().clients || []);
-        });
-
-        allClients = allClients.map((c, i) => ({ ...c, _idx: i }));
-
-        if (!document.getElementById('selectAdminRoute').value) {
-          updateAdminSummaryStats(allClients, "General Día");
-          renderAdminMapPoints(allClients);
-          renderAdminClientsTable(allClients);
-        }
+    async function updateClientStatusDirect(idx, status) {
+      currentClientsData[idx].estado = status;
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
       });
     }
 
-    function startAdminGlobalTracking() {
-      if (adminGlobalTrackingUnsubscribe) adminGlobalTrackingUnsubscribe();
-
-      adminGlobalTrackingUnsubscribe = db.collection('tracking').onSnapshot(snapshot => {
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          if (!data || !data.lat || !data.lng) return;
-
-          const routeCode = data.code || doc.id;
-
-          if (!adminTruckMarkers[routeCode]) {
-            const el = document.createElement('div');
-            el.innerHTML = `<div style="background:#4F46E5;color:white;padding:3px 7px;border-radius:10px;border:2px solid white;font-size:10px;font-weight:bold;white-space:nowrap;"><i class="fa-solid fa-truck"></i> ${routeCode}</div>`;
-            
-            adminTruckMarkers[routeCode] = new maplibregl.Marker({ element: el })
-              .setLngLat([data.lng, data.lat])
-              .addTo(adminMap);
-          } else {
-            adminTruckMarkers[routeCode].setLngLat([data.lng, data.lat]);
-          }
-        });
-      });
-    }
-
-    async function manualRefreshAdmin() {
-      const select = document.getElementById('selectAdminRoute');
-      const currentCode = select.value;
-      await loadAvailableRoutesInSelect();
-      if (currentCode) {
-        select.value = currentCode;
-        onAdminRouteSelect(false);
-      } else {
-        loadAdminGeneralSummary();
-      }
-    }
-
-    function onAdminRouteSelect(resetBounds = true) {
-      const code = document.getElementById('selectAdminRoute').value;
-      localStorage.setItem('courier_admin_selected_route', code);
-
-      if (resetBounds) adminMapInitialFit = false;
-
-      if (!code) {
-        loadAdminGeneralSummary();
-        return;
-      }
-
-      if (adminAllRoutesUnsubscribe) { adminAllRoutesUnsubscribe(); adminAllRoutesUnsubscribe = null; }
-      if (adminRouteUnsubscribe) { adminRouteUnsubscribe(); adminRouteUnsubscribe = null; }
-
-      adminRouteUnsubscribe = db.collection('routes').doc(code).onSnapshot(doc => {
-        if (!doc.exists) return;
-        const clients = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
-
-        updateAdminSummaryStats(clients, `Ruta #${code}`);
-        renderAdminMapPoints(clients);
-        renderAdminClientsTable(clients);
-      });
+    function logoutDriverSession() {
+      document.getElementById('driverRouteContainer').classList.add('hidden');
+      document.getElementById('driverLoginCard').classList.remove('hidden');
     }
   </script>
 </body>
