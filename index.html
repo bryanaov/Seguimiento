@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COURIER TP - Plataforma de Logística Optimizada</title>
+  <title>COURIER TP - Plataforma de Logística</title>
 
   <!-- Configuración PWA -->
   <link rel="manifest" href="manifest.json">
@@ -17,7 +17,7 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- MapLibre GL JS CSS & JS (Ultra fluido y SIN marcas de agua) -->
+  <!-- MapLibre GL JS CSS & JS -->
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
@@ -49,10 +49,9 @@
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
 
-  <!-- BANNER NOTIFICACIÓN DE MODO OFFLINE -->
+  <!-- BANNER NOTIFICACIÓN MODO OFFLINE -->
   <div id="offlineSyncBanner" class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2 text-center sticky top-0 z-[100000] shadow-md flex items-center justify-center gap-2">
     <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Guardando localmente.</span>
-    <button onclick="processOfflineQueue()" class="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[11px] underline">Sincronizar Ahora</button>
   </div>
 
   <datalist id="motivosSugeridos">
@@ -76,7 +75,7 @@
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
             COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Limpio & Ultra Fluido</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Selección Múltiple y Mapa Optimizado</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Selección Múltiple y Carga CSV</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -120,7 +119,7 @@
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
             <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Activado
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sistema en línea
             </p>
           </div>
           <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
@@ -128,42 +127,26 @@
           </button>
         </div>
 
-        <!-- RESUMEN DE PROGRESO -->
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="flex justify-between items-center border-b border-slate-100 pb-2.5">
-            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-chart-pie text-indigo-600"></i> Avance de Entregas
-            </h4>
-            <span id="driverProgressPct" class="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">0% completado</span>
-          </div>
-
-          <div class="space-y-1.5">
-            <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-200">
-              <div id="driverProgressBarFill" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- BARRA MASIVA O INDIVIDUAL -->
+        <!-- BARRA MASIVA -->
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
             <p class="text-xs text-indigo-200 font-medium">Acción Masiva:</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
-            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
-            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">❌ RECHAZADO</button>
-            <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold">🟧 PARCIAL</button>
-            <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold">🟣 OTRO</button>
+            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
+            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold">❌ RECHAZADO</button>
+            <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold">🟧 PARCIAL</button>
+            <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold">🟣 OTRO</button>
             <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Limpiar</button>
           </div>
         </div>
 
-        <!-- MAPA PUNTOS NÍTIDOS Y LIMPIOS -->
+        <!-- MAPA CHOFER -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Toca un punto para seleccionar)
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas
             </h4>
             <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
               <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
@@ -196,18 +179,53 @@
 
     <!-- VISTA ADMINISTRADOR -->
     <section id="viewAdmin" class="hidden space-y-4">
+
+      <!-- TARJETA DE ARCHIVO ACTIVO -->
+      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">Archivo Activo</span>
+            <h4 id="activeFileName" class="font-bold text-emerald-950 text-base">---</h4>
+          </div>
+          <p id="activeFileMeta" class="text-xs text-emerald-700 font-medium">---</p>
+        </div>
+        <button onclick="clearCurrentDayData()" class="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl transition">
+          <i class="fa-solid fa-trash-can"></i> Borrar datos del día
+        </button>
+      </div>
+
+      <!-- CARGADOR DE CSV -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
           <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar CSV de Rutas
         </h2>
-        <div class="flex gap-3">
-          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500">
-          <button onclick="processAndUploadCSV()" class="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs">Cargar Archivo</button>
+        <p class="text-xs text-slate-500">Asegúrate de que tu archivo CSV contenga las columnas: <b>TPT</b>, <b>SEC</b>, <b>RAZON SOCIAL</b>, <b>Y</b> (Latitud), <b>X</b> (Longitud).</p>
+        
+        <div class="flex flex-col sm:flex-row gap-3 items-center">
+          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
+          <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 text-xs transition">
+            Cargar Archivo
+          </button>
+        </div>
+        <div id="csvStatus" class="text-xs font-bold"></div>
+      </div>
+
+      <!-- RUTAS DETECTADAS -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-2 border-l-4 border-amber-500">
+        <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
+          <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
+        </h3>
+        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
+          <span class="text-slate-400 font-normal">No hay rutas cargadas aún.</span>
         </div>
       </div>
 
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
-        <div id="adminMap" class="map-container"></div>
+      <!-- MAPA ADMIN -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+        <h3 class="font-bold text-slate-900 text-base">Vista General del Mapa (Admin)</h3>
+        <div class="relative">
+          <div id="adminMap" class="map-container"></div>
+        </div>
       </div>
     </section>
 
@@ -216,7 +234,6 @@
   <script>
     const ADMIN_PASSWORD = "bra151106";
 
-    // ESTILO LIMPIO OPENSTREETMAP ULTRA FLUIDO Y SIN MARCAS DE AGUA
     const MAP_STYLE_RASTER = {
       version: 8,
       sources: {
@@ -262,6 +279,22 @@
     function switchTab(tab) {
       document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
       document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
+
+      if (tab === 'admin') {
+        setTimeout(() => {
+          if (!adminMap) {
+            adminMap = new maplibregl.Map({
+              container: 'adminMap',
+              style: MAP_STYLE_RASTER,
+              center: [-71.5350, -16.3988],
+              zoom: 12
+            });
+            adminMap.addControl(new maplibregl.NavigationControl(), 'top-left');
+          }
+          adminMap.resize();
+          loadAdminData();
+        }, 150);
+      }
     }
 
     function requestAdminAccess() {
@@ -269,6 +302,202 @@
       if (pass === ADMIN_PASSWORD) switchTab('admin');
     }
 
+    // --- PROCESAMIENTO Y CARGA DE CSV ---
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+      if (lines.length === 0) return [];
+
+      const firstLine = lines[0];
+      let delimiter = ';';
+      if ((firstLine.match(/,/g) || []).length > (firstLine.match(/;/g) || []).length) delimiter = ',';
+
+      function parseRow(rowStr) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < rowStr.length; i++) {
+          const char = rowStr[i];
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === delimiter && !inQuotes) { result.push(current.trim()); current = ''; }
+          else current += char;
+        }
+        result.push(current.trim());
+        return result;
+      }
+
+      const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
+      const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
+
+      const idxTpt = getIndex(['TPT', 'RUTA', 'CHOFER', 'CODIGO']);
+      const idxSec = getIndex(['SEC', 'SECUENCIA', 'ORDEN']);
+      const idxVend = getIndex(['VENDEDOR', 'VEND']);
+      const idxName = getIndex(['RAZON SOCIAL', 'NAME', 'CLIENTE']);
+      const idxTel = getIndex(['TELEFONO', 'TEL', 'CELULAR']);
+      const idxDom = getIndex(['DOMICILIO', 'DIRECCION']);
+      const idxSub = getIndex(['SUBTOTAL FINAL', 'SUBTOTAL', 'MONTO']);
+      const idxY = getIndex(['Y', 'LAT', 'LATITUD']);
+      const idxX = getIndex(['X', 'LON', 'LONGITUD']);
+
+      const clients = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseRow(lines[i]);
+        if (cols.length < 2) continue;
+
+        let tpt = idxTpt !== -1 ? cols[idxTpt] : 'DEFAULT';
+        if (!tpt) continue;
+
+        let lat = idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) : 0;
+        let lon = idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) : 0;
+
+        clients.push({
+          tpt: tpt.toString().trim(),
+          sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
+          vendedor: idxVend !== -1 ? cols[idxVend].toString().trim() : '',
+          name: idxName !== -1 ? cols[idxName] : 'Cliente ' + i,
+          telefono: idxTel !== -1 ? cols[idxTel] : '',
+          domicilio: idxDom !== -1 ? cols[idxDom] : '',
+          subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
+          lat: isNaN(lat) ? 0 : lat,
+          lon: isNaN(lon) ? 0 : lon,
+          estado: 'PENDIENTE',
+          obs: ''
+        });
+      }
+      return clients;
+    }
+
+    async function processAndUploadCSV() {
+      const fileInput = document.getElementById('inputCsvFile');
+      const statusDiv = document.getElementById('csvStatus');
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        statusDiv.className = "text-xs font-bold text-rose-600";
+        statusDiv.innerText = "Por favor selecciona un archivo .csv";
+        return;
+      }
+
+      statusDiv.className = "text-xs font-bold text-indigo-600";
+      statusDiv.innerText = "⏳ Procesando archivo y subiendo a Firebase...";
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = async (e) => {
+        try {
+          const parsedClients = parseCSV(e.target.result);
+          if (parsedClients.length === 0) {
+            statusDiv.className = "text-xs font-bold text-rose-600";
+            statusDiv.innerText = "No se encontraron datos en el archivo.";
+            return;
+          }
+
+          const routesMap = {};
+          parsedClients.forEach(client => {
+            const rawCode = client.tpt;
+            if (!routesMap[rawCode]) routesMap[rawCode] = [];
+            routesMap[rawCode].push(client);
+          });
+
+          const routeKeys = Object.keys(routesMap);
+          for (const code of routeKeys) {
+            const group = routesMap[code];
+            group.sort((a, b) => a.sec - b.sec);
+
+            await db.collection('routes').doc(code).set({
+              code: code,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              clients: group
+            }, { merge: true });
+          }
+
+          const nowStr = new Date().toLocaleString();
+          await db.collection('meta').doc('active_file').set({
+            fileName: file.name,
+            uploadDate: nowStr,
+            totalClients: parsedClients.length,
+            totalRoutes: routeKeys.length
+          });
+
+          statusDiv.className = "text-xs font-bold text-emerald-600";
+          statusDiv.innerText = `✅ ¡Cargado con éxito! ${parsedClients.length} clientes en ${routeKeys.length} rutas (${routeKeys.join(', ')}).`;
+
+          fileInput.value = '';
+          loadAdminData();
+        } catch (err) {
+          statusDiv.className = "text-xs font-bold text-rose-600";
+          statusDiv.innerText = `Error: ${err.message}`;
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    async function clearCurrentDayData() {
+      if (!confirm("¿Borrar todas las rutas cargadas?")) return;
+      const snapshot = await db.collection('routes').get();
+      const batch = db.batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      await db.collection('meta').doc('active_file').delete();
+      alert("✅ Datos eliminados.");
+      loadAdminData();
+    }
+
+    function loadAdminData() {
+      db.collection('meta').doc('active_file').get().then(doc => {
+        const card = document.getElementById('activeFileCard');
+        if (doc.exists) {
+          const data = doc.data();
+          document.getElementById('activeFileName').innerText = data.fileName;
+          document.getElementById('activeFileMeta').innerText = `Subido: ${data.uploadDate} | Clientes: ${data.totalClients}`;
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+
+      db.collection('routes').get().then(snapshot => {
+        const keysDiv = document.getElementById('routeKeysList');
+        keysDiv.innerHTML = '';
+        let allClients = [];
+
+        snapshot.forEach(doc => {
+          const routeId = doc.id;
+          keysDiv.innerHTML += `<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-xl">Ruta #${routeId}</span>`;
+          allClients = allClients.concat(doc.data().clients || []);
+        });
+
+        renderAdminMap(allClients);
+      });
+    }
+
+    function renderAdminMap(clients) {
+      if (!adminMap) return;
+
+      const features = clients.filter(c => c.lat && c.lon).map(c => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
+        properties: { vendorColor: getVendorColor(c.vendedor) }
+      }));
+
+      if (adminMap.getSource('admin-points')) {
+        adminMap.getSource('admin-points').setData({ type: 'FeatureCollection', features });
+      } else {
+        adminMap.addSource('admin-points', { type: 'geojson', data: { type: 'FeatureCollection', features } });
+        adminMap.addLayer({
+          id: 'admin-circles',
+          type: 'circle',
+          source: 'admin-points',
+          paint: {
+            'circle-radius': 3,
+            'circle-color': ['get', 'vendorColor'],
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+      }
+    }
+
+    // --- MODO CHOFER ---
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
       if (!inputCode) return alert("Ingresa tu código de ruta.");
@@ -282,7 +511,7 @@
         docSnap = await docRef.get();
       }
 
-      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
+      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe en el sistema.`);
 
       currentDocId = docRef.id;
       currentRouteCode = docSnap.data().code || inputCode;
@@ -325,7 +554,6 @@
         data: { type: 'FeatureCollection', features: [] }
       });
 
-      // PUNTOS ULTRA PEQUEÑOS Y LIMPIOS
       driverMap.addLayer({
         id: 'driver-circles',
         type: 'circle',
@@ -334,7 +562,7 @@
           'circle-radius': [
             'case',
             ['boolean', ['get', 'isSelected'], false], 7,
-            3.5 // TAMAÑO BASE PEQUEÑO
+            3.5
           ],
           'circle-color': ['get', 'vendorColor'],
           'circle-stroke-width': [
@@ -346,7 +574,6 @@
         }
       });
 
-      // SECUENCIA INTELIGENTE: SOLO VISIBLE AL HACER ZOOM DE CALLE (minzoom: 15)
       driverMap.addLayer({
         id: 'driver-sec-labels',
         type: 'symbol',
@@ -365,7 +592,6 @@
         }
       });
 
-      // SELECCIÓN DIRECTA AL TOCAR
       driverMap.on('click', 'driver-circles', (e) => {
         const props = e.features[0].properties;
         const idx = props.realIdx;
@@ -377,7 +603,6 @@
         }
         updateSelectedPointsUI();
 
-        // MOSTRAR DETALLES + OPCIÓN DE RECHAZAR O ENTREGAR 1 SOLO
         new maplibregl.Popup()
           .setLngLat(e.features[0].geometry.coordinates)
           .setHTML(`
