@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COURIER TP - Plataforma con Google Maps & Tráfico</title>
+  <title>COURIER TP - Plataforma de Logística Optimizada</title>
 
   <!-- Configuración PWA -->
   <link rel="manifest" href="manifest.json">
@@ -17,29 +17,20 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- Turf.js para Cálculos -->
+  <!-- MapLibre GL JS CSS & JS (Ultra fluido y SIN marcas de agua) -->
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+  <!-- Turf.js -->
   <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
   <!-- Firebase JS SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
-  <!-- GOOGLE MAPS API CON TRAFICO -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=&libraries=places,geometry"></script>
-
   <style>
     .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #e5e7eb; }
     
-    .map-container-fullscreen {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      z-index: 99999 !important;
-      border-radius: 0 !important;
-    }
-
     .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
     .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
     .status-ENTREGADO { background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
@@ -48,17 +39,11 @@
     .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
     .status-REPASO { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; }
 
-    /* ESTILO DE ETIQUETA SECUENCIA FLOTANTE */
-    .sec-label-marker {
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid #1e293b;
-      border-radius: 4px;
-      padding: 1px 3px;
-      font-size: 9px;
-      font-weight: 800;
-      color: #0f172a;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-      white-space: nowrap;
+    .maplibregl-popup-content {
+      padding: 10px !important;
+      border-radius: 12px !important;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+      font-family: inherit !important;
     }
   </style>
 </head>
@@ -89,9 +74,9 @@
         </div>
         <div>
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps + Tráfico</span>
+            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Limpio & Ultra Fluido</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Secuencias, Selección Múltiple y Tráfico en Vivo</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Selección Múltiple y Mapa Optimizado</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -134,15 +119,13 @@
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
-            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5" id="driverSubtitle">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo + Google Traffic Activo
+            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Vivo Activado
             </p>
           </div>
-          <div class="flex items-center gap-2 w-full md:w-auto justify-end">
-            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
-              <i class="fa-solid fa-right-from-bracket"></i> Salir
-            </button>
-          </div>
+          <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
+            <i class="fa-solid fa-right-from-bracket"></i> Salir
+          </button>
         </div>
 
         <!-- RESUMEN DE PROGRESO -->
@@ -158,60 +141,29 @@
             <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-200">
               <div id="driverProgressBarFill" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
             </div>
-            <div class="flex justify-between text-[11px] font-bold text-slate-500">
-              <span id="driverCompletedCount">Atendidos: 0</span>
-              <span id="driverRemainingCount">Pendientes: 0 (100%)</span>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs font-bold pt-2">
-            <div onclick="filterByStatus('PENDIENTE')" class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
-              <span class="block text-slate-500 text-[10px] font-extrabold uppercase">⏳ PENDIENTES</span>
-              <span id="driverCountPendiente" class="text-lg font-black text-slate-800">0</span>
-            </div>
-            <div onclick="filterByStatus('ENTREGADO')" class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 cursor-pointer">
-              <span class="block text-emerald-700 text-[10px] font-extrabold uppercase">✅ ENTREGADOS</span>
-              <span id="driverCountEntregado" class="text-lg font-black text-emerald-800">0</span>
-            </div>
-            <div onclick="filterByStatus('RECHAZADO')" class="bg-rose-50 p-2.5 rounded-xl border border-rose-200 cursor-pointer">
-              <span class="block text-rose-700 text-[10px] font-extrabold uppercase">❌ RECHAZADOS</span>
-              <span id="driverCountCerrado" class="text-lg font-black text-rose-800">0</span>
-            </div>
-            <div onclick="filterByStatus('PARCIAL')" class="bg-orange-50 p-2.5 rounded-xl border border-orange-200 cursor-pointer">
-              <span class="block text-orange-700 text-[10px] font-extrabold uppercase">🟧 PARCIAL</span>
-              <span id="driverCountParcial" class="text-lg font-black text-orange-800">0</span>
-            </div>
-            <div onclick="filterByStatus('OTRO MOTIVO')" class="bg-purple-50 p-2.5 rounded-xl border border-purple-200 cursor-pointer">
-              <span class="block text-purple-700 text-[10px] font-extrabold uppercase">🟣 OTRO MOTIVO</span>
-              <span id="driverCountOtro" class="text-lg font-black text-purple-800">0</span>
-            </div>
-            <div onclick="filterByStatus('REPASO')" class="bg-blue-50 p-2.5 rounded-xl border border-blue-200 cursor-pointer">
-              <span class="block text-blue-700 text-[10px] font-extrabold uppercase">🔵 REPASO</span>
-              <span id="driverCountRepaso" class="text-lg font-black text-blue-800">0</span>
-            </div>
           </div>
         </div>
 
-        <!-- BARRA MASIVA O INDIVIDUAL DE PUNTOS SELECCIONADOS -->
+        <!-- BARRA MASIVA O INDIVIDUAL -->
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
+            <p class="text-xs text-indigo-200 font-medium">Acción Masiva:</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
-            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">❌ RECHAZADO (1 o Varios)</button>
+            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">❌ RECHAZADO</button>
             <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold">🟧 PARCIAL</button>
             <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold">🟣 OTRO</button>
             <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Limpiar</button>
           </div>
         </div>
 
-        <!-- MAPA GOOGLE MAPS CON TRAFICO Y ETIQUETAS DE SECUENCIA -->
+        <!-- MAPA PUNTOS NÍTIDOS Y LIMPIOS -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Google Maps + Capa de Tráfico
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Toca un punto para seleccionar)
             </h4>
             <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
               <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
@@ -222,7 +174,7 @@
           <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold"></div>
 
           <div class="relative">
-            <div id="driverGoogleMap" class="map-container"></div>
+            <div id="driverMap" class="map-container"></div>
           </div>
         </div>
 
@@ -232,12 +184,6 @@
             <div>
               <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Buscar Cliente / Sec / Dirección:</label>
               <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Filtrar por Vendedor:</label>
-              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-white">
-                <option value="">-- Todos los Vendedores --</option>
-              </select>
             </div>
           </div>
         </div>
@@ -258,11 +204,10 @@
           <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500">
           <button onclick="processAndUploadCSV()" class="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs">Cargar Archivo</button>
         </div>
-        <div id="csvStatus" class="text-xs font-bold"></div>
       </div>
 
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
-        <div id="adminGoogleMap" class="map-container"></div>
+        <div id="adminMap" class="map-container"></div>
       </div>
     </section>
 
@@ -270,7 +215,20 @@
 
   <script>
     const ADMIN_PASSWORD = "bra151106";
-    let isAdminAuthenticated = false;
+
+    // ESTILO LIMPIO OPENSTREETMAP ULTRA FLUIDO Y SIN MARCAS DE AGUA
+    const MAP_STYLE_RASTER = {
+      version: 8,
+      sources: {
+        'osm-tiles': {
+          type: 'raster',
+          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '&copy; OpenStreetMap'
+        }
+      },
+      layers: [{ id: 'osm-tiles-layer', type: 'raster', source: 'osm-tiles' }]
+    };
 
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
@@ -284,16 +242,13 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let driverGMap = null;
-    let adminGMap = null;
-    let driverMarkers = [];
-    let driverLabels = [];
+    let driverMap = null;
+    let adminMap = null;
     let currentClientsData = [];
     let filteredClientsData = [];
     let currentRouteCode = null;
     let currentDocId = null;
     let selectedPointIndexes = new Set();
-    let trafficLayer = null;
 
     const VENDOR_COLORS = ['#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#14B8A6', '#6366F1'];
 
@@ -336,7 +291,7 @@
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
-      initGoogleMapDriver();
+      initMapDriver();
 
       db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
@@ -346,21 +301,100 @@
       });
     }
 
-    function initGoogleMapDriver() {
-      if (!driverGMap) {
-        const centerArequipa = { lat: -16.3988, lng: -71.5350 };
-        driverGMap = new google.maps.Map(document.getElementById('driverGoogleMap'), {
-          zoom: 14,
-          center: centerArequipa,
-          mapTypeId: 'roadmap',
-          zoomControl: true,
-          streetViewControl: false
+    function initMapDriver() {
+      if (!driverMap) {
+        driverMap = new maplibregl.Map({
+          container: 'driverMap',
+          style: MAP_STYLE_RASTER,
+          center: [-71.5350, -16.3988],
+          zoom: 13
         });
+        driverMap.addControl(new maplibregl.NavigationControl(), 'top-left');
 
-        // CAPA DE TRAFICO EN VIVO GOOGLE
-        trafficLayer = new google.maps.TrafficLayer();
-        trafficLayer.setMap(driverGMap);
+        driverMap.on('load', () => {
+          setupDriverLayers();
+        });
       }
+    }
+
+    function setupDriverLayers() {
+      if (driverMap.getSource('driver-points')) return;
+
+      driverMap.addSource('driver-points', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
+      // PUNTOS ULTRA PEQUEÑOS Y LIMPIOS
+      driverMap.addLayer({
+        id: 'driver-circles',
+        type: 'circle',
+        source: 'driver-points',
+        paint: {
+          'circle-radius': [
+            'case',
+            ['boolean', ['get', 'isSelected'], false], 7,
+            3.5 // TAMAÑO BASE PEQUEÑO
+          ],
+          'circle-color': ['get', 'vendorColor'],
+          'circle-stroke-width': [
+            'case',
+            ['boolean', ['get', 'isSelected'], false], 3,
+            1
+          ],
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      // SECUENCIA INTELIGENTE: SOLO VISIBLE AL HACER ZOOM DE CALLE (minzoom: 15)
+      driverMap.addLayer({
+        id: 'driver-sec-labels',
+        type: 'symbol',
+        source: 'driver-points',
+        minzoom: 15, 
+        layout: {
+          'text-field': ['get', 'secStr'],
+          'text-size': 10,
+          'text-offset': [0, 1.2],
+          'text-anchor': 'top'
+        },
+        paint: {
+          'text-color': '#0f172a',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5
+        }
+      });
+
+      // SELECCIÓN DIRECTA AL TOCAR
+      driverMap.on('click', 'driver-circles', (e) => {
+        const props = e.features[0].properties;
+        const idx = props.realIdx;
+
+        if (selectedPointIndexes.has(idx)) {
+          selectedPointIndexes.delete(idx);
+        } else {
+          selectedPointIndexes.add(idx);
+        }
+        updateSelectedPointsUI();
+
+        // MOSTRAR DETALLES + OPCIÓN DE RECHAZAR O ENTREGAR 1 SOLO
+        new maplibregl.Popup()
+          .setLngLat(e.features[0].geometry.coordinates)
+          .setHTML(`
+            <div style="font-size:12px; font-weight:bold; color:#1e293b;">
+              #${props.sec} · ${props.name}
+              <div style="font-size:10px; font-weight:normal; color:#64748b; margin-top:2px;">${props.domicilio}</div>
+              <div style="margin-top:8px; display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
+                <button onclick="updateClientStatusDirect(${props.realIdx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:4px; border-radius:6px; font-weight:bold; cursor:pointer;">✅ Entregado</button>
+                <button onclick="updateClientStatusDirect(${props.realIdx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:4px; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Rechazado</button>
+              </div>
+            </div>
+          `)
+          .addTo(driverMap);
+      });
+
+      driverMap.on('mouseenter', 'driver-circles', () => driverMap.getCanvas().style.cursor = 'pointer');
+      driverMap.on('mouseleave', 'driver-circles', () => driverMap.getCanvas().style.cursor = '');
     }
 
     function applyDriverFilters() {
@@ -379,73 +413,45 @@
         return matchSearch;
       });
 
-      renderGoogleMapPoints();
+      renderMapPoints();
       renderClientsList();
     }
 
-    function renderGoogleMapPoints() {
-      // Limpiar marcadores anteriores
-      driverMarkers.forEach(m => m.setMap(null));
-      driverLabels.forEach(l => l.setMap(null));
-      driverMarkers = [];
-      driverLabels = [];
-
-      const bounds = new google.maps.LatLngBounds();
+    function renderMapPoints() {
+      const features = [];
+      const bounds = new maplibregl.LngLatBounds();
 
       filteredClientsData.forEach(c => {
         if (!c.lat || !c.lon) return;
 
-        const latLng = { lat: parseFloat(c.lat), lng: parseFloat(c.lon) };
         const isSelected = selectedPointIndexes.has(c._idx);
-        const color = getVendorColor(c.vendedor);
 
-        // CIRCULO SÚPER PEQUEÑO (PUNTO NETO)
-        const marker = new google.maps.Marker({
-          position: latLng,
-          map: driverGMap,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: isSelected ? 6 : 3.5, // TAMAÑO ULTRA PEQUEÑO
-            fillColor: isSelected ? '#4F46E5' : color,
-            fillOpacity: 1,
-            strokeWeight: isSelected ? 2 : 1,
-            strokeColor: '#FFFFFF'
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [parseFloat(c.lon), parseFloat(c.lat)] },
+          properties: {
+            realIdx: c._idx,
+            sec: c.sec,
+            secStr: `#${c.sec}`,
+            name: c.name,
+            domicilio: c.domicilio,
+            vendorColor: getVendorColor(c.vendedor),
+            isSelected: isSelected
           }
         });
 
-        // ETIQUETA FLOTANTE CON EL NÚMERO DE SECUENCIA (#SEC)
-        const labelMarker = new google.maps.Marker({
-          position: latLng,
-          map: driverGMap,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 0
-          },
-          label: {
-            text: `#${c.sec}`,
-            color: '#1e293b',
-            fontSize: '10px',
-            fontWeight: 'bold'
-          }
-        });
-
-        // TOCAR PUNTO PARA SUMAR/RESTAR A SELECCIÓN MULTIPLE O CAMBIAR ESTADO
-        marker.addListener('click', () => {
-          if (selectedPointIndexes.has(c._idx)) {
-            selectedPointIndexes.delete(c._idx);
-          } else {
-            selectedPointIndexes.add(c._idx);
-          }
-          updateSelectedPointsUI();
-        });
-
-        driverMarkers.push(marker);
-        driverLabels.push(labelMarker);
-        bounds.extend(latLng);
+        bounds.extend([parseFloat(c.lon), parseFloat(c.lat)]);
       });
 
-      if (filteredClientsData.length > 0 && driverGMap) {
-        driverGMap.fitBounds(bounds);
+      if (driverMap && driverMap.getSource('driver-points')) {
+        driverMap.getSource('driver-points').setData({
+          type: 'FeatureCollection',
+          features: features
+        });
+
+        if (features.length > 0) {
+          driverMap.fitBounds(bounds, { padding: 40, maxZoom: 16 });
+        }
       }
     }
 
@@ -460,7 +466,7 @@
         bar.classList.add('hidden');
       }
 
-      renderGoogleMapPoints();
+      renderMapPoints();
     }
 
     function clearSelectedPoints() {
