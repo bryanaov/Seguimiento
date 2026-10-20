@@ -16,21 +16,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- MapLibre GL JS CSS & JS -->
-  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
-  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-
-  <!-- Turf.js -->
-  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
   <!-- Firebase JS SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
+  <!-- GOOGLE MAPS API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=&libraries=places,geometry"></script>
+
   <style>
     .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #e5e7eb; }
-    
+
     .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
     .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
     .status-ENTREGADO { background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
@@ -39,12 +35,14 @@
     .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
     .status-REPASO { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; }
 
-    .maplibregl-popup-content {
-      padding: 10px !important;
+    /* ESTILOS DEL POPUP INFORMATIVO TIPO FICHA */
+    .gm-style-iw-c {
+      padding: 12px !important;
       border-radius: 12px !important;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
-      font-family: inherit !important;
+      max-width: 280px !important;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.18) !important;
     }
+    .gm-style-iw-d { overflow: hidden !important; }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
@@ -73,9 +71,9 @@
         </div>
         <div>
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Limpio & Ultra Fluido</span>
+            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Selección Múltiple y Carga CSV</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Información Detallada y Colores por Vendedor</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -101,14 +99,14 @@
           <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
           <p class="text-xs text-slate-500 font-medium">Ingresa el código asignado a tu unidad de transporte</p>
         </div>
-        
+
         <div class="space-y-3 pt-2">
           <div>
             <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
             <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14 o T14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
           </div>
           <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta Ultra Rápida
+            <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
           </button>
         </div>
       </div>
@@ -119,7 +117,7 @@
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
             <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sistema en línea
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps Activo
             </p>
           </div>
           <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
@@ -127,11 +125,11 @@
           </button>
         </div>
 
-        <!-- BARRA MASIVA -->
+        <!-- BARRA MASIVA DE SELECCIÓN -->
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Acción Masiva:</p>
+            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
@@ -142,7 +140,7 @@
           </div>
         </div>
 
-        <!-- MAPA CHOFER -->
+        <!-- MAPA GOOGLE MAPS CON LEYENDA DE COLORES -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -154,19 +152,26 @@
             </div>
           </div>
 
-          <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold"></div>
+          <!-- LEYENDA DE COLORES POR VENDEDOR -->
+          <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold border-t border-slate-100 pt-2"></div>
 
           <div class="relative">
-            <div id="driverMap" class="map-container"></div>
+            <div id="driverGMapContainer" class="map-container"></div>
           </div>
         </div>
 
-        <!-- BÚSQUEDA Y LISTA DE CLIENTES -->
+        <!-- BÚSQUEDA Y FILTROS -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Buscar Cliente / Sec / Dirección:</label>
               <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Filtrar por Vendedor:</label>
+              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-white">
+                <option value="">-- Todos los Vendedores --</option>
+              </select>
             </div>
           </div>
         </div>
@@ -179,8 +184,6 @@
 
     <!-- VISTA ADMINISTRADOR -->
     <section id="viewAdmin" class="hidden space-y-4">
-
-      <!-- TARJETA DE ARCHIVO ACTIVO -->
       <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
         <div class="space-y-1">
           <div class="flex items-center gap-2">
@@ -194,13 +197,10 @@
         </button>
       </div>
 
-      <!-- CARGADOR DE CSV -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
           <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar CSV de Rutas
         </h2>
-        <p class="text-xs text-slate-500">Asegúrate de que tu archivo CSV contenga las columnas: <b>TPT</b>, <b>SEC</b>, <b>RAZON SOCIAL</b>, <b>Y</b> (Latitud), <b>X</b> (Longitud).</p>
-        
         <div class="flex flex-col sm:flex-row gap-3 items-center">
           <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
           <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 text-xs transition">
@@ -210,7 +210,6 @@
         <div id="csvStatus" class="text-xs font-bold"></div>
       </div>
 
-      <!-- RUTAS DETECTADAS -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-2 border-l-4 border-amber-500">
         <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
           <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
@@ -220,11 +219,10 @@
         </div>
       </div>
 
-      <!-- MAPA ADMIN -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <h3 class="font-bold text-slate-900 text-base">Vista General del Mapa (Admin)</h3>
+        <h3 class="font-bold text-slate-900 text-base">Vista General (Admin)</h3>
         <div class="relative">
-          <div id="adminMap" class="map-container"></div>
+          <div id="adminGMapContainer" class="map-container"></div>
         </div>
       </div>
     </section>
@@ -233,19 +231,6 @@
 
   <script>
     const ADMIN_PASSWORD = "bra151106";
-
-    const MAP_STYLE_RASTER = {
-      version: 8,
-      sources: {
-        'osm-tiles': {
-          type: 'raster',
-          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-          tileSize: 256,
-          attribution: '&copy; OpenStreetMap'
-        }
-      },
-      layers: [{ id: 'osm-tiles-layer', type: 'raster', source: 'osm-tiles' }]
-    };
 
     const firebaseConfig = {
       apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
@@ -259,20 +244,26 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let driverMap = null;
-    let adminMap = null;
+    let driverGMap = null;
+    let adminGMap = null;
+    let driverMarkers = [];
     let currentClientsData = [];
     let filteredClientsData = [];
     let currentRouteCode = null;
     let currentDocId = null;
     let selectedPointIndexes = new Set();
+    let currentInfoWindow = null;
 
-    const VENDOR_COLORS = ['#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#14B8A6', '#6366F1'];
+    const VENDOR_COLORS = [
+      '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
+      '#EF4444', '#14B8A6', '#6366F1', '#84CC16', '#A855F7', '#06B6D4', '#F97316'
+    ];
 
     function getVendorColor(v) {
-      if (!v) return '#6B7280';
+      if (!v || v.toString().trim() === '') return '#6B7280';
       let hash = 0;
-      for (let i = 0; i < v.length; i++) hash = v.charCodeAt(i) + ((hash << 5) - hash);
+      const str = v.toString().trim().toUpperCase();
+      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
       return VENDOR_COLORS[Math.abs(hash) % VENDOR_COLORS.length];
     }
 
@@ -282,16 +273,7 @@
 
       if (tab === 'admin') {
         setTimeout(() => {
-          if (!adminMap) {
-            adminMap = new maplibregl.Map({
-              container: 'adminMap',
-              style: MAP_STYLE_RASTER,
-              center: [-71.5350, -16.3988],
-              zoom: 12
-            });
-            adminMap.addControl(new maplibregl.NavigationControl(), 'top-left');
-          }
-          adminMap.resize();
+          initAdminGMap();
           loadAdminData();
         }, 150);
       }
@@ -302,7 +284,6 @@
       if (pass === ADMIN_PASSWORD) switchTab('admin');
     }
 
-    // --- PROCESAMIENTO Y CARGA DE CSV ---
     function parseCSV(text) {
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
       if (lines.length === 0) return [];
@@ -419,7 +400,7 @@
           });
 
           statusDiv.className = "text-xs font-bold text-emerald-600";
-          statusDiv.innerText = `✅ ¡Cargado con éxito! ${parsedClients.length} clientes en ${routeKeys.length} rutas (${routeKeys.join(', ')}).`;
+          statusDiv.innerText = `✅ ¡Cargado con éxito! ${parsedClients.length} clientes en ${routeKeys.length} rutas.`;
 
           fileInput.value = '';
           loadAdminData();
@@ -440,6 +421,16 @@
       await db.collection('meta').doc('active_file').delete();
       alert("✅ Datos eliminados.");
       loadAdminData();
+    }
+
+    function initAdminGMap() {
+      if (!adminGMap) {
+        adminGMap = new google.maps.Map(document.getElementById('adminGMapContainer'), {
+          zoom: 12,
+          center: { lat: -16.3988, lng: -71.5350 },
+          mapTypeId: 'roadmap'
+        });
+      }
     }
 
     function loadAdminData() {
@@ -466,35 +457,27 @@
           allClients = allClients.concat(doc.data().clients || []);
         });
 
-        renderAdminMap(allClients);
+        renderAdminGMap(allClients);
       });
     }
 
-    function renderAdminMap(clients) {
-      if (!adminMap) return;
-
-      const features = clients.filter(c => c.lat && c.lon).map(c => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
-        properties: { vendorColor: getVendorColor(c.vendedor) }
-      }));
-
-      if (adminMap.getSource('admin-points')) {
-        adminMap.getSource('admin-points').setData({ type: 'FeatureCollection', features });
-      } else {
-        adminMap.addSource('admin-points', { type: 'geojson', data: { type: 'FeatureCollection', features } });
-        adminMap.addLayer({
-          id: 'admin-circles',
-          type: 'circle',
-          source: 'admin-points',
-          paint: {
-            'circle-radius': 3,
-            'circle-color': ['get', 'vendorColor'],
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#ffffff'
+    function renderAdminGMap(clients) {
+      if (!adminGMap) return;
+      clients.forEach(c => {
+        if (!c.lat || !c.lon) return;
+        new google.maps.Marker({
+          position: { lat: parseFloat(c.lat), lng: parseFloat(c.lon) },
+          map: adminGMap,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 3,
+            fillColor: getVendorColor(c.vendedor),
+            fillOpacity: 1,
+            strokeWeight: 0.5,
+            strokeColor: '#FFFFFF'
           }
         });
-      }
+      });
     }
 
     // --- MODO CHOFER ---
@@ -511,7 +494,7 @@
         docSnap = await docRef.get();
       }
 
-      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe en el sistema.`);
+      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
 
       currentDocId = docRef.id;
       currentRouteCode = docSnap.data().code || inputCode;
@@ -520,163 +503,172 @@
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
-      initMapDriver();
+      initDriverGMap();
 
       db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
           currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
+          populateVendorFilter(currentClientsData);
           applyDriverFilters();
         }
       });
     }
 
-    function initMapDriver() {
-      if (!driverMap) {
-        driverMap = new maplibregl.Map({
-          container: 'driverMap',
-          style: MAP_STYLE_RASTER,
-          center: [-71.5350, -16.3988],
-          zoom: 13
-        });
-        driverMap.addControl(new maplibregl.NavigationControl(), 'top-left');
+    function populateVendorFilter(clients) {
+      const select = document.getElementById('driverVendorFilter');
+      const legendDiv = document.getElementById('driverVendorLegend');
+      const currentVal = select.value;
 
-        driverMap.on('load', () => {
-          setupDriverLayers();
+      const vendors = new Set();
+      clients.forEach(c => { if (c.vendedor) vendors.add(c.vendedor); });
+
+      select.innerHTML = '<option value="">-- Todos los Vendedores --</option>';
+      if (legendDiv) legendDiv.innerHTML = '';
+
+      Array.from(vendors).sort().forEach(v => {
+        const color = getVendorColor(v);
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.innerText = `Vendedor ${v}`;
+        select.appendChild(opt);
+
+        if (legendDiv) {
+          legendDiv.innerHTML += `
+            <span class="inline-flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 text-slate-700">
+              <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span> Vend ${v}
+            </span>
+          `;
+        }
+      });
+
+      select.value = currentVal;
+    }
+
+    function initDriverGMap() {
+      if (!driverGMap) {
+        driverGMap = new google.maps.Map(document.getElementById('driverGMapContainer'), {
+          zoom: 14,
+          center: { lat: -16.3988, lng: -71.5350 },
+          mapTypeId: 'roadmap',
+          streetViewControl: false
+        });
+
+        driverGMap.addListener('zoom_changed', () => {
+          const currentZoom = driverGMap.getZoom();
+          const showLabels = currentZoom >= 15.5;
+          driverMarkers.forEach(m => {
+            if (m._labelObj) m.setLabel(showLabels ? m._labelObj : null);
+          });
         });
       }
     }
 
-    function setupDriverLayers() {
-      if (driverMap.getSource('driver-points')) return;
-
-      driverMap.addSource('driver-points', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      });
-
-      driverMap.addLayer({
-        id: 'driver-circles',
-        type: 'circle',
-        source: 'driver-points',
-        paint: {
-          'circle-radius': [
-            'case',
-            ['boolean', ['get', 'isSelected'], false], 7,
-            3.5
-          ],
-          'circle-color': ['get', 'vendorColor'],
-          'circle-stroke-width': [
-            'case',
-            ['boolean', ['get', 'isSelected'], false], 3,
-            1
-          ],
-          'circle-stroke-color': '#ffffff'
-        }
-      });
-
-      driverMap.addLayer({
-        id: 'driver-sec-labels',
-        type: 'symbol',
-        source: 'driver-points',
-        minzoom: 15, 
-        layout: {
-          'text-field': ['get', 'secStr'],
-          'text-size': 10,
-          'text-offset': [0, 1.2],
-          'text-anchor': 'top'
-        },
-        paint: {
-          'text-color': '#0f172a',
-          'text-halo-color': '#ffffff',
-          'text-halo-width': 1.5
-        }
-      });
-
-      driverMap.on('click', 'driver-circles', (e) => {
-        const props = e.features[0].properties;
-        const idx = props.realIdx;
-
-        if (selectedPointIndexes.has(idx)) {
-          selectedPointIndexes.delete(idx);
-        } else {
-          selectedPointIndexes.add(idx);
-        }
-        updateSelectedPointsUI();
-
-        new maplibregl.Popup()
-          .setLngLat(e.features[0].geometry.coordinates)
-          .setHTML(`
-            <div style="font-size:12px; font-weight:bold; color:#1e293b;">
-              #${props.sec} · ${props.name}
-              <div style="font-size:10px; font-weight:normal; color:#64748b; margin-top:2px;">${props.domicilio}</div>
-              <div style="margin-top:8px; display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
-                <button onclick="updateClientStatusDirect(${props.realIdx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:4px; border-radius:6px; font-weight:bold; cursor:pointer;">✅ Entregado</button>
-                <button onclick="updateClientStatusDirect(${props.realIdx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:4px; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Rechazado</button>
-              </div>
-            </div>
-          `)
-          .addTo(driverMap);
-      });
-
-      driverMap.on('mouseenter', 'driver-circles', () => driverMap.getCanvas().style.cursor = 'pointer');
-      driverMap.on('mouseleave', 'driver-circles', () => driverMap.getCanvas().style.cursor = '');
-    }
-
     function applyDriverFilters() {
       const searchText = document.getElementById('driverSearchInput').value.toLowerCase().trim();
+      const selectedVendor = document.getElementById('driverVendorFilter').value;
       const hideVisited = document.getElementById('chkHideVisited').checked;
 
       filteredClientsData = currentClientsData.filter(c => {
         const isVisited = (c.estado || 'PENDIENTE') !== 'PENDIENTE';
         if (hideVisited && isVisited) return false;
 
+        const matchVendor = !selectedVendor || c.vendedor.toString() === selectedVendor;
         const matchSearch = !searchText || 
           c.name.toLowerCase().includes(searchText) || 
           c.domicilio.toLowerCase().includes(searchText) || 
           c.sec.toString().includes(searchText);
 
-        return matchSearch;
+        return matchVendor && matchSearch;
       });
 
-      renderMapPoints();
+      renderDriverGMapPoints();
       renderClientsList();
     }
 
-    function renderMapPoints() {
-      const features = [];
-      const bounds = new maplibregl.LngLatBounds();
+    function renderDriverGMapPoints() {
+      driverMarkers.forEach(m => m.setMap(null));
+      driverMarkers = [];
+
+      if (!driverGMap) return;
+
+      const bounds = new google.maps.LatLngBounds();
+      const currentZoom = driverGMap.getZoom() || 14;
+      const showLabels = currentZoom >= 15.5;
 
       filteredClientsData.forEach(c => {
         if (!c.lat || !c.lon) return;
 
+        const latLng = { lat: parseFloat(c.lat), lng: parseFloat(c.lon) };
         const isSelected = selectedPointIndexes.has(c._idx);
+        const color = getVendorColor(c.vendedor);
 
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [parseFloat(c.lon), parseFloat(c.lat)] },
-          properties: {
-            realIdx: c._idx,
-            sec: c.sec,
-            secStr: `#${c.sec}`,
-            name: c.name,
-            domicilio: c.domicilio,
-            vendorColor: getVendorColor(c.vendedor),
-            isSelected: isSelected
-          }
+        const labelConfig = {
+          text: `${c.sec}`,
+          color: '#0f172a',
+          fontSize: '9px',
+          fontWeight: '800'
+        };
+
+        const marker = new google.maps.Marker({
+          position: latLng,
+          map: driverGMap,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: isSelected ? 6 : 3.5,
+            fillColor: isSelected ? '#4F46E5' : color,
+            fillOpacity: 1,
+            strokeWeight: isSelected ? 2 : 1,
+            strokeColor: '#FFFFFF'
+          },
+          label: showLabels ? labelConfig : null
         });
 
-        bounds.extend([parseFloat(c.lon), parseFloat(c.lat)]);
+        marker._labelObj = labelConfig;
+
+        // POPUP CON DETALLES COMPLETOS (SIN X, Y) Y OPCIONES
+        marker.addListener('click', () => {
+          if (selectedPointIndexes.has(c._idx)) {
+            selectedPointIndexes.delete(c._idx);
+          } else {
+            selectedPointIndexes.add(c._idx);
+          }
+          updateSelectedPointsUI();
+
+          if (currentInfoWindow) currentInfoWindow.close();
+
+          currentInfoWindow = new google.maps.InfoWindow({
+            content: `
+              <div style="font-size:11px; line-height:1.5; color:#1e293b; min-width:210px;">
+                <div style="font-size:13px; font-weight:800; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px; color:#0f172a;">
+                  ${c.name}
+                </div>
+                <div><b>SEC:</b> ${c.sec}</div>
+                <div><b>VENDEDOR:</b> <span style="color:${color}; font-weight:bold;">${c.vendedor || 'S/V'}</span></div>
+                <div><b>TELEFONO:</b> ${c.telefono || 'Sin registro'}</div>
+                <div><b>TPT:</b> ${c.tpt || currentRouteCode}</div>
+                <div><b>RAZON SOCIAL:</b> ${c.name}</div>
+                <div><b>DOMICILIO:</b> ${c.domicilio}</div>
+                <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
+
+                <div style="margin-top:10px; font-weight:bold; font-size:10px; color:#64748b; text-transform:uppercase;">Cambiar Estado:</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">✅ Entregado</button>
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Rechazado</button>
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟧 Parcial</button>
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟣 Otro</button>
+                </div>
+              </div>
+            `
+          });
+          currentInfoWindow.open(driverGMap, marker);
+        });
+
+        driverMarkers.push(marker);
+        bounds.extend(latLng);
       });
 
-      if (driverMap && driverMap.getSource('driver-points')) {
-        driverMap.getSource('driver-points').setData({
-          type: 'FeatureCollection',
-          features: features
-        });
-
-        if (features.length > 0) {
-          driverMap.fitBounds(bounds, { padding: 40, maxZoom: 16 });
-        }
+      if (filteredClientsData.length > 0) {
+        driverGMap.fitBounds(bounds);
       }
     }
 
@@ -691,7 +683,7 @@
         bar.classList.add('hidden');
       }
 
-      renderMapPoints();
+      renderDriverGMapPoints();
     }
 
     function clearSelectedPoints() {
