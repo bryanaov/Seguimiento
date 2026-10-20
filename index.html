@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COURIER TP - Mapa Limpio HD</title>
+  <title>COURIER TP - Mapa con Secuencia Minimalista</title>
 
   <!-- Configuración PWA -->
   <link rel="manifest" href="manifest.json">
@@ -17,7 +17,7 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- LEAFLET MAPS CSS & JS (SIN MARCAS DE AGUA, ULTRA RÁPIDO) -->
+  <!-- LEAFLET MAPS CSS & JS (100% LIBRE, SIN MARCAS NI BLOQUEOS) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -26,7 +26,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <style>
-    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #e5e7eb; }
+    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #f8fafc; }
 
     .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
     .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
@@ -36,15 +36,16 @@
     .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
     .status-REPASO { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; }
 
-    /* ETIQUETA DE SECUENCIA LIMPIA SIN FONDO */
-    .clean-sec-label {
+    /* NUMERO DE SECUENCIA DISCRETO AL LADO DEL PUNTO (COMO EN LA FOTO) */
+    .sec-number-tag {
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
-      font-size: 10px !important;
-      font-weight: 800 !important;
+      font-size: 11px !important;
+      font-weight: 900 !important;
       color: #0f172a !important;
-      text-shadow: 1px 1px 2px #ffffff, -1px -1px 2px #ffffff, 1px -1px 2px #ffffff, -1px 1px 2px #ffffff !important;
+      text-shadow: 1.5px 1.5px 0px #ffffff, -1.5px -1.5px 0px #ffffff, 1.5px -1.5px 0px #ffffff, -1.5px 1.5px 0px #ffffff !important;
+      white-space: nowrap !important;
     }
 
     .leaflet-popup-content-wrapper {
@@ -61,16 +62,6 @@
     <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Guardando localmente.</span>
   </div>
 
-  <datalist id="motivosSugeridos">
-    <option value="Sin dinero"></option>
-    <option value="No pidió"></option>
-    <option value="Local cerrado"></option>
-    <option value="Cliente no está"></option>
-    <option value="Pedido cancelado"></option>
-    <option value="Cliente rechazó"></option>
-    <option value="Dirección incorrecta"></option>
-  </datalist>
-
   <!-- ENCABEZADO -->
   <header class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50 border-b border-slate-800">
     <div class="max-w-7xl mx-auto flex justify-between items-center">
@@ -80,9 +71,9 @@
         </div>
         <div>
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Mapa HD Sin Marcas</span>
+            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Secuencia por Zoom</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma de Logística con Secuencias Limpias y Colores por Vendedor</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Etiquetas Limpias y Filtro de Vendedores</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -126,7 +117,7 @@
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
             <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Mapa HD Activo
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Línea
             </p>
           </div>
           <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
@@ -138,7 +129,7 @@
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
+            <p class="text-xs text-indigo-200 font-medium">Acción Masiva:</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
@@ -153,7 +144,7 @@
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Acerque para ver los números de secuencia)
             </h4>
             <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
               <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
@@ -434,8 +425,9 @@
     function initAdminLMap() {
       if (!adminLMap) {
         adminLMap = L.map('adminLeafletMapContainer').setView([-16.3988, -71.5350], 12);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
         }).addTo(adminLMap);
       }
     }
@@ -549,14 +541,15 @@
     function initDriverLMap() {
       if (!driverLMap) {
         driverLMap = L.map('driverLeafletMapContainer').setView([-16.3988, -71.5350], 14);
-        
-        // MAPA BASE HD DE CARTO VOYAGER (SIN MARCAS DE AGUA)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
         }).addTo(driverLMap);
 
         driverLayerGroup = L.layerGroup().addTo(driverLMap);
 
+        // EVALUA ZOOM PARA MOSTRAR/OCULTAR ETIQUETAS
         driverLMap.on('zoomend', () => {
           renderDriverLMapPoints();
         });
@@ -592,7 +585,8 @@
 
       const bounds = [];
       const currentZoom = driverLMap.getZoom();
-      const showLabels = currentZoom >= 15;
+      // SOLO MUESTRA LOS NÚMEROS A PARTIR DEL ZOOM 15.5 (DE CERCA)
+      const showLabels = currentZoom >= 15.5;
 
       filteredClientsData.forEach(c => {
         if (!c.lat || !c.lon) return;
@@ -601,7 +595,7 @@
         const isSelected = selectedPointIndexes.has(c._idx);
         const color = getVendorColor(c.vendedor);
 
-        // CIRCULO PEQUEÑO Y LIMPIO
+        // CIRCULO REDONDO ULTRA PEQUEÑO
         const circle = L.circleMarker(latLng, {
           radius: isSelected ? 6 : 3.5,
           fillColor: isSelected ? '#4F46E5' : color,
@@ -610,7 +604,7 @@
           fillOpacity: 1
         });
 
-        // POPUP INFORMATIVO EXACTO (SIN COORDENADAS X, Y)
+        // POPUP CON FICHA DETALLADA (SIN X NI Y)
         circle.bindPopup(`
           <div style="font-size:11px; line-height:1.5; color:#1e293b; min-width:210px; padding:2px;">
             <div style="font-size:13px; font-weight:800; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px; color:#0f172a;">
@@ -645,12 +639,12 @@
 
         driverLayerGroup.addLayer(circle);
 
-        // ETIQUETA DE SECUENCIA LIMPIA
+        // NÚMERO PEQUEÑO AL LADO DEL PUNTO (SOLO SI ZOOM >= 15.5)
         if (showLabels) {
           const textIcon = L.divIcon({
-            className: 'clean-sec-label',
+            className: 'sec-number-tag',
             html: `${c.sec}`,
-            iconAnchor: [-5, 10]
+            iconAnchor: [-6, 8] // Desplazado sutilmente al lado derecho del punto
           });
           const textMarker = L.marker(latLng, { icon: textIcon, interactive: false });
           driverLayerGroup.addLayer(textMarker);
