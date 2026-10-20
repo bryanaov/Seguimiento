@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COURIER TP - Mapa con Secuencia Minimalista</title>
+  <title>COURIER TP - Google Maps Oficial</title>
 
   <!-- Configuración PWA -->
   <link rel="manifest" href="manifest.json">
@@ -17,16 +17,15 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- LEAFLET MAPS CSS & JS (100% LIBRE, SIN MARCAS NI BLOQUEOS) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <!-- Firebase JS SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
+  <!-- GOOGLE MAPS API OFICIAL -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=&libraries=places,geometry"></script>
+
   <style>
-    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #f8fafc; }
+    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #e5e7eb; }
 
     .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
     .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
@@ -36,23 +35,14 @@
     .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
     .status-REPASO { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; }
 
-    /* NUMERO DE SECUENCIA DISCRETO AL LADO DEL PUNTO (COMO EN LA FOTO) */
-    .sec-number-tag {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      font-size: 11px !important;
-      font-weight: 900 !important;
-      color: #0f172a !important;
-      text-shadow: 1.5px 1.5px 0px #ffffff, -1.5px -1.5px 0px #ffffff, 1.5px -1.5px 0px #ffffff, -1.5px 1.5px 0px #ffffff !important;
-      white-space: nowrap !important;
-    }
-
-    .leaflet-popup-content-wrapper {
+    /* ESTILOS DEL POPUP EN GOOGLE MAPS */
+    .gm-style-iw-c {
+      padding: 12px !important;
       border-radius: 12px !important;
-      padding: 4px !important;
+      max-width: 270px !important;
       box-shadow: 0 4px 15px rgba(0,0,0,0.18) !important;
     }
+    .gm-style-iw-d { overflow: hidden !important; }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
@@ -71,9 +61,9 @@
         </div>
         <div>
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Secuencia por Zoom</span>
+            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps Oficial</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Etiquetas Limpias y Filtro de Vendedores</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Zoom Estable y Filtros por Vendedor</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -117,7 +107,7 @@
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
             <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GPS En Línea
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps En Línea
             </p>
           </div>
           <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
@@ -129,7 +119,7 @@
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Acción Masiva:</p>
+            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
@@ -140,11 +130,11 @@
           </div>
         </div>
 
-        <!-- MAPA CON LEYENDA -->
+        <!-- MAPA GOOGLE MAPS -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Acerque para ver los números de secuencia)
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Google Maps)
             </h4>
             <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
               <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
@@ -156,7 +146,7 @@
           <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold border-t border-slate-100 pt-2"></div>
 
           <div class="relative">
-            <div id="driverLeafletMapContainer" class="map-container"></div>
+            <div id="driverGMapContainer" class="map-container"></div>
           </div>
         </div>
 
@@ -222,7 +212,7 @@
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <h3 class="font-bold text-slate-900 text-base">Vista General (Admin)</h3>
         <div class="relative">
-          <div id="adminLeafletMapContainer" class="map-container"></div>
+          <div id="adminGMapContainer" class="map-container"></div>
         </div>
       </div>
     </section>
@@ -244,14 +234,16 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let driverLMap = null;
-    let adminLMap = null;
-    let driverLayerGroup = null;
+    let driverGMap = null;
+    let adminGMap = null;
+    let driverMarkers = [];
     let currentClientsData = [];
     let filteredClientsData = [];
     let currentRouteCode = null;
     let currentDocId = null;
     let selectedPointIndexes = new Set();
+    let currentInfoWindow = null;
+    let isInitialMapCenterDone = false;
 
     const VENDOR_COLORS = [
       '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
@@ -272,7 +264,7 @@
 
       if (tab === 'admin') {
         setTimeout(() => {
-          initAdminLMap();
+          initAdminGMap();
           loadAdminData();
         }, 150);
       }
@@ -422,13 +414,13 @@
       loadAdminData();
     }
 
-    function initAdminLMap() {
-      if (!adminLMap) {
-        adminLMap = L.map('adminLeafletMapContainer').setView([-16.3988, -71.5350], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(adminLMap);
+    function initAdminGMap() {
+      if (!adminGMap) {
+        adminGMap = new google.maps.Map(document.getElementById('adminGMapContainer'), {
+          zoom: 12,
+          center: { lat: -16.3988, lng: -71.5350 },
+          mapTypeId: 'roadmap'
+        });
       }
     }
 
@@ -456,21 +448,26 @@
           allClients = allClients.concat(doc.data().clients || []);
         });
 
-        renderAdminLMap(allClients);
+        renderAdminGMap(allClients);
       });
     }
 
-    function renderAdminLMap(clients) {
-      if (!adminLMap) return;
+    function renderAdminGMap(clients) {
+      if (!adminGMap) return;
       clients.forEach(c => {
         if (!c.lat || !c.lon) return;
-        L.circleMarker([parseFloat(c.lat), parseFloat(c.lon)], {
-          radius: 3,
-          fillColor: getVendorColor(c.vendedor),
-          color: '#ffffff',
-          weight: 1,
-          fillOpacity: 1
-        }).addTo(adminLMap);
+        new google.maps.Marker({
+          position: { lat: parseFloat(c.lat), lng: parseFloat(c.lon) },
+          map: adminGMap,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 3,
+            fillColor: getVendorColor(c.vendedor),
+            fillOpacity: 1,
+            strokeWeight: 0.5,
+            strokeColor: '#FFFFFF'
+          }
+        });
       });
     }
 
@@ -492,12 +489,13 @@
 
       currentDocId = docRef.id;
       currentRouteCode = docSnap.data().code || inputCode;
+      isInitialMapCenterDone = false; // Reset centrado
 
       document.getElementById('driverLoginCard').classList.add('hidden');
       document.getElementById('driverRouteContainer').classList.remove('hidden');
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
-      initDriverLMap();
+      initDriverGMap();
 
       db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
@@ -538,20 +536,24 @@
       select.value = currentVal;
     }
 
-    function initDriverLMap() {
-      if (!driverLMap) {
-        driverLMap = L.map('driverLeafletMapContainer').setView([-16.3988, -71.5350], 14);
+    function initDriverGMap() {
+      if (!driverGMap) {
+        driverGMap = new google.maps.Map(document.getElementById('driverGMapContainer'), {
+          zoom: 14,
+          center: { lat: -16.3988, lng: -71.5350 },
+          mapTypeId: 'roadmap',
+          streetViewControl: false
+        });
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(driverLMap);
-
-        driverLayerGroup = L.layerGroup().addTo(driverLMap);
-
-        // EVALUA ZOOM PARA MOSTRAR/OCULTAR ETIQUETAS
-        driverLMap.on('zoomend', () => {
-          renderDriverLMapPoints();
+        // CONTROL DINÁMICO DE VISIBILIDAD DE ETIQUETAS SEGÚN EL ZOOM DEL USUARIO
+        driverGMap.addListener('zoom_changed', () => {
+          const currentZoom = driverGMap.getZoom();
+          const showLabels = currentZoom >= 15.5; // Sólo visibles al hacer Zoom de cerca
+          driverMarkers.forEach(m => {
+            if (m._labelObj) {
+              m.setLabel(showLabels ? m._labelObj : null);
+            }
+          });
         });
       }
     }
@@ -574,87 +576,98 @@
         return matchVendor && matchSearch;
       });
 
-      renderDriverLMapPoints();
+      renderDriverGMapPoints();
       renderClientsList();
     }
 
-    function renderDriverLMapPoints() {
-      if (!driverLMap || !driverLayerGroup) return;
+    function renderDriverGMapPoints() {
+      driverMarkers.forEach(m => m.setMap(null));
+      driverMarkers = [];
 
-      driverLayerGroup.clearLayers();
+      if (!driverGMap) return;
 
-      const bounds = [];
-      const currentZoom = driverLMap.getZoom();
-      // SOLO MUESTRA LOS NÚMEROS A PARTIR DEL ZOOM 15.5 (DE CERCA)
+      const bounds = new google.maps.LatLngBounds();
+      const currentZoom = driverGMap.getZoom() || 14;
       const showLabels = currentZoom >= 15.5;
 
       filteredClientsData.forEach(c => {
         if (!c.lat || !c.lon) return;
 
-        const latLng = [parseFloat(c.lat), parseFloat(c.lon)];
+        const latLng = { lat: parseFloat(c.lat), lng: parseFloat(c.lon) };
         const isSelected = selectedPointIndexes.has(c._idx);
         const color = getVendorColor(c.vendedor);
 
-        // CIRCULO REDONDO ULTRA PEQUEÑO
-        const circle = L.circleMarker(latLng, {
-          radius: isSelected ? 6 : 3.5,
-          fillColor: isSelected ? '#4F46E5' : color,
-          color: '#ffffff',
-          weight: isSelected ? 2 : 1,
-          fillOpacity: 1
+        // CONFIGURACIÓN DE ETIQUETA PEQUEÑA
+        const labelConfig = {
+          text: `${c.sec}`,
+          color: '#0f172a',
+          fontSize: '10px',
+          fontWeight: '800'
+        };
+
+        const marker = new google.maps.Marker({
+          position: latLng,
+          map: driverGMap,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: isSelected ? 6 : 3.5, // Puntos pequeños
+            fillColor: isSelected ? '#4F46E5' : color,
+            fillOpacity: 1,
+            strokeWeight: isSelected ? 2 : 1,
+            strokeColor: '#FFFFFF'
+          },
+          label: showLabels ? labelConfig : null
         });
 
-        // POPUP CON FICHA DETALLADA (SIN X NI Y)
-        circle.bindPopup(`
-          <div style="font-size:11px; line-height:1.5; color:#1e293b; min-width:210px; padding:2px;">
-            <div style="font-size:13px; font-weight:800; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px; color:#0f172a;">
-              ${c.name}
-            </div>
-            <div><b>SEC:</b> ${c.sec}</div>
-            <div><b>VENDEDOR:</b> <span style="color:${color}; font-weight:bold;">${c.vendedor || 'S/V'}</span></div>
-            <div><b>TELEFONO:</b> ${c.telefono || 'Sin registro'}</div>
-            <div><b>TPT:</b> ${c.tpt || currentRouteCode}</div>
-            <div><b>RAZON SOCIAL:</b> ${c.name}</div>
-            <div><b>DOMICILIO:</b> ${c.domicilio}</div>
-            <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
+        marker._labelObj = labelConfig;
 
-            <div style="margin-top:10px; font-weight:bold; font-size:10px; color:#64748b; text-transform:uppercase;">Cambiar Estado:</div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
-              <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">✅ Entregado</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Rechazado</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟧 Parcial</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟣 Otro</button>
-            </div>
-          </div>
-        `);
-
-        circle.on('click', () => {
+        // ACCIÓN AL TOCAR CADA PUNTO
+        marker.addListener('click', () => {
           if (selectedPointIndexes.has(c._idx)) {
             selectedPointIndexes.delete(c._idx);
           } else {
             selectedPointIndexes.add(c._idx);
           }
           updateSelectedPointsUI();
+
+          if (currentInfoWindow) currentInfoWindow.close();
+
+          currentInfoWindow = new google.maps.InfoWindow({
+            content: `
+              <div style="font-size:11px; line-height:1.5; color:#1e293b; min-width:210px;">
+                <div style="font-size:13px; font-weight:800; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px; color:#0f172a;">
+                  ${c.name}
+                </div>
+                <div><b>SEC:</b> ${c.sec}</div>
+                <div><b>VENDEDOR:</b> <span style="color:${color}; font-weight:bold;">${c.vendedor || 'S/V'}</span></div>
+                <div><b>TELEFONO:</b> ${c.telefono || 'Sin registro'}</div>
+                <div><b>TPT:</b> ${c.tpt || currentRouteCode}</div>
+                <div><b>RAZON SOCIAL:</b> ${c.name}</div>
+                <div><b>DOMICILIO:</b> ${c.domicilio}</div>
+                <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
+
+                <div style="margin-top:10px; font-weight:bold; font-size:10px; color:#64748b; text-transform:uppercase;">Cambiar Estado:</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">✅ Entregado</button>
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Rechazado</button>
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟧 Parcial</button>
+                  <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟣 Otro</button>
+                </div>
+              </div>
+            `
+          });
+          currentInfoWindow.open(driverGMap, marker);
         });
 
-        driverLayerGroup.addLayer(circle);
-
-        // NÚMERO PEQUEÑO AL LADO DEL PUNTO (SOLO SI ZOOM >= 15.5)
-        if (showLabels) {
-          const textIcon = L.divIcon({
-            className: 'sec-number-tag',
-            html: `${c.sec}`,
-            iconAnchor: [-6, 8] // Desplazado sutilmente al lado derecho del punto
-          });
-          const textMarker = L.marker(latLng, { icon: textIcon, interactive: false });
-          driverLayerGroup.addLayer(textMarker);
-        }
-
-        bounds.push(latLng);
+        driverMarkers.push(marker);
+        bounds.extend(latLng);
       });
 
-      if (bounds.length > 0 && !driverLMap._userMoved) {
-        driverLMap.fitBounds(bounds, { padding: [20, 20] });
+      // SOLUCIÓN AL ZOOM QUE REGRESABA ATRÁS:
+      // fitBounds() SOLO se ejecuta la primera vez que cargas la ruta.
+      if (filteredClientsData.length > 0 && !isInitialMapCenterDone) {
+        driverGMap.fitBounds(bounds);
+        isInitialMapCenterDone = true;
       }
     }
 
@@ -669,7 +682,7 @@
         bar.classList.add('hidden');
       }
 
-      renderDriverLMapPoints();
+      renderDriverGMapPoints();
     }
 
     function clearSelectedPoints() {
