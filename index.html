@@ -17,7 +17,7 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- LEAFLET MAPS CSS & JS (Google Maps HD en Tile Layer) -->
+  <!-- LEAFLET MAPS CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -35,7 +35,6 @@
     .status-PARCIAL { background-color: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74; }
     .status-OTRO_MOTIVO, .status-OTRO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
 
-    /* ETIQUETA DE SECUENCIA DISCRETA */
     .sec-number-tag {
       background: transparent !important;
       border: none !important;
@@ -72,7 +71,7 @@
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
             COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Vista Fija e Información Detallada</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Reporte WhatsApp y Selección Múltiple</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -152,14 +151,14 @@
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
+            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado Masivo:</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
-            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
-            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold">❌ RECHAZADO</button>
-            <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold">🟧 PARCIAL</button>
-            <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold">🟣 OTRO</button>
-            <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Limpiar</button>
+            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500">✅ ENTREGADO</button>
+            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-500">❌ RECHAZADO</button>
+            <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-500">🟧 PARCIAL</button>
+            <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-500">🟣 OTRO</button>
+            <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-700">Limpiar</button>
           </div>
         </div>
 
@@ -638,6 +637,42 @@
       renderClientsList();
     }
 
+    function toggleSelectPointAndClose(idx) {
+      if (selectedPointIndexes.has(idx)) {
+        selectedPointIndexes.delete(idx);
+      } else {
+        selectedPointIndexes.add(idx);
+      }
+      if (driverLMap) driverLMap.closePopup();
+      updateSelectedPointsUI();
+      renderDriverLMapPoints();
+    }
+
+    function sendWhatsAppRejection(idx) {
+      const c = currentClientsData[idx];
+      if (!c) return;
+
+      const reason = prompt("Ingrese el Motivo de Rechazo para WhatsApp:", c.obs || "CLIENTE RECHAZO PEDIDO") || "CLIENTE RECHAZO PEDIDO";
+      
+      currentClientsData[idx].estado = "RECHAZADO";
+      currentClientsData[idx].obs = reason;
+
+      db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData.map(item => { const { _idx, ...rest } = item; return rest; })
+      });
+
+      const msg = `🔴 *REPORTAR RECHAZO* 🔴\n` +
+                  `• *VD:* ${c.vendedor || 'S/V'}\n` +
+                  `• *RUTA:* #${currentRouteCode}\n` +
+                  `• *TRANSPORTE:* ${c.tpt || currentRouteCode}\n` +
+                  `• *CLIENTE:* ${c.name}\n` +
+                  `• *MONTO:* S/ ${c.subtotal || '0.00'}\n` +
+                  `• *MOTIVO DE RECHAZO:* ${reason}`;
+
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank');
+    }
+
     function renderDriverLMapPoints() {
       if (!driverLMap || !driverLayerGroup) return;
 
@@ -655,47 +690,44 @@
         const color = getVendorColor(c.vendedor);
 
         const circle = L.circleMarker(latLng, {
-          radius: isSelected ? 6 : 3.5,
+          radius: isSelected ? 7 : 4,
           fillColor: isSelected ? '#4F46E5' : color,
-          color: '#ffffff',
-          weight: isSelected ? 2 : 1,
+          color: isSelected ? '#312E81' : '#ffffff',
+          weight: isSelected ? 3 : 1,
           fillOpacity: 1
         });
 
-        // POPUP CON ESTRUCTURA SOLICITADA Y BOTONES DIRECTOS
         circle.bindPopup(`
-          <div style="font-size:11px; line-height:1.6; color:#1e293b; min-width:230px;">
-            <div style="font-size:14px; font-weight:800; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:4px; margin-bottom:8px;">
-              ${c.sec} · ${c.name}
+          <div style="font-size:11px; line-height:1.6; color:#1e293b; min-width:240px;">
+            <div style="font-size:14px; font-weight:800; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:4px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+              <span>${c.sec} · ${c.name}</span>
+              <span class="status-badge status-${(c.estado||'PENDIENTE')}">${c.estado || 'PENDIENTE'}</span>
             </div>
-            <div style="display:grid; grid-template-columns: 90px 1fr; gap:4px; font-size:11px;">
+            <div style="display:grid; grid-template-columns: 100px 1fr; gap:3px; font-size:11px;">
+              <span style="font-weight:700; color:#64748b;">VD (VENDEDOR)</span> <span style="font-weight:800; color:${color};">${c.vendedor || 'Ningún valor'}</span>
+              <span style="font-weight:700; color:#64748b;">RUTA</span> <span>#${currentRouteCode}</span>
+              <span style="font-weight:700; color:#64748b;">TRANSPORTE</span> <span>${c.tpt || currentRouteCode}</span>
               <span style="font-weight:700; color:#64748b;">SEC</span> <span>${c.sec}</span>
-              <span style="font-weight:700; color:#64748b;">VENDEDOR</span> <span style="font-weight:800; color:${color};">${c.vendedor || 'Ningún valor'}</span>
               <span style="font-weight:700; color:#64748b;">TELEFONO</span> <span>${c.telefono || 'Ningún valor'}</span>
               <span style="font-weight:700; color:#64748b;">RAZON SOCIAL</span> <span>${c.name}</span>
               <span style="font-weight:700; color:#64748b;">DOMICILIO</span> <span>${c.domicilio}</span>
-              <span style="font-weight:700; color:#64748b;">TPT</span> <span>${c.tpt || currentRouteCode}</span>
-              <span style="font-weight:700; color:#64748b;">Subtotal Final</span> <span style="font-weight:800; color:#0f172a;">S/ ${c.subtotal || '0.00'}</span>
+              <span style="font-weight:700; color:#64748b;">MONTO</span> <span style="font-weight:800; color:#0f172a;">S/ ${c.subtotal || '0.00'}</span>
             </div>
 
-            <div style="margin-top:10px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Acción Rápida:</div>
+            <div style="margin-top:8px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Acciones en Mapa:</div>
+            
+            <button onclick="toggleSelectPointAndClose(${c._idx})" style="width:100%; background:#3b82f6; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:11px; margin-bottom:4px; display:flex; align-items:center; justify-center; gap:4px;">
+              ${isSelected ? '☑️ Deseleccionar este punto' : '➕ Seleccionar más (Cierra ventana)'}
+            </button>
+
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
               <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">✅ ENTREGADO</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">❌ RECHAZADO</button>
+              <button onclick="sendWhatsAppRejection(${c._idx})" style="background:#ef4444; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">📲 RECHAZAR Y WSP</button>
               <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">🟧 PARCIAL</button>
               <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">🟣 OTRO</button>
             </div>
           </div>
         `);
-
-        circle.on('click', () => {
-          if (selectedPointIndexes.has(c._idx)) {
-            selectedPointIndexes.delete(c._idx);
-          } else {
-            selectedPointIndexes.add(c._idx);
-          }
-          updateSelectedPointsUI();
-        });
 
         driverLayerGroup.addLayer(circle);
 
@@ -712,7 +744,6 @@
         bounds.push(latLng);
       });
 
-      // EL MAPA SOLO AJUSTA SU VISTA 1 SOLA VEZ AL CARGAR LA RUTA
       if (bounds.length > 0 && !isInitialFitBoundsDone) {
         driverLMap.fitBounds(bounds, { padding: [20, 20] });
         isInitialFitBoundsDone = true;
@@ -741,13 +772,38 @@
       if (selectedPointIndexes.size === 0) return;
 
       const idxs = Array.from(selectedPointIndexes);
+      let rejectionReason = "";
+
+      if (newStatus === 'RECHAZADO') {
+        rejectionReason = prompt("Ingrese el Motivo de Rechazo para estos puntos:", "RECHAZO MASIVO DE PEDIDOS") || "RECHAZO MASIVO";
+      }
+
       for (const idx of idxs) {
         currentClientsData[idx].estado = newStatus;
+        if (newStatus === 'RECHAZADO') {
+          currentClientsData[idx].obs = rejectionReason;
+        }
       }
 
       await db.collection('routes').doc(currentDocId).update({
         clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
       });
+
+      if (newStatus === 'RECHAZADO' && confirm("¿Deseas enviar el reporte de rechazo masivo a WhatsApp?")) {
+        let msg = `🔴 *REPORTAR RECHAZO MASIVO* 🔴\n` +
+                  `• *RUTA:* #${currentRouteCode}\n` +
+                  `• *TOTAL RECHAZADOS:* ${idxs.length}\n` +
+                  `• *MOTIVO GENERAL:* ${rejectionReason}\n\n` +
+                  `*DETALLE:* \n`;
+
+        idxs.forEach(idx => {
+          const item = currentClientsData[idx];
+          msg += `• VD: ${item.vendedor || 'S/V'} | TPT: ${item.tpt || currentRouteCode} | ${item.name} | S/ ${item.subtotal}\n`;
+        });
+
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank');
+      }
 
       clearSelectedPoints();
     }
@@ -763,13 +819,18 @@
           <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
           <div class="flex justify-between items-center pt-2">
             <span class="text-xs font-bold">S/ ${c.subtotal}</span>
-            <select onchange="updateClientStatusDirect(${c._idx}, this.value)" class="text-xs font-bold border rounded-lg px-2 py-1 bg-white">
-              <option value="PENDIENTE" ${c.estado === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
-              <option value="ENTREGADO" ${c.estado === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="RECHAZADO" ${c.estado === 'RECHAZADO' ? 'selected' : ''}>❌ RECHAZADO</option>
-              <option value="PARCIAL" ${c.estado === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
-              <option value="OTRO MOTIVO" ${c.estado === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
-            </select>
+            <div class="flex gap-1">
+              <button onclick="sendWhatsAppRejection(${c._idx})" class="px-2 py-1 bg-rose-500 text-white rounded-lg text-xs font-bold shadow-sm">
+                📲 Rechazar WSP
+              </button>
+              <select onchange="updateClientStatusDirect(${c._idx}, this.value)" class="text-xs font-bold border rounded-lg px-2 py-1 bg-white">
+                <option value="PENDIENTE" ${c.estado === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+                <option value="ENTREGADO" ${c.estado === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+                <option value="RECHAZADO" ${c.estado === 'RECHAZADO' ? 'selected' : ''}>❌ RECHAZADO</option>
+                <option value="PARCIAL" ${c.estado === 'PARCIAL' ? 'selected' : ''}>🟧 PARCIAL</option>
+                <option value="OTRO MOTIVO" ${c.estado === 'OTRO MOTIVO' ? 'selected' : ''}>🟣 OTRO MOTIVO</option>
+              </select>
+            </div>
           </div>
         </div>
       `).join('');
