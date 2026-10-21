@@ -1,3 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COURIER TP - Plataforma de Logística</title>
+
+  <!-- Configuración PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="COURIER TP">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- LEAFLET MAPS CSS & JS (Google Maps HD en Tile Layer) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Firebase JS SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #f8fafc; }
+
+    .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+    .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
+    .status-ENTREGADO { background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
+    .status-CERRADO, .status-RECHAZADO { background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5; }
+    .status-PARCIAL { background-color: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74; }
+    .status-OTRO_MOTIVO, .status-OTRO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
+
+    /* ETIQUETA DE SECUENCIA DISCRETA */
+    .sec-number-tag {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      font-size: 10px !important;
+      font-weight: 900 !important;
+      color: #0f172a !important;
+      text-shadow: 1.5px 1.5px 0px #ffffff, -1.5px -1.5px 0px #ffffff, 1.5px -1.5px 0px #ffffff, -1.5px 1.5px 0px #ffffff !important;
+      white-space: nowrap !important;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px !important;
+      padding: 8px 12px !important;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
+
+  <!-- BANNER NOTIFICACIÓN MODO OFFLINE -->
+  <div id="offlineSyncBanner" class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2 text-center sticky top-0 z-[100000] shadow-md flex items-center justify-center gap-2">
+    <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Guardando localmente.</span>
+  </div>
+
+  <!-- ENCABEZADO -->
+  <header class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-md">
+          <i class="fa-solid fa-bolt text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
+            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD</span>
+          </h1>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Vista Fija e Información Detallada</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="switchTab('driver')" id="btnTabDriver" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition shadow-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-mobile-screen-button"></i> Modo Chofer
+        </button>
+        <button onclick="requestAdminAccess()" id="btnTabAdmin" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition border border-slate-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-user-shield text-indigo-400"></i> Vista Admin
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-3 sm:p-5 space-y-5">
+
+    <!-- VISTA CHOFER -->
+    <section id="viewDriver" class="block space-y-4">
+      <div id="driverLoginCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 max-w-lg mx-auto">
+        <div class="text-center space-y-1">
+          <div class="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-1">
+            <i class="fa-solid fa-truck-arrow-right text-2xl"></i>
+          </div>
+          <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
+          <p class="text-xs text-slate-500 font-medium">Ingresa el código asignado a tu unidad de transporte</p>
+        </div>
+
+        <div class="space-y-3 pt-2">
+          <div>
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
+            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 18 o T18" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+          </div>
+          <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL DE RUTA CARGADA -->
+      <div id="driverRouteContainer" class="hidden space-y-4">
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
+          <div class="space-y-0.5">
+            <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
+            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps HD En Línea
+            </p>
+          </div>
+          <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
+            <i class="fa-solid fa-right-from-bracket"></i> Salir
+          </button>
+        </div>
+
+        <!-- TARJETAS DE CONTEO EN TIEMPO REAL -->
+        <div id="statusCountersContainer" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
+          <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+            <p class="text-[10px] font-bold text-slate-400 uppercase">⏳ Pendientes</p>
+            <p class="text-lg font-black text-slate-700" id="cntPendientes">0</p>
+          </div>
+          <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 shadow-sm">
+            <p class="text-[10px] font-bold text-emerald-600 uppercase">✅ Entregados</p>
+            <p class="text-lg font-black text-emerald-700" id="cntEntregados">0</p>
+          </div>
+          <div class="bg-rose-50 p-2.5 rounded-xl border border-rose-200 shadow-sm">
+            <p class="text-[10px] font-bold text-rose-600 uppercase">❌ Rechazados</p>
+            <p class="text-lg font-black text-rose-700" id="cntRechazados">0</p>
+          </div>
+          <div class="bg-orange-50 p-2.5 rounded-xl border border-orange-200 shadow-sm">
+            <p class="text-[10px] font-bold text-orange-600 uppercase">🟧 Parciales</p>
+            <p class="text-lg font-black text-orange-700" id="cntParciales">0</p>
+          </div>
+          <div class="bg-purple-50 p-2.5 rounded-xl border border-purple-200 shadow-sm col-span-2 sm:col-span-1">
+            <p class="text-[10px] font-bold text-purple-600 uppercase">🟣 Otros</p>
+            <p class="text-lg font-black text-purple-700" id="cntOtros">0</p>
+          </div>
+        </div>
+
+        <!-- BARRA MASIVA DE SELECCIÓN DE PUNTOS -->
+        <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
+          <div class="flex items-center gap-2">
+            <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
+            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
+            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold">❌ RECHAZADO</button>
+            <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold">🟧 PARCIAL</button>
+            <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold">🟣 OTRO</button>
+            <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Limpiar</button>
+          </div>
+        </div>
+
+        <!-- MAPA CON LEYENDA -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Google Maps HD)
+            </h4>
+            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
+              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
+              <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
+            </div>
+          </div>
+
+          <!-- LEYENDA DE COLORES POR VENDEDOR -->
+          <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold border-t border-slate-100 pt-2"></div>
+
+          <div class="relative">
+            <div id="driverLeafletMapContainer" class="map-container"></div>
+          </div>
+        </div>
+
+        <!-- BÚSQUEDA Y FILTROS -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Buscar Cliente / Sec / Dirección:</label>
+              <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Filtrar por Vendedor:</label>
+              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-white">
+                <option value="">-- Todos los Vendedores --</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+          <div id="driverClientsList" class="space-y-3"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISTA ADMINISTRADOR -->
+    <section id="viewAdmin" class="hidden space-y-4">
+      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">Archivo Activo</span>
+            <h4 id="activeFileName" class="font-bold text-emerald-950 text-base">---</h4>
+          </div>
+          <p id="activeFileMeta" class="text-xs text-emerald-700 font-medium">---</p>
+        </div>
+        <button onclick="clearCurrentDayData()" class="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl transition">
+          <i class="fa-solid fa-trash-can"></i> Borrar datos del día
+        </button>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar CSV de Rutas
+        </h2>
+        <div class="flex flex-col sm:flex-row gap-3 items-center">
+          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
+          <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 text-xs transition">
+            Cargar Archivo
+          </button>
+        </div>
+        <div id="csvStatus" class="text-xs font-bold"></div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-2 border-l-4 border-amber-500">
+        <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
+          <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
+        </h3>
+        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
+          <span class="text-slate-400 font-normal">No hay rutas cargadas aún.</span>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+        <h3 class="font-bold text-slate-900 text-base">Vista General (Admin)</h3>
+        <div class="relative">
+          <div id="adminLeafletMapContainer" class="map-container"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const ADMIN_PASSWORD = "bra151106";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
+      authDomain: "courier-4ecda.firebaseapp.com",
+      projectId: "courier-4ecda",
+      storageBucket: "courier-4ecda.firebasestorage.app",
+      messagingSenderId: "226032355815",
+      appId: "1:226032355815:web:0e7e78e217ca77363a1542"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let driverLMap = null;
+    let adminLMap = null;
+    let driverLayerGroup = null;
+    let adminLayerGroup = null;
+    let currentClientsData = [];
+    let filteredClientsData = [];
+    let currentRouteCode = null;
+    let currentDocId = null;
+    let selectedPointIndexes = new Set();
+    let isInitialFitBoundsDone = false;
+
+    const VENDOR_COLORS = [
+      '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
+      '#EF4444', '#14B8A6', '#6366F1', '#84CC16', '#A855F7', '#06B6D4', '#F97316'
+    ];
+
+    function getVendorColor(v) {
+      if (!v || v.toString().trim() === '') return '#6B7280';
+      let hash = 0;
+      const str = v.toString().trim().toUpperCase();
+      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      return VENDOR_COLORS[Math.abs(hash) % VENDOR_COLORS.length];
+    }
+
+    function switchTab(tab) {
+      document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
+      document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
 
       if (tab === 'admin') {
         setTimeout(() => {
