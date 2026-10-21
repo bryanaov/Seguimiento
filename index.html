@@ -1,275 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COURIER TP - Mapa Google HD Claro</title>
-
-  <!-- Configuración PWA -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f172a">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="COURIER TP">
-
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- LEAFLET MAPS CSS & JS (100% FLUIDO Y SIN SOMBRAS OSCURAS) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Firebase JS SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
-  <style>
-    .map-container { height: 480px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #f8fafc; }
-
-    .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
-    .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
-    .status-ENTREGADO { background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
-    .status-CERRADO, .status-RECHAZADO { background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5; }
-    .status-PARCIAL { background-color: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74; }
-    .status-OTRO_MOTIVO { background-color: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; }
-    .status-REPASO { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; }
-
-    /* ETIQUETA DE SECUENCIA DISCRETA AL LADO DEL PUNTO */
-    .sec-number-tag {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      font-size: 10px !important;
-      font-weight: 900 !important;
-      color: #0f172a !important;
-      text-shadow: 1.5px 1.5px 0px #ffffff, -1.5px -1.5px 0px #ffffff, 1.5px -1.5px 0px #ffffff, -1.5px 1.5px 0px #ffffff !important;
-      white-space: nowrap !important;
-    }
-
-    .leaflet-popup-content-wrapper {
-      border-radius: 12px !important;
-      padding: 4px !important;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.18) !important;
-    }
-  </style>
-</head>
-<body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
-
-  <!-- BANNER NOTIFICACIÓN MODO OFFLINE -->
-  <div id="offlineSyncBanner" class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2 text-center sticky top-0 z-[100000] shadow-md flex items-center justify-center gap-2">
-    <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Guardando localmente.</span>
-  </div>
-
-  <!-- ENCABEZADO -->
-  <header class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50 border-b border-slate-800">
-    <div class="max-w-7xl mx-auto flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-md">
-          <i class="fa-solid fa-bolt text-lg"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD Claro</span>
-          </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Mapa de Google HD sin sombreado oscuro y con Filtros por Vendedor</p>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="switchTab('driver')" id="btnTabDriver" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition shadow-sm flex items-center gap-1.5">
-          <i class="fa-solid fa-mobile-screen-button"></i> Modo Chofer
-        </button>
-        <button onclick="requestAdminAccess()" id="btnTabAdmin" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition border border-slate-700 flex items-center gap-1.5">
-          <i class="fa-solid fa-user-shield text-indigo-400"></i> Vista Admin
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="max-w-7xl mx-auto p-3 sm:p-5 space-y-5">
-
-    <!-- VISTA CHOFER -->
-    <section id="viewDriver" class="block space-y-4">
-      <div id="driverLoginCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 max-w-lg mx-auto">
-        <div class="text-center space-y-1">
-          <div class="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-1">
-            <i class="fa-solid fa-truck-arrow-right text-2xl"></i>
-          </div>
-          <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
-          <p class="text-xs text-slate-500 font-medium">Ingresa el código asignado a tu unidad de transporte</p>
-        </div>
-
-        <div class="space-y-3 pt-2">
-          <div>
-            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
-            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14 o T14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
-          </div>
-          <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
-          </button>
-        </div>
-      </div>
-
-      <!-- PANEL DE RUTA CARGADA -->
-      <div id="driverRouteContainer" class="hidden space-y-4">
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
-          <div class="space-y-0.5">
-            <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
-            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps HD En Línea
-            </p>
-          </div>
-          <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
-            <i class="fa-solid fa-right-from-bracket"></i> Salir
-          </button>
-        </div>
-
-        <!-- BARRA MASIVA DE SELECCIÓN -->
-        <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
-          <div class="flex items-center gap-2">
-            <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado:</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5">
-            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">✅ ENTREGADO</button>
-            <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold">❌ RECHAZADO</button>
-            <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold">🟧 PARCIAL</button>
-            <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold">🟣 OTRO</button>
-            <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Limpiar</button>
-          </div>
-        </div>
-
-        <!-- MAPA CON LEYENDA -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="flex justify-between items-center">
-            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Google Maps HD)
-            </h4>
-            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
-              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
-              <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
-            </div>
-          </div>
-
-          <!-- LEYENDA DE COLORES POR VENDEDOR -->
-          <div id="driverVendorLegend" class="flex flex-wrap gap-1.5 text-[10px] font-bold border-t border-slate-100 pt-2"></div>
-
-          <div class="relative">
-            <div id="driverLeafletMapContainer" class="map-container"></div>
-          </div>
-        </div>
-
-        <!-- BÚSQUEDA Y FILTROS -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Buscar Cliente / Sec / Dirección:</label>
-              <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Filtrar por Vendedor:</label>
-              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-white">
-                <option value="">-- Todos los Vendedores --</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
-          <div id="driverClientsList" class="space-y-3"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VISTA ADMINISTRADOR -->
-    <section id="viewAdmin" class="hidden space-y-4">
-      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">Archivo Activo</span>
-            <h4 id="activeFileName" class="font-bold text-emerald-950 text-base">---</h4>
-          </div>
-          <p id="activeFileMeta" class="text-xs text-emerald-700 font-medium">---</p>
-        </div>
-        <button onclick="clearCurrentDayData()" class="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl transition">
-          <i class="fa-solid fa-trash-can"></i> Borrar datos del día
-        </button>
-      </div>
-
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-          <i class="fa-solid fa-file-csv text-emerald-600"></i> Cargar CSV de Rutas
-        </h2>
-        <div class="flex flex-col sm:flex-row gap-3 items-center">
-          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
-          <button onclick="processAndUploadCSV()" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 text-xs transition">
-            Cargar Archivo
-          </button>
-        </div>
-        <div id="csvStatus" class="text-xs font-bold"></div>
-      </div>
-
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-2 border-l-4 border-amber-500">
-        <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
-          <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
-        </h3>
-        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
-          <span class="text-slate-400 font-normal">No hay rutas cargadas aún.</span>
-        </div>
-      </div>
-
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <h3 class="font-bold text-slate-900 text-base">Vista General (Admin)</h3>
-        <div class="relative">
-          <div id="adminLeafletMapContainer" class="map-container"></div>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <script>
-    const ADMIN_PASSWORD = "bra151106";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyACnclacLssdaufRdZxoiBkmfCFfGdoZiE",
-      authDomain: "courier-4ecda.firebaseapp.com",
-      projectId: "courier-4ecda",
-      storageBucket: "courier-4ecda.firebasestorage.app",
-      messagingSenderId: "226032355815",
-      appId: "1:226032355815:web:0e7e78e217ca77363a1542"
-    };
-
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    let driverLMap = null;
-    let adminLMap = null;
-    let driverLayerGroup = null;
-    let currentClientsData = [];
-    let filteredClientsData = [];
-    let currentRouteCode = null;
-    let currentDocId = null;
-    let selectedPointIndexes = new Set();
-    let isUserZooming = false;
-
-    const VENDOR_COLORS = [
-      '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
-      '#EF4444', '#14B8A6', '#6366F1', '#84CC16', '#A855F7', '#06B6D4', '#F97316'
-    ];
-
-    function getVendorColor(v) {
-      if (!v || v.toString().trim() === '') return '#6B7280';
-      let hash = 0;
-      const str = v.toString().trim().toUpperCase();
-      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-      return VENDOR_COLORS[Math.abs(hash) % VENDOR_COLORS.length];
-    }
-
-    function switchTab(tab) {
-      document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
-      document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
 
       if (tab === 'admin') {
         setTimeout(() => {
@@ -347,6 +75,14 @@
       return clients;
     }
 
+    async function purgeAllRoutes() {
+      const snapshot = await db.collection('routes').get();
+      const batch = db.batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      await db.collection('meta').doc('active_file').delete();
+    }
+
     async function processAndUploadCSV() {
       const fileInput = document.getElementById('inputCsvFile');
       const statusDiv = document.getElementById('csvStatus');
@@ -358,13 +94,15 @@
       }
 
       statusDiv.className = "text-xs font-bold text-indigo-600";
-      statusDiv.innerText = "⏳ Procesando archivo y subiendo a Firebase...";
+      statusDiv.innerText = "⏳ Limpiando datos antiguos y subiendo nuevo archivo...";
 
       const file = fileInput.files[0];
       const reader = new FileReader();
 
       reader.onload = async (e) => {
         try {
+          await purgeAllRoutes();
+
           const parsedClients = parseCSV(e.target.result);
           if (parsedClients.length === 0) {
             statusDiv.className = "text-xs font-bold text-rose-600";
@@ -388,7 +126,7 @@
               code: code,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               clients: group
-            }, { merge: true });
+            });
           }
 
           const nowStr = new Date().toLocaleString();
@@ -414,23 +152,21 @@
 
     async function clearCurrentDayData() {
       if (!confirm("¿Borrar todas las rutas cargadas?")) return;
-      const snapshot = await db.collection('routes').get();
-      const batch = db.batch();
-      snapshot.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-      await db.collection('meta').doc('active_file').delete();
-      alert("✅ Datos eliminados.");
+      await purgeAllRoutes();
+      if (adminLayerGroup) adminLayerGroup.clearLayers();
+      alert("✅ Todos los datos y puntos han sido eliminados del sistema.");
       loadAdminData();
     }
 
     function initAdminLMap() {
       if (!adminLMap) {
         adminLMap = L.map('adminLeafletMapContainer').setView([-16.3988, -71.5350], 12);
-        // SERVIDOR GOOGLE MAPS DIRECTO (SINFONDO NI SOMBRAS)
         L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           maxZoom: 20,
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         }).addTo(adminLMap);
+
+        adminLayerGroup = L.layerGroup().addTo(adminLMap);
       }
     }
 
@@ -452,6 +188,10 @@
         keysDiv.innerHTML = '';
         let allClients = [];
 
+        if (snapshot.empty) {
+          keysDiv.innerHTML = '<span class="text-slate-400 font-normal">No hay rutas cargadas actualmente.</span>';
+        }
+
         snapshot.forEach(doc => {
           const routeId = doc.id;
           keysDiv.innerHTML += `<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-xl">Ruta #${routeId}</span>`;
@@ -463,7 +203,10 @@
     }
 
     function renderAdminLMap(clients) {
-      if (!adminLMap) return;
+      if (!adminLMap || !adminLayerGroup) return;
+
+      adminLayerGroup.clearLayers();
+
       clients.forEach(c => {
         if (!c.lat || !c.lon) return;
         L.circleMarker([parseFloat(c.lat), parseFloat(c.lon)], {
@@ -472,7 +215,7 @@
           color: '#ffffff',
           weight: 1,
           fillOpacity: 1
-        }).addTo(adminLMap);
+        }).addTo(adminLayerGroup);
       });
     }
 
@@ -494,7 +237,7 @@
 
       currentDocId = docRef.id;
       currentRouteCode = docSnap.data().code || inputCode;
-      isUserZooming = false;
+      isInitialFitBoundsDone = false;
 
       document.getElementById('driverLoginCard').classList.add('hidden');
       document.getElementById('driverRouteContainer').classList.remove('hidden');
@@ -506,9 +249,28 @@
         if (doc.exists) {
           currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
           populateVendorFilter(currentClientsData);
+          updateStatusCounters();
           applyDriverFilters();
         }
       });
+    }
+
+    function updateStatusCounters() {
+      let pend = 0, ent = 0, rech = 0, parc = 0, otro = 0;
+      currentClientsData.forEach(c => {
+        const st = (c.estado || 'PENDIENTE').toUpperCase();
+        if (st === 'ENTREGADO') ent++;
+        else if (st === 'RECHAZADO' || st === 'CERRADO') rech++;
+        else if (st === 'PARCIAL') parc++;
+        else if (st === 'OTRO' || st === 'OTRO MOTIVO' || st === 'OTRO_MOTIVO') otro++;
+        else pend++;
+      });
+
+      document.getElementById('cntPendientes').innerText = pend;
+      document.getElementById('cntEntregados').innerText = ent;
+      document.getElementById('cntRechazados').innerText = rech;
+      document.getElementById('cntParciales').innerText = parc;
+      document.getElementById('cntOtros').innerText = otro;
     }
 
     function populateVendorFilter(clients) {
@@ -545,17 +307,12 @@
       if (!driverLMap) {
         driverLMap = L.map('driverLeafletMapContainer').setView([-16.3988, -71.5350], 14);
 
-        // CAPAS GOOGLE MAPS HD TOTALMENTE CLARAS Y SIN API KEY NI SOMBRAS
         L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           maxZoom: 20,
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         }).addTo(driverLMap);
 
         driverLayerGroup = L.layerGroup().addTo(driverLMap);
-
-        driverLMap.on('zoomstart dragstart', () => {
-          isUserZooming = true;
-        });
 
         driverLMap.on('zoomend', () => {
           renderDriverLMapPoints();
@@ -601,7 +358,6 @@
         const isSelected = selectedPointIndexes.has(c._idx);
         const color = getVendorColor(c.vendedor);
 
-        // PUNTOS DIMINUTOS Y LIMPIOS
         const circle = L.circleMarker(latLng, {
           radius: isSelected ? 6 : 3.5,
           fillColor: isSelected ? '#4F46E5' : color,
@@ -610,26 +366,28 @@
           fillOpacity: 1
         });
 
-        // POPUP CON FICHA DETALLADA (SIN X NI Y)
+        // POPUP CON ESTRUCTURA SOLICITADA Y BOTONES DIRECTOS
         circle.bindPopup(`
-          <div style="font-size:11px; line-height:1.5; color:#1e293b; min-width:210px; padding:2px;">
-            <div style="font-size:13px; font-weight:800; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px; color:#0f172a;">
-              ${c.name}
+          <div style="font-size:11px; line-height:1.6; color:#1e293b; min-width:230px;">
+            <div style="font-size:14px; font-weight:800; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:4px; margin-bottom:8px;">
+              ${c.sec} · ${c.name}
             </div>
-            <div><b>SEC:</b> ${c.sec}</div>
-            <div><b>VENDEDOR:</b> <span style="color:${color}; font-weight:bold;">${c.vendedor || 'S/V'}</span></div>
-            <div><b>TELEFONO:</b> ${c.telefono || 'Sin registro'}</div>
-            <div><b>TPT:</b> ${c.tpt || currentRouteCode}</div>
-            <div><b>RAZON SOCIAL:</b> ${c.name}</div>
-            <div><b>DOMICILIO:</b> ${c.domicilio}</div>
-            <div><b>Subtotal Final:</b> S/ ${c.subtotal || '0.00'}</div>
+            <div style="display:grid; grid-template-columns: 90px 1fr; gap:4px; font-size:11px;">
+              <span style="font-weight:700; color:#64748b;">SEC</span> <span>${c.sec}</span>
+              <span style="font-weight:700; color:#64748b;">VENDEDOR</span> <span style="font-weight:800; color:${color};">${c.vendedor || 'Ningún valor'}</span>
+              <span style="font-weight:700; color:#64748b;">TELEFONO</span> <span>${c.telefono || 'Ningún valor'}</span>
+              <span style="font-weight:700; color:#64748b;">RAZON SOCIAL</span> <span>${c.name}</span>
+              <span style="font-weight:700; color:#64748b;">DOMICILIO</span> <span>${c.domicilio}</span>
+              <span style="font-weight:700; color:#64748b;">TPT</span> <span>${c.tpt || currentRouteCode}</span>
+              <span style="font-weight:700; color:#64748b;">Subtotal Final</span> <span style="font-weight:800; color:#0f172a;">S/ ${c.subtotal || '0.00'}</span>
+            </div>
 
-            <div style="margin-top:10px; font-weight:bold; font-size:10px; color:#64748b; text-transform:uppercase;">Cambiar Estado:</div>
+            <div style="margin-top:10px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Acción Rápida:</div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
-              <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">✅ Entregado</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Rechazado</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟧 Parcial</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:5px; border-radius:6px; font-weight:bold; cursor:pointer;">🟣 Otro</button>
+              <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">✅ ENTREGADO</button>
+              <button onclick="updateClientStatusDirect(${c._idx}, 'RECHAZADO')" style="background:#ef4444; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">❌ RECHAZADO</button>
+              <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">🟧 PARCIAL</button>
+              <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">🟣 OTRO</button>
             </div>
           </div>
         `);
@@ -645,7 +403,6 @@
 
         driverLayerGroup.addLayer(circle);
 
-        // NÚMERO PEQUEÑO AL LADO DEL PUNTO (SOLO SI ZOOM >= 15.5)
         if (showLabels) {
           const textIcon = L.divIcon({
             className: 'sec-number-tag',
@@ -659,9 +416,10 @@
         bounds.push(latLng);
       });
 
-      // NO REAJUSTA EL ZOOM SI EL USUARIO YA NAVEGÓ
-      if (bounds.length > 0 && !isUserZooming) {
+      // EL MAPA SOLO AJUSTA SU VISTA 1 SOLA VEZ AL CARGAR LA RUTA
+      if (bounds.length > 0 && !isInitialFitBoundsDone) {
         driverLMap.fitBounds(bounds, { padding: [20, 20] });
+        isInitialFitBoundsDone = true;
       }
     }
 
@@ -675,13 +433,12 @@
       } else {
         bar.classList.add('hidden');
       }
-
-      renderDriverLMapPoints();
     }
 
     function clearSelectedPoints() {
       selectedPointIndexes.clear();
       updateSelectedPointsUI();
+      renderDriverLMapPoints();
     }
 
     async function applyBulkStatusFromMap(newStatus) {
