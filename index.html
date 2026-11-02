@@ -71,6 +71,49 @@
       padding: 8px 12px !important;
       box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
     }
+
+    /* ESTILOS PUNTO AZUL Y VEHÍCULO GPS */
+    .user-location-marker {
+      position: relative;
+    }
+    .user-location-dot {
+      width: 16px;
+      height: 16px;
+      background-color: #2563eb;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.4);
+    }
+    .user-location-pulse {
+      position: absolute;
+      top: -7px;
+      left: -7px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: rgba(37, 99, 235, 0.4);
+      animation: pulse-ring 1.8s infinite ease-out;
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.3); opacity: 0.9; }
+      80% { transform: scale(1.5); opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    .truck-gps-marker {
+      background: #0f172a;
+      color: #38bdf8;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-size: 14px;
+    }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
@@ -91,7 +134,7 @@
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
             COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Modo Pantalla Completa y Navegación Dinámica</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Navegación Dinámica y Rastreo GPS</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -134,13 +177,21 @@
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
-            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps HD En Línea
-            </p>
+            <div class="flex items-center gap-3">
+              <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps HD En Línea
+              </p>
+              <p id="gpsStatusText" class="text-xs text-indigo-600 font-bold flex items-center gap-1">
+                <i class="fa-solid fa-location-crosshairs"></i> Buscando GPS...
+              </p>
+            </div>
           </div>
           <div class="flex items-center gap-2">
+            <button onclick="centerOnDriverLocation()" class="px-3.5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
+              <i class="fa-solid fa-location-arrow"></i> Mi Ubicación
+            </button>
             <button onclick="toggleDriverMapFullscreen()" class="px-3.5 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
-              <i class="fa-solid fa-expand"></i> Ampliar Mapa Completo
+              <i class="fa-solid fa-expand"></i> Ampliar Mapa
             </button>
             <button onclick="centerDriverMapOnPoints()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs rounded-xl border border-indigo-200 transition flex items-center gap-1">
               <i class="fa-solid fa-crosshairs"></i> Centrar Ruta
@@ -195,7 +246,7 @@
           </div>
         </div>
 
-        <!-- MAPA CON LEYENDA Y MODO AMPLIFICO -->
+        <!-- MAPA CON LEYENDA Y MODO AMPLIFICADO -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center flex-wrap gap-2">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -304,7 +355,7 @@
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <div class="flex justify-between items-center flex-wrap gap-2">
           <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
-            <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa General (Administrador)
+            <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa General y Monitoreo GPS (Administrador)
           </h3>
           <div class="flex items-center gap-2">
             <select id="adminRouteSelect" onchange="selectAdminRoute(this.value)" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-slate-50 outline-none">
@@ -352,6 +403,7 @@
     let adminLMap = null;
     let driverLayerGroup = null;
     let adminLayerGroup = null;
+    let adminGpsLayerGroup = null;
     let currentClientsData = [];
     let filteredClientsData = [];
     let currentRouteCode = null;
@@ -361,6 +413,12 @@
 
     let adminAllRoutesMap = {};
     let selectedAdminRouteKey = 'ALL';
+
+    // RASTREO GPS
+    let watchPositionId = null;
+    let driverLocationMarker = null;
+    let currentDriverCoords = null;
+    let adminTrackingUnsubscribe = null;
 
     const VENDOR_COLORS = [
       '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
@@ -383,11 +441,13 @@
         setTimeout(() => {
           initAdminLMap();
           loadAdminData();
+          listenToAllDriverLocations();
         }, 150);
-      } else if (tab === 'driver' && driverLMap) {
-        setTimeout(() => {
-          driverLMap.invalidateSize();
-        }, 150);
+      } else if (tab === 'driver') {
+        if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
+        if (driverLMap) {
+          setTimeout(() => { driverLMap.invalidateSize(); }, 150);
+        }
       }
     }
 
@@ -419,7 +479,6 @@
       }, 150);
     }
 
-    // Salir con la tecla Escape
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const dWrap = document.getElementById('driverMapWrapper');
@@ -497,6 +556,10 @@
       const snapshot = await db.collection('routes').get();
       const batch = db.batch();
       snapshot.forEach(doc => batch.delete(doc.ref));
+      
+      const trackSnap = await db.collection('tracking').get();
+      trackSnap.forEach(doc => batch.delete(doc.ref));
+
       await batch.commit();
       await db.collection('meta').doc('active_file').delete();
     }
@@ -573,6 +636,7 @@
       await purgeAllRoutes();
       adminAllRoutesMap = {};
       if (adminLayerGroup) adminLayerGroup.clearLayers();
+      if (adminGpsLayerGroup) adminGpsLayerGroup.clearLayers();
       alert("✅ Todos los datos y puntos han sido eliminados del sistema.");
       loadAdminData();
     }
@@ -592,6 +656,7 @@
         }).addTo(adminLMap);
 
         adminLayerGroup = L.layerGroup().addTo(adminLMap);
+        adminGpsLayerGroup = L.layerGroup().addTo(adminLMap);
       }
       setTimeout(() => { if (adminLMap) adminLMap.invalidateSize(); }, 200);
     }
@@ -723,7 +788,44 @@
       }
     }
 
-    // --- MODO CHOFER ---
+    // LISTENER DE POSICIONES GPS EN TIEMPO REAL PARA ADMIN
+    function listenToAllDriverLocations() {
+      if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
+
+      adminTrackingUnsubscribe = db.collection('tracking').onSnapshot(snapshot => {
+        if (!adminGpsLayerGroup) return;
+        adminGpsLayerGroup.clearLayers();
+
+        snapshot.forEach(doc => {
+          const trackData = doc.data();
+          if (selectedAdminRouteKey !== 'ALL' && doc.id !== selectedAdminRouteKey) return;
+          if (!trackData.lat || !trackData.lng) return;
+
+          const latLng = [trackData.lat, trackData.lng];
+          const lastTime = trackData.lastUpdate ? new Date(trackData.lastUpdate.seconds * 1000).toLocaleTimeString() : 'Ahora';
+
+          const truckIcon = L.divIcon({
+            className: 'custom-truck-icon',
+            html: `<div class="truck-gps-marker"><i class="fa-solid fa-truck"></i></div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+          });
+
+          const marker = L.marker(latLng, { icon: truckIcon });
+          marker.bindPopup(`
+            <div style="font-size:12px; font-weight:bold; color:#0f172a;">
+              🚚 Unid. Transporte / Ruta: <span style="color:#2563eb;">#${doc.id}</span><br>
+              🕒 Última Señal: ${lastTime}<br>
+              📍 Coordenadas: ${trackData.lat.toFixed(5)}, ${trackData.lng.toFixed(5)}
+            </div>
+          `);
+
+          adminGpsLayerGroup.addLayer(marker);
+        });
+      });
+    }
+
+    // --- MODO CHOFER Y GEOLOCALIZACIÓN ---
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
       if (!inputCode) return alert("Ingresa tu código de ruta.");
@@ -750,6 +852,7 @@
       document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
       initDriverLMap();
+      startDriverGPSWatch();
 
       db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (doc.exists) {
@@ -759,6 +862,80 @@
           applyDriverFilters();
         }
       });
+    }
+
+    // RASTREAR POSICIÓN GPS DEL CHOFER
+    function startDriverGPSWatch() {
+      if (!navigator.geolocation) {
+        document.getElementById('gpsStatusText').innerText = "❌ GPS no soportado";
+        return;
+      }
+
+      document.getElementById('gpsStatusText').innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Obteniendo GPS...`;
+
+      if (watchPositionId) navigator.geolocation.clearWatch(watchPositionId);
+
+      watchPositionId = navigator.geolocation.watchPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          currentDriverCoords = [lat, lng];
+
+          document.getElementById('gpsStatusText').className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
+          document.getElementById('gpsStatusText').innerHTML = `<i class="fa-solid fa-location-dot"></i> GPS Activo`;
+
+          updateDriverLocationMarker(lat, lng);
+
+          // Enviar señal a Firebase tracking
+          if (currentRouteCode) {
+            db.collection('tracking').doc(currentRouteCode).set({
+              routeCode: currentRouteCode,
+              lat: lat,
+              lng: lng,
+              speed: position.coords.speed || 0,
+              heading: position.coords.heading || 0,
+              lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          }
+        },
+        (error) => {
+          console.error(error);
+          document.getElementById('gpsStatusText').className = "text-xs text-rose-500 font-bold flex items-center gap-1";
+          document.getElementById('gpsStatusText').innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GPS Desactivado/Error`;
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 15000
+        }
+      );
+    }
+
+    function updateDriverLocationMarker(lat, lng) {
+      if (!driverLMap) return;
+
+      const blueDotIcon = L.divIcon({
+        className: 'user-location-marker',
+        html: `<div class="user-location-pulse"></div><div class="user-location-dot"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      if (driverLocationMarker) {
+        driverLocationMarker.setLatLng([lat, lng]);
+      } else {
+        driverLocationMarker = L.marker([lat, lng], { icon: blueDotIcon, zIndexOffset: 1000 }).addTo(driverLMap);
+        driverLocationMarker.bindPopup('<b style="font-size:11px;">📍 Tu Ubicación Actual</b>');
+      }
+    }
+
+    function centerOnDriverLocation() {
+      if (currentDriverCoords && driverLMap) {
+        driverLMap.setView(currentDriverCoords, 17, { animate: true });
+        if (driverLocationMarker) driverLocationMarker.openPopup();
+      } else {
+        alert("Aún no se ha detectado tu posición GPS.");
+      }
     }
 
     function updateStatusCounters() {
@@ -1114,6 +1291,14 @@
     }
 
     function logoutDriverSession() {
+      if (watchPositionId) {
+        navigator.geolocation.clearWatch(watchPositionId);
+        watchPositionId = null;
+      }
+      if (driverLocationMarker && driverLMap) {
+        driverLMap.removeLayer(driverLocationMarker);
+        driverLocationMarker = null;
+      }
       clearSelectedPoints();
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
