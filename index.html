@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- LEAFLET ROUTING MACHINE (ENRUTAMIENTO OSRM POR CALLES) -->
+  <!-- LEAFLET ROUTING MACHINE -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
@@ -32,7 +32,6 @@
   <style>
     .map-wrapper { height: 520px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #f8fafc; z-index: 1; }
 
-    /* Modo Pantalla Completa para el Mapa */
     .map-wrapper.is-fullscreen {
       position: fixed !important;
       top: 0 !important;
@@ -52,7 +51,7 @@
       border-radius: 0 !important;
     }
 
-    .status-badge { padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+    .status-badge { padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 10px; display: inline-flex; align-items: center; gap: 4px; }
     .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
     .status-ENTREGADO { background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
     .status-CERRADO, .status-RECHAZADO { background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5; }
@@ -70,37 +69,26 @@
       white-space: nowrap !important;
     }
 
-    .route-stop-badge {
-      background: #10b981 !important;
-      border: 2px solid #ffffff !important;
-      border-radius: 8px !important;
-      color: #ffffff !important;
-      font-size: 10px !important;
-      font-weight: 900 !important;
-      padding: 1px 5px !important;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
-      white-space: nowrap !important;
-    }
-
+    /* POPUP COMPACTO Y PEQUEÑO */
     .leaflet-popup-content-wrapper {
-      border-radius: 12px !important;
-      padding: 8px 12px !important;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
+      border-radius: 10px !important;
+      padding: 4px 8px !important;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
+      max-width: 240px !important;
     }
+    .leaflet-popup-content { margin: 8px !important; line-height: 1.4 !important; }
 
-    /* Ocultar panel de texto con instrucciones de OSRM */
     .leaflet-routing-container { display: none !important; }
 
-    /* ESTILOS PUNTO AZUL Y VEHÍCULO GPS */
     .user-location-marker { position: relative; }
     .user-location-dot {
-      width: 16px; height: 16px; background-color: #2563eb;
-      border: 3px solid #ffffff; border-radius: 50%;
-      box-shadow: 0 0 10px rgba(0,0,0,0.4);
+      width: 14px; height: 14px; background-color: #2563eb;
+      border: 2px solid #ffffff; border-radius: 50%;
+      box-shadow: 0 0 8px rgba(0,0,0,0.4);
     }
     .user-location-pulse {
-      position: absolute; top: -7px; left: -7px;
-      width: 30px; height: 30px; border-radius: 50%;
+      position: absolute; top: -6px; left: -6px;
+      width: 26px; height: 26px; border-radius: 50%;
       background-color: rgba(37, 99, 235, 0.4);
       animation: pulse-ring 1.8s infinite ease-out;
     }
@@ -114,15 +102,15 @@
     .truck-gps-marker {
       background: #0f172a; color: #38bdf8;
       border: 2px solid #ffffff; border-radius: 50%;
-      width: 32px; height: 32px; display: flex;
+      width: 30px; height: 30px; display: flex;
       align-items: center; justify-content: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 13px;
     }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
 
-  <!-- BANNER NOTIFICACIÓN MODO OFFLINE -->
+  <!-- BANNER MODO OFFLINE -->
   <div id="offlineSyncBanner" class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2 text-center sticky top-0 z-[100000] shadow-md flex items-center justify-center gap-2">
     <span id="offlineText"><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Guardando localmente.</span>
   </div>
@@ -198,10 +186,10 @@
               <i class="fa-solid fa-expand"></i> Ampliar Mapa
             </button>
             <button onclick="centerDriverMapOnPoints()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs rounded-xl border border-indigo-200 transition flex items-center gap-1">
-              <i class="fa-solid fa-crosshairs"></i> Centrar Ruta
+              <i class="fa-solid fa-crosshairs"></i> Centrar Mapa
             </button>
-            <button onclick="clearSelectedPoints()" id="btnHeaderDeselect" class="hidden px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
-              <i class="fa-solid fa-trash-can text-rose-500"></i> Borrar Trayecto
+            <button onclick="clearSelectedRoutePoints()" id="btnHeaderDeselect" class="hidden px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
+              <i class="fa-solid fa-trash-can text-rose-500"></i> Borrar Trazado
             </button>
             <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center gap-1">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
@@ -209,9 +197,9 @@
           </div>
         </div>
 
-        <!-- TARJETAS DE CONTEO (ZOOM A PENDIENTES) -->
+        <!-- TARJETAS DE CONTEO -->
         <div id="statusCountersContainer" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
-          <div onclick="zoomToPendingPoints()" title="Haz clic para ver todos los pendientes" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-500 hover:ring-2 hover:ring-indigo-200 transition">
+          <div onclick="zoomToPendingPoints()" title="Haz clic para centrar en pendientes" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-500 hover:ring-2 hover:ring-indigo-200 transition">
             <p class="text-[10px] font-bold text-slate-400 uppercase flex items-center justify-center gap-1">
               ⏳ Pendientes <i class="fa-solid fa-magnifying-glass-plus text-[9px] text-indigo-500"></i>
             </p>
@@ -235,30 +223,33 @@
           </div>
         </div>
 
-        <!-- BARRA MASIVA / PANEL DE RECORRIDO PERSONALIZADO -->
-        <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
+        <!-- BARRA MASIVA SEPARADA PARA CAMBIO DE ESTADOS -->
+        <div id="bulkActionBar" class="hidden bg-slate-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
-            <span class="bg-emerald-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 Paradas Enlazadas</span>
-            <p class="text-xs text-indigo-200 font-medium">Trayecto calculado en vivo por calles reales</p>
+            <span class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl text-xs font-black" id="bulkCountLabel">0 Seleccionados</span>
+            <p class="text-xs text-slate-300 font-medium">Acción Masiva de Estados (Independiente del Trazado):</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600">✅ ENTREGADO</button>
             <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-500">❌ RECHAZADO</button>
             <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-500">🟧 PARCIAL</button>
             <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-500">🟣 OTRO</button>
-            <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-700 flex items-center gap-1">
-              <i class="fa-solid fa-xmark"></i> Borrar Todo
+            <button onclick="clearBulkSelection()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-700 flex items-center gap-1">
+              <i class="fa-solid fa-xmark"></i> Cancelar
             </button>
           </div>
         </div>
 
-        <!-- MAPA CON LEYENDA -->
+        <!-- MAPA CHOFER -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center flex-wrap gap-2">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas (Google Maps HD)
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas
             </h4>
             <div class="flex items-center gap-2">
+              <button onclick="toggleBulkSelectMode()" id="btnToggleBulkMode" class="px-3 py-1 bg-amber-50 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold hover:bg-amber-100 transition flex items-center gap-1">
+                <i class="fa-solid fa-object-group"></i> Modo Selección Masiva
+              </button>
               <button onclick="toggleDriverMapFullscreen()" class="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100 transition flex items-center gap-1">
                 <i class="fa-solid fa-maximize"></i> Maximizar
               </button>
@@ -269,7 +260,7 @@
             </div>
           </div>
 
-          <!-- LEYENDA -->
+          <!-- LEYENDA DE VENDEDORES -->
           <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] font-bold">
             <div id="driverVendorLegend" class="flex flex-wrap gap-1.5"></div>
             <div class="flex items-center gap-2 bg-slate-100 px-2 py-1 rounded-lg text-slate-600">
@@ -292,7 +283,7 @@
           </div>
         </div>
 
-        <!-- BÚSQUEDA Y FILTROS -->
+        <!-- FILTROS -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -342,11 +333,10 @@
         <div id="csvStatus" class="text-xs font-bold"></div>
       </div>
 
-      <!-- BOTONES DE TRANSPORTE Y FILTRADO -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 border-l-4 border-amber-500">
         <div class="flex flex-wrap justify-between items-center gap-2">
           <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
-            <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema (Haz clic para hacer zoom e inspeccionar)
+            <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
           </h3>
           <span id="activeFilterBadge" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
             Mostrando: Todas las rutas
@@ -357,7 +347,6 @@
         </div>
       </div>
 
-      <!-- MAPA ADMIN -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <div class="flex justify-between items-center flex-wrap gap-2">
           <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -376,7 +365,6 @@
           </div>
         </div>
 
-        <!-- CONTENEDOR DEL MAPA ADMIN -->
         <div id="adminMapWrapper" class="map-wrapper overflow-hidden">
           <div id="adminFullscreenHeader" class="hidden absolute top-3 right-3 z-[1000] flex gap-2">
             <button onclick="toggleAdminMapFullscreen()" class="px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg hover:bg-rose-700 transition flex items-center gap-1">
@@ -410,15 +398,19 @@
     let driverLayerGroup = null;
     let adminLayerGroup = null;
     let adminGpsLayerGroup = null;
-    let routePolyline = null; // Instancia OSRM Routing
+    let routePolyline = null;
 
     let currentClientsData = [];
     let filteredClientsData = [];
     let currentRouteCode = null;
     let currentDocId = null;
-    let selectedPointIndexes = []; // Array que almacena el orden exacto (P1, P2, P3...)
-    let isInitialFitBoundsDone = false;
 
+    // SEPARACIÓN DE VARIABLES: TRAZADO vs SELECCIÓN MASIVA
+    let selectedRouteIndexes = []; // Array exclusivo para el camino/trazado del chofer
+    let bulkSelectedIndexes = [];  // Array exclusivo para cambios masivos de estado
+    let isBulkModeActive = false;
+
+    let isInitialFitBoundsDone = false;
     let adminAllRoutesMap = {};
     let selectedAdminRouteKey = 'ALL';
 
@@ -464,7 +456,6 @@
       if (pass === ADMIN_PASSWORD) switchTab('admin');
     }
 
-    // TOGGLE PANTALLA COMPLETA
     function toggleDriverMapFullscreen() {
       const wrapper = document.getElementById('driverMapWrapper');
       const headerBtn = document.getElementById('driverFullscreenHeader');
@@ -645,7 +636,7 @@
       adminAllRoutesMap = {};
       if (adminLayerGroup) adminLayerGroup.clearLayers();
       if (adminGpsLayerGroup) adminGpsLayerGroup.clearLayers();
-      alert("✅ Todos los datos y puntos han sido eliminados del sistema.");
+      alert("✅ Todos los datos han sido eliminados.");
       loadAdminData();
     }
 
@@ -773,18 +764,11 @@
         });
 
         circle.bindPopup(`
-          <div style="font-size:11px; line-height:1.6; color:#1e293b; min-width:220px;">
-            <div style="font-size:13px; font-weight:800; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px;">
-              ${c.sec} · ${c.name}
-            </div>
-            <div style="display:grid; grid-template-columns: 90px 1fr; gap:2px;">
-              <span style="font-weight:700; color:#64748b;">RUTA</span> <span>#${c.tpt}</span>
-              <span style="font-weight:700; color:#64748b;">VENDEDOR</span> <span style="font-weight:800; color:${color};">${c.vendedor || 'S/V'}</span>
-              <span style="font-weight:700; color:#64748b;">DOMICILIO</span> <span>${c.domicilio}</span>
-              <span style="font-weight:700; color:#64748b;">MONTO</span> <span style="font-weight:800; color:#0f172a;">S/ ${c.subtotal || '0.00'}</span>
-              <span style="font-weight:700; color:#64748b;">ESTADO</span> <span class="status-badge status-${st}">${c.estado || 'PENDIENTE'}</span>
-              ${c.obs ? `<span style="font-weight:700; color:#64748b;">MOTIVO</span> <span style="color:#ef4444; font-weight:bold;">${c.obs}</span>` : ''}
-            </div>
+          <div style="font-size:11px; color:#1e293b;">
+            <b style="font-size:12px; color:#0f172a;">${c.sec} · ${c.name}</b><br>
+            <b>Ruta:</b> #${c.tpt} | <b>Vendedor:</b> ${c.vendedor || 'S/V'}<br>
+            <b>Domicilio:</b> ${c.domicilio}<br>
+            <b>Monto:</b> S/ ${c.subtotal || '0.00'} | <b>Estado:</b> ${st}
           </div>
         `);
 
@@ -797,7 +781,6 @@
       }
     }
 
-    // LISTENER DE POSICIONES GPS EN TIEMPO REAL CON INACTIVIDAD
     function listenToAllDriverLocations() {
       if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
 
@@ -814,60 +797,34 @@
           if (!trackData.lat || !trackData.lng) return;
 
           const latLng = [trackData.lat, trackData.lng];
-          
           let minutesDiff = 0;
-          let lastTimeStr = 'Desconocido';
           
           if (trackData.lastUpdate) {
-            const lastUpdateDate = trackData.lastUpdate.toDate();
-            minutesDiff = Math.floor((now - lastUpdateDate) / 60000);
-            lastTimeStr = lastUpdateDate.toLocaleTimeString();
+            minutesDiff = Math.floor((now - trackData.lastUpdate.toDate()) / 60000);
           }
 
           let isInactive = minutesDiff > 10;
-          let opacity = isInactive ? 0.45 : 1.0;
-          let scaleClass = isInactive ? 'scale-75 opacity-60' : 'scale-100';
-
           const truckIcon = L.divIcon({
             className: 'custom-truck-icon',
-            html: `
-              <div class="truck-gps-marker transition-all duration-300 ${scaleClass}" style="opacity: ${opacity};">
-                <i class="fa-solid fa-truck"></i>
-              </div>
-            `,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16]
+            html: `<div class="truck-gps-marker ${isInactive ? 'opacity-50' : ''}"><i class="fa-solid fa-truck"></i></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
           });
 
           const marker = L.marker(latLng, { icon: truckIcon });
-          
-          const statusText = isInactive 
-            ? `<span style="color:#ef4444; font-weight:bold;">⚠️ Inactivo (${minutesDiff} min sin señal)</span>`
-            : `<span style="color:#10b981; font-weight:bold;">🟢 En Línea</span>`;
-
-          marker.bindPopup(`
-            <div style="font-size:12px; line-height:1.5; color:#0f172a; min-width:180px;">
-              <div style="font-size:13px; font-weight:800; border-bottom:1px solid #cbd5e1; padding-bottom:4px; margin-bottom:4px;">
-                🚚 Ruta #${trackData.routeCode}
-              </div>
-              <b>Estado:</b> ${statusText}<br>
-              <b>Dispositivo:</b> ${trackData.deviceId || 'Principal'}<br>
-              <b>Última señal:</b> ${lastTimeStr}<br>
-              <span style="font-size:10px; color:#64748b;">Coords: ${trackData.lat.toFixed(4)}, ${trackData.lng.toFixed(4)}</span>
-            </div>
-          `);
-
+          marker.bindPopup(`<b>Ruta #${trackData.routeCode}</b><br>Última señal: ${minutesDiff} min`);
           adminGpsLayerGroup.addLayer(marker);
         });
       });
     }
 
-    // --- MODO CHOFER Y GEOLOCALIZACIÓN ---
+    // MODO CHOFER Y RASTREO
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
       if (!inputCode) return alert("Ingresa tu código de ruta.");
 
-      clearSelectedPoints();
+      clearSelectedRoutePoints();
+      clearBulkSelection();
 
       try {
         let docRef = db.collection('routes').doc(inputCode);
@@ -898,7 +855,7 @@
             populateVendorFilter(currentClientsData);
             updateStatusCounters();
             applyDriverFilters();
-            if (selectedPointIndexes.length > 0) drawRouteGuidePath();
+            if (selectedRouteIndexes.length > 0) drawRouteGuidePath();
           }
         });
       } catch (err) {
@@ -916,19 +873,9 @@
     }
 
     function startDriverGPSWatch() {
-      if (!navigator.geolocation) {
-        const gpsLabel = document.getElementById('gpsStatusText');
-        if (gpsLabel) gpsLabel.innerText = "❌ GPS no soportado";
-        return;
-      }
-
-      const gpsLabel = document.getElementById('gpsStatusText');
-      if (gpsLabel) {
-        gpsLabel.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Obteniendo GPS...`;
-      }
+      if (!navigator.geolocation) return;
 
       if (watchPositionId) navigator.geolocation.clearWatch(watchPositionId);
-
       const deviceId = getDeviceId();
 
       watchPositionId = navigator.geolocation.watchPosition(
@@ -937,38 +884,20 @@
           const lng = position.coords.longitude;
           currentDriverCoords = [lat, lng];
 
-          if (gpsLabel) {
-            gpsLabel.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
-            gpsLabel.innerHTML = `<i class="fa-solid fa-location-dot"></i> GPS Activo`;
-          }
-
           updateDriverLocationMarker(lat, lng);
 
           if (currentRouteCode) {
-            const trackDocId = `${currentRouteCode}_${deviceId}`;
-            db.collection('tracking').doc(trackDocId).set({
+            db.collection('tracking').doc(`${currentRouteCode}_${deviceId}`).set({
               routeCode: currentRouteCode,
               deviceId: deviceId,
               lat: lat,
               lng: lng,
-              speed: position.coords.speed || 0,
-              heading: position.coords.heading || 0,
               lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
           }
         },
-        (error) => {
-          console.error(error);
-          if (gpsLabel) {
-            gpsLabel.className = "text-xs text-rose-500 font-bold flex items-center gap-1";
-            gpsLabel.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GPS Desactivado/Error`;
-          }
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 5000,
-          timeout: 15000
-        }
+        null,
+        { enableHighAccuracy: true, timeout: 15000 }
       );
     }
 
@@ -978,28 +907,23 @@
       const blueDotIcon = L.divIcon({
         className: 'user-location-marker',
         html: `<div class="user-location-pulse"></div><div class="user-location-dot"></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
       });
 
       if (driverLocationMarker) {
         driverLocationMarker.setLatLng([lat, lng]);
       } else {
         driverLocationMarker = L.marker([lat, lng], { icon: blueDotIcon, zIndexOffset: 1000 }).addTo(driverLMap);
-        driverLocationMarker.bindPopup('<b style="font-size:11px;">📍 Tu Ubicación Actual</b>');
       }
     }
 
     function centerOnDriverLocation() {
       if (currentDriverCoords && driverLMap) {
         driverLMap.setView(currentDriverCoords, 17, { animate: true });
-        if (driverLocationMarker) driverLocationMarker.openPopup();
-      } else {
-        alert("Aún no se ha detectado tu posición GPS.");
       }
     }
 
-    // ZOOM EXCLUSIVO A PUNTOS PENDIENTES
     function zoomToPendingPoints() {
       if (!driverLMap || currentClientsData.length === 0) return;
       const pendingBounds = currentClientsData
@@ -1008,34 +932,29 @@
 
       if (pendingBounds.length > 0) {
         driverLMap.fitBounds(pendingBounds, { padding: [30, 30], maxZoom: 18 });
-      } else {
-        alert("¡Felicidades! No hay entregas pendientes.");
       }
     }
 
-    // ENRUTAMIENTO OSRM EN TIEMPO REAL SIN CAMBIAR EL ZOOM DEL MAPA
+    // ENRUTAMIENTO OSRM
     function drawRouteGuidePath() {
       if (!driverLMap) return;
       
-      // Limpiar enrutamiento anterior sin reiniciar el zoom
       if (routePolyline) {
         driverLMap.removeControl(routePolyline);
         routePolyline = null;
       }
 
-      if (selectedPointIndexes.length === 0) return;
+      if (selectedRouteIndexes.length === 0) return;
 
       const waypoints = [];
 
-      // 1. Iniciar en el camión si hay señal GPS
       if (currentDriverCoords) {
         waypoints.push(L.latLng(currentDriverCoords[0], currentDriverCoords[1]));
       }
 
-      // 2. Añadir paradas seleccionadas en orden
-      selectedPointIndexes.forEach(idx => {
+      selectedRouteIndexes.forEach(idx => {
         const c = currentClientsData[idx];
-        if (c && c.lat && c.lon) {
+        if (c && c.lat && c.lon && (c.estado || 'PENDIENTE') === 'PENDIENTE') {
           waypoints.push(L.latLng(parseFloat(c.lat), parseFloat(c.lon)));
         }
       });
@@ -1043,15 +962,11 @@
       if (waypoints.length > 1) {
         routePolyline = L.Routing.control({
           waypoints: waypoints,
-          router: L.Routing.osrmv1({
-            serviceUrl: 'https://router.project-osrm.org/route/v1'
-          }),
-          lineOptions: {
-            styles: [{ color: '#2563eb', opacity: 0.85, weight: 6 }]
-          },
+          router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+          lineOptions: { styles: [{ color: '#2563eb', opacity: 0.85, weight: 5 }] },
           addWaypoints: false,
           draggableWaypoints: false,
-          fitSelectedRoutes: false, // NO CAMBIA EL ENCUADRE/ZOOM AL DIBUJAR
+          fitSelectedRoutes: false,
           show: false
         }).addTo(driverLMap);
       }
@@ -1120,26 +1035,15 @@
         }).addTo(driverLMap);
 
         driverLayerGroup = L.layerGroup().addTo(driverLMap);
-
-        driverLMap.on('zoomend', () => {
-          renderDriverLMapPoints();
-        });
+        driverLMap.on('zoomend', () => renderDriverLMapPoints());
       }
-
-      setTimeout(() => {
-        if (driverLMap) driverLMap.invalidateSize();
-      }, 200);
+      setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 200);
     }
 
     function centerDriverMapOnPoints() {
       if (!driverLMap || filteredClientsData.length === 0) return;
-      const bounds = filteredClientsData
-        .filter(c => c.lat && c.lon)
-        .map(c => [parseFloat(c.lat), parseFloat(c.lon)]);
-
-      if (bounds.length > 0) {
-        driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
-      }
+      const bounds = filteredClientsData.filter(c => c.lat && c.lon).map(c => [parseFloat(c.lat), parseFloat(c.lon)]);
+      if (bounds.length > 0) driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
     }
 
     function applyDriverFilters() {
@@ -1164,23 +1068,91 @@
       renderClientsList();
     }
 
-    // AÑADIR O REMOVER UN PUNTO INDIVIDUAL DE LA RUTA EN TIEMPO REAL
-    function toggleSelectPointAndClose(idx) {
-      const posIndex = selectedPointIndexes.indexOf(idx);
-
-      if (posIndex !== -1) {
-        // Si el punto ya estaba seleccionado, se elimina de forma individual
-        selectedPointIndexes.splice(posIndex, 1);
+    // --- ACCIÓN DE AÑADIR/BORRAR UN PUNTO INDIVIDUAL DE LA RUTA ---
+    function toggleSelectRoutePoint(idx) {
+      const pos = selectedRouteIndexes.indexOf(idx);
+      if (pos !== -1) {
+        selectedRouteIndexes.splice(pos, 1); // Quitar ÚNICAMENTE ese punto
       } else {
-        // Si no estaba, se agrega al final del recorrido
-        selectedPointIndexes.push(idx);
+        selectedRouteIndexes.push(idx); // Agregar al trayecto
       }
 
       if (driverLMap) driverLMap.closePopup();
-      updateSelectedPointsUI();
+      document.getElementById('btnHeaderDeselect').classList.toggle('hidden', selectedRouteIndexes.length === 0);
       renderDriverLMapPoints();
+      drawRouteGuidePath();
+    }
 
-      // Recalcular el trazado inmediatamente sin reajustar el zoom de la pantalla
+    function clearSelectedRoutePoints() {
+      selectedRouteIndexes = [];
+      document.getElementById('btnHeaderDeselect').classList.add('hidden');
+      if (routePolyline && driverLMap) {
+        driverLMap.removeControl(routePolyline);
+        routePolyline = null;
+      }
+      renderDriverLMapPoints();
+    }
+
+    // --- MODO SELECCIÓN MASIVA INDEPENDIENTE ---
+    function toggleBulkSelectMode() {
+      isBulkModeActive = !isBulkModeActive;
+      const btn = document.getElementById('btnToggleBulkMode');
+
+      if (isBulkModeActive) {
+        btn.className = "px-3 py-1 bg-amber-600 text-white rounded-xl text-xs font-bold shadow-md";
+        btn.innerText = "✖ Cancelar Selección Masiva";
+      } else {
+        btn.className = "px-3 py-1 bg-amber-50 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold";
+        btn.innerText = " Modo Selección Masiva";
+        clearBulkSelection();
+      }
+    }
+
+    function toggleBulkPoint(idx) {
+      const pos = bulkSelectedIndexes.indexOf(idx);
+      if (pos !== -1) bulkSelectedIndexes.splice(pos, 1);
+      else bulkSelectedIndexes.push(idx);
+
+      const bar = document.getElementById('bulkActionBar');
+      const countLabel = document.getElementById('bulkCountLabel');
+
+      if (bulkSelectedIndexes.length > 0) {
+        bar.classList.remove('hidden');
+        countLabel.innerText = `${bulkSelectedIndexes.length} Seleccionados`;
+      } else {
+        bar.classList.add('hidden');
+      }
+      renderDriverLMapPoints();
+    }
+
+    function clearBulkSelection() {
+      bulkSelectedIndexes = [];
+      document.getElementById('bulkActionBar').classList.add('hidden');
+      if (isBulkModeActive) toggleBulkSelectMode();
+      renderDriverLMapPoints();
+    }
+
+    async function applyBulkStatusFromMap(newStatus) {
+      if (bulkSelectedIndexes.length === 0) return;
+
+      const idxs = [...bulkSelectedIndexes];
+      const defaultText = newStatus === 'RECHAZADO' ? "CERRADO / RECHAZADO" : "ACTUALIZACIÓN MASIVA";
+      const customReason = prompt(`Motivo para los ${idxs.length} puntos (${newStatus}):`, defaultText) || defaultText;
+
+      for (const idx of idxs) {
+        currentClientsData[idx].estado = newStatus;
+        currentClientsData[idx].obs = customReason;
+
+        // Si se marca entregado/rechazado, se remueve de la ruta trazada si estaba allí
+        const rPos = selectedRouteIndexes.indexOf(idx);
+        if (rPos !== -1) selectedRouteIndexes.splice(rPos, 1);
+      }
+
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
+      });
+
+      clearBulkSelection();
       drawRouteGuidePath();
     }
 
@@ -1188,10 +1160,13 @@
       const c = currentClientsData[idx];
       if (!c) return;
 
-      const reason = prompt("Ingrese el Motivo de Rechazo para WhatsApp:", c.obs || "CLIENTE RECHAZO PEDIDO") || "CLIENTE RECHAZO PEDIDO";
+      const reason = prompt("Motivo de Rechazo para WhatsApp:", c.obs || "CLIENTE RECHAZO PEDIDO") || "CLIENTE RECHAZO PEDIDO";
       
       currentClientsData[idx].estado = "RECHAZADO";
       currentClientsData[idx].obs = reason;
+
+      const rPos = selectedRouteIndexes.indexOf(idx);
+      if (rPos !== -1) selectedRouteIndexes.splice(rPos, 1);
 
       db.collection('routes').doc(currentDocId).update({
         clients: currentClientsData.map(item => { const { _idx, ...rest } = item; return rest; })
@@ -1199,19 +1174,19 @@
 
       if (driverLMap) driverLMap.closePopup();
       renderDriverLMapPoints();
+      drawRouteGuidePath();
 
       const msg = `🔴 *REPORTAR RECHAZO* 🔴\n` +
                   `• *VD:* ${c.vendedor || 'S/V'}\n` +
                   `• *RUTA:* #${currentRouteCode}\n` +
-                  `• *TRANSPORTE:* ${c.tpt || currentRouteCode}\n` +
                   `• *CLIENTE:* ${c.name}\n` +
                   `• *MONTO:* S/ ${c.subtotal || '0.00'}\n` +
-                  `• *MOTIVO DE RECHAZO:* ${reason}`;
+                  `• *MOTIVO:* ${reason}`;
 
-      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
-      window.open(url, '_blank');
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
+    // RENDER DE MARCADORES (SOLO NÚMERO SEC ORIGINAL)
     function renderDriverLMapPoints() {
       if (!driverLMap || !driverLayerGroup) return;
 
@@ -1219,40 +1194,41 @@
 
       const bounds = [];
       const currentZoom = driverLMap.getZoom();
-      const showLabels = currentZoom >= 15.5;
+      const showLabels = currentZoom >= 15;
 
       filteredClientsData.forEach(c => {
         if (!c.lat || !c.lon) return;
 
         const latLng = [parseFloat(c.lat), parseFloat(c.lon)];
-        const stopPos = selectedPointIndexes.indexOf(c._idx);
-        const isSelected = stopPos !== -1;
+        const isRouteSelected = selectedRouteIndexes.includes(c._idx);
+        const isBulkSelected = bulkSelectedIndexes.includes(c._idx);
         const vendorColor = getVendorColor(c.vendedor);
         const status = (c.estado || 'PENDIENTE').toUpperCase();
 
         let fillColor = vendorColor;
         let strokeColor = '#ffffff';
         let opacity = 1.0;
-        let radius = isSelected ? 8 : 4.5;
+        let radius = 5;
 
-        if (isSelected) {
-          fillColor = '#10B981';
-          strokeColor = '#064E3B';
+        if (isBulkSelected) {
+          fillColor = '#f59e0b';
+          strokeColor = '#78350f';
+          radius = 7;
+        } else if (isRouteSelected) {
+          fillColor = '#2563eb';
+          strokeColor = '#ffffff';
+          radius = 7;
         } else if (status === 'ENTREGADO') {
           fillColor = '#10B981';
-          strokeColor = '#059669';
           opacity = 0.35;
         } else if (status === 'RECHAZADO' || status === 'CERRADO') {
           fillColor = '#EF4444';
-          strokeColor = '#991B1B';
           opacity = 0.5;
         } else if (status === 'PARCIAL') {
           fillColor = '#F97316';
-          strokeColor = '#C2410C';
           opacity = 0.6;
         } else if (status === 'OTRO MOTIVO' || status === 'OTRO') {
           fillColor = '#A855F7';
-          strokeColor = '#6B21A8';
           opacity = 0.6;
         }
 
@@ -1260,53 +1236,48 @@
           radius: radius,
           fillColor: fillColor,
           color: strokeColor,
-          weight: isSelected ? 3 : 1.5,
+          weight: isRouteSelected ? 3 : 1.5,
           fillOpacity: opacity,
           opacity: opacity
         });
 
+        // Si el modo selección masiva está activo, al tocar el punto se selecciona para masivo
+        circle.on('click', (e) => {
+          if (isBulkModeActive) {
+            L.DomEvent.stopPropagation(e);
+            toggleBulkPoint(c._idx);
+          }
+        });
+
+        // VENTANA COMPACTA PEQUEÑA (POPUP DE 1 CLIC)
         circle.bindPopup(`
-          <div style="font-size:11px; line-height:1.6; color:#1e293b; min-width:240px;">
-            <div style="font-size:14px; font-weight:800; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:4px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-              <span>${c.sec} · ${c.name}</span>
+          <div style="font-size:11px; line-height:1.4; color:#1e293b;">
+            <div style="font-weight:800; font-size:12px; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:3px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>#${c.sec} · ${c.name}</span>
               <span class="status-badge status-${status}">${c.estado || 'PENDIENTE'}</span>
             </div>
-            <div style="display:grid; grid-template-columns: 100px 1fr; gap:3px; font-size:11px;">
-              <span style="font-weight:700; color:#64748b;">SEC ORIGINAL</span> <span style="font-weight:800; color:#0f172a;">${c.sec}</span>
-              <span style="font-weight:700; color:#64748b;">VD (VENDEDOR)</span> <span style="font-weight:800; color:${vendorColor};">${c.vendedor || 'Ningún valor'}</span>
-              <span style="font-weight:700; color:#64748b;">RUTA</span> <span>#${currentRouteCode}</span>
-              <span style="font-weight:700; color:#64748b;">DOMICILIO</span> <span>${c.domicilio}</span>
-              <span style="font-weight:700; color:#64748b;">MONTO</span> <span style="font-weight:800; color:#0f172a;">S/ ${c.subtotal || '0.00'}</span>
-              ${c.obs ? `<span style="font-weight:700; color:#64748b;">MOTIVO/OBS</span> <span style="font-weight:800; color:#ef4444;">${c.obs}</span>` : ''}
+            <div style="font-size:10px; color:#475569; margin-bottom:6px;">
+              <b>Dir:</b> ${c.domicilio}<br>
+              <b>Monto:</b> S/ ${c.subtotal} | <b>VD:</b> ${c.vendedor || 'S/V'}
             </div>
 
-            <div style="margin-top:8px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Control de Trayecto:</div>
-            
-            <button onclick="toggleSelectPointAndClose(${c._idx})" style="width:100%; background:${isSelected ? '#ef4444' : '#10b981'}; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:11px; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:4px;">
-              ${isSelected ? `✖ Quitar de mi ruta (Parada P${stopPos + 1})` : `➕ Agregar a mi ruta (Añadir P${selectedPointIndexes.length + 1})`}
+            <button onclick="toggleSelectRoutePoint(${c._idx})" style="width:100%; background:${isRouteSelected ? '#ef4444' : '#2563eb'}; color:white; border:none; padding:4px 6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px; margin-bottom:4px;">
+              ${isRouteSelected ? '✖ Quitar de mi trazado' : '➕ Trazar Ruta a este Punto'}
             </button>
 
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
-              <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">✅ ENTREGADO</button>
-              <button onclick="sendWhatsAppRejection(${c._idx})" style="background:#ef4444; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">📲 RECHAZAR Y WSP</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">🟧 PARCIAL</button>
-              <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:10px;">🟣 OTRO</button>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3px;">
+              <button onclick="updateClientStatusDirect(${c._idx}, 'ENTREGADO')" style="background:#10b981; color:white; border:none; padding:4px; border-radius:5px; font-weight:bold; font-size:9px;">✅ ENTREGADO</button>
+              <button onclick="sendWhatsAppRejection(${c._idx})" style="background:#ef4444; color:white; border:none; padding:4px; border-radius:5px; font-weight:bold; font-size:9px;">📲 WSP</button>
+              <button onclick="updateClientStatusDirect(${c._idx}, 'PARCIAL')" style="background:#f97316; color:white; border:none; padding:4px; border-radius:5px; font-weight:bold; font-size:9px;">🟧 PARCIAL</button>
+              <button onclick="updateClientStatusDirect(${c._idx}, 'OTRO MOTIVO')" style="background:#a855f7; color:white; border:none; padding:4px; border-radius:5px; font-weight:bold; font-size:9px;">🟣 OTRO</button>
             </div>
           </div>
         `);
 
         driverLayerGroup.addLayer(circle);
 
-        if (isSelected) {
-          // Mantener el SEC original y mostrar la parada del chofer P1, P2...
-          const badgeIcon = L.divIcon({
-            className: 'route-stop-badge',
-            html: `P${stopPos + 1}`,
-            iconAnchor: [-4, 16]
-          });
-          const badgeMarker = L.marker(latLng, { icon: badgeIcon, interactive: false });
-          driverLayerGroup.addLayer(badgeMarker);
-        } else if (showLabels) {
+        // SOLO SE MUESTRA EL NÚMERO ORIGINAL SEC
+        if (showLabels) {
           const textIcon = L.divIcon({
             className: 'sec-number-tag',
             html: `${c.sec}`,
@@ -1323,70 +1294,6 @@
         driverLMap.fitBounds(bounds, { padding: [20, 20] });
         isInitialFitBoundsDone = true;
       }
-    }
-
-    function updateSelectedPointsUI() {
-      const bar = document.getElementById('multiSelectionBar');
-      const countLabel = document.getElementById('selectedPointsCount');
-      const headerBtn = document.getElementById('btnHeaderDeselect');
-
-      if (selectedPointIndexes.length > 0) {
-        bar.classList.remove('hidden');
-        if (headerBtn) headerBtn.classList.remove('hidden');
-        countLabel.innerText = `${selectedPointIndexes.length} Paradas Enlazadas`;
-      } else {
-        bar.classList.add('hidden');
-        if (headerBtn) headerBtn.classList.add('hidden');
-      }
-    }
-
-    function clearSelectedPoints() {
-      selectedPointIndexes = [];
-      updateSelectedPointsUI();
-      if (routePolyline && driverLMap) {
-        driverLMap.removeControl(routePolyline);
-        routePolyline = null;
-      }
-      renderDriverLMapPoints();
-    }
-
-    async function applyBulkStatusFromMap(newStatus) {
-      if (selectedPointIndexes.length === 0) return;
-
-      const idxs = [...selectedPointIndexes];
-      let customReason = "";
-
-      const promptText = `Ingresa una nota o motivo para los ${idxs.length} puntos seleccionados (${newStatus}):`;
-      const defaultText = newStatus === 'RECHAZADO' ? "CERRADO / RECHAZADO" : (newStatus === 'ENTREGADO' ? "ENTREGA MASIVA OK" : "ACTUALIZACIÓN MASIVA");
-      
-      customReason = prompt(promptText, defaultText) || defaultText;
-
-      for (const idx of idxs) {
-        currentClientsData[idx].estado = newStatus;
-        currentClientsData[idx].obs = customReason;
-      }
-
-      await db.collection('routes').doc(currentDocId).update({
-        clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
-      });
-
-      if (newStatus === 'RECHAZADO' && confirm("¿Deseas enviar el reporte de rechazo masivo a WhatsApp?")) {
-        let msg = `🔴 *REPORTAR RECHAZO MASIVO* 🔴\n` +
-                  `• *RUTA:* #${currentRouteCode}\n` +
-                  `• *TOTAL RECHAZADOS:* ${idxs.length}\n` +
-                  `• *MOTIVO GENERAL:* ${customReason}\n\n` +
-                  `*DETALLE:* \n`;
-
-        idxs.forEach(idx => {
-          const item = currentClientsData[idx];
-          msg += `• VD: ${item.vendedor || 'S/V'} | TPT: ${item.tpt || currentRouteCode} | ${item.name} | S/ ${item.subtotal}\n`;
-        });
-
-        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
-        window.open(url, '_blank');
-      }
-
-      clearSelectedPoints();
     }
 
     function renderClientsList() {
@@ -1421,16 +1328,23 @@
     async function updateClientStatusDirect(idx, status) {
       let customObs = currentClientsData[idx].obs || "";
       if (status !== 'PENDIENTE' && status !== 'ENTREGADO') {
-        customObs = prompt(`Motivo para este estado (${status}):`, customObs) || customObs;
+        customObs = prompt(`Motivo para (${status}):`, customObs) || customObs;
       }
 
       currentClientsData[idx].estado = status;
       currentClientsData[idx].obs = customObs;
 
+      // Si el punto se completa, se desmarca de la ruta trazada automáticamente
+      if (status !== 'PENDIENTE') {
+        const rPos = selectedRouteIndexes.indexOf(idx);
+        if (rPos !== -1) selectedRouteIndexes.splice(rPos, 1);
+      }
+
       if (driverLMap) driverLMap.closePopup();
       renderDriverLMapPoints();
       renderClientsList();
       updateStatusCounters();
+      drawRouteGuidePath();
 
       await db.collection('routes').doc(currentDocId).update({
         clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
@@ -1450,7 +1364,8 @@
         driverLMap.removeControl(routePolyline);
         routePolyline = null;
       }
-      clearSelectedPoints();
+      clearSelectedRoutePoints();
+      clearBulkSelection();
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
     }
