@@ -70,6 +70,18 @@
       white-space: nowrap !important;
     }
 
+    .order-badge-tag {
+      background: #4f46e5 !important;
+      border: 2px solid #ffffff !important;
+      border-radius: 10px !important;
+      color: #ffffff !important;
+      font-size: 10px !important;
+      font-weight: 900 !important;
+      padding: 1px 4px !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+      white-space: nowrap !important;
+    }
+
     .leaflet-popup-content-wrapper {
       border-radius: 12px !important;
       padding: 8px 12px !important;
@@ -180,7 +192,7 @@
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button onclick="toggleRouteGuidePath()" id="btnGuidePath" class="px-3.5 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
-              <i class="fa-solid fa-route"></i> Trazar Guía por Calles (OSRM)
+              <i class="fa-solid fa-route"></i> Trazar Mi Ruta Seleccionada
             </button>
             <button onclick="centerOnDriverLocation()" class="px-3.5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
               <i class="fa-solid fa-location-arrow"></i> Mi Ubicación
@@ -200,10 +212,12 @@
           </div>
         </div>
 
-        <!-- TARJETAS DE CONTEO EN TIEMPO REAL -->
+        <!-- TARJETAS DE CONTEO EN TIEMPO REAL (CON ZOOM EN PENDIENTES) -->
         <div id="statusCountersContainer" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
-          <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
-            <p class="text-[10px] font-bold text-slate-400 uppercase">⏳ Pendientes</p>
+          <div onclick="zoomToPendingPoints()" title="Haz clic para hacer Zoom a los puntos pendientes" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-500 hover:ring-2 hover:ring-indigo-200 transition">
+            <p class="text-[10px] font-bold text-slate-400 uppercase flex items-center justify-center gap-1">
+              ⏳ Pendientes <i class="fa-solid fa-magnifying-glass-plus text-[9px] text-indigo-500"></i>
+            </p>
             <p class="text-lg font-black text-slate-700" id="cntPendientes">0</p>
           </div>
           <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 shadow-sm">
@@ -224,14 +238,17 @@
           </div>
         </div>
 
-        <!-- BARRA MASIVA DE SELECCIÓN DE PUNTOS -->
+        <!-- BARRA MASIVA DE SELECCIÓN DE PUNTOS CON ORDEN PERSONALIZADO -->
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
             <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Cambiar Estado Masivo:</p>
+            <p class="text-xs text-indigo-200 font-medium">Orden de visita marcado (1º, 2º, 3º...):</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
-            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500">✅ ENTREGADO</button>
+            <button onclick="toggleRouteGuidePath()" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500 flex items-center gap-1">
+              <i class="fa-solid fa-route"></i> Trazar este Camino
+            </button>
+            <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600">✅ ENTREGADO</button>
             <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-500">❌ RECHAZADO</button>
             <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-500">🟧 PARCIAL</button>
             <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-500">🟣 OTRO</button>
@@ -406,7 +423,7 @@
     let filteredClientsData = [];
     let currentRouteCode = null;
     let currentDocId = null;
-    let selectedPointIndexes = new Set();
+    let selectedPointIndexes = []; // ARRAY ORDENADO PARA GUARDAR SECUENCIA (1º, 2º, 3º...)
     let isInitialFitBoundsDone = false;
 
     let adminAllRoutesMap = {};
@@ -991,18 +1008,32 @@
       }
     }
 
-    // --- FUNCIÓN PARA GENERAR GUÍA DE RUTA REAL POR CALLES (OSRM) ---
+    // ZOOM EXCLUSIVO A PUNTOS PENDIENTES
+    function zoomToPendingPoints() {
+      if (!driverLMap || currentClientsData.length === 0) return;
+      const pendingBounds = currentClientsData
+        .filter(c => c.lat && c.lon && (c.estado || 'PENDIENTE') === 'PENDIENTE')
+        .map(c => [parseFloat(c.lat), parseFloat(c.lon)]);
+
+      if (pendingBounds.length > 0) {
+        driverLMap.fitBounds(pendingBounds, { padding: [30, 30], maxZoom: 18 });
+      } else {
+        alert("¡Felicidades! No hay entregas pendientes.");
+      }
+    }
+
+    // --- FUNCIÓN PARA GENERAR GUÍA DE RUTA PERSONALIZADA POR CALLES (OSRM) ---
     function toggleRouteGuidePath() {
       isGuidePathActive = !isGuidePathActive;
       const btn = document.getElementById('btnGuidePath');
 
       if (isGuidePathActive) {
         btn.className = "px-3.5 py-1.5 bg-rose-600 text-white hover:bg-rose-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5";
-        btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> Ocultar Guía por Calles`;
+        btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> Ocultar Ruta Trazada`;
         drawRouteGuidePath();
       } else {
         btn.className = "px-3.5 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5";
-        btn.innerHTML = `<i class="fa-solid fa-route"></i> Trazar Guía por Calles (OSRM)`;
+        btn.innerHTML = `<i class="fa-solid fa-route"></i> Trazar Mi Ruta Seleccionada`;
         if (routePolyline && driverLMap) {
           driverLMap.removeControl(routePolyline);
           routePolyline = null;
@@ -1021,24 +1052,30 @@
         waypoints.push(L.latLng(currentDriverCoords[0], currentDriverCoords[1]));
       }
 
-      // 2. Agregar puntos pendientes ordenados por secuencia (SEC)
-      const sortedPoints = [...currentClientsData]
-        .filter(c => c.lat && c.lon && (c.estado || 'PENDIENTE') === 'PENDIENTE')
-        .sort((a, b) => a.sec - b.sec);
+      // 2. Si el chofer seleccionó puntos manualmente (1º, 2º, 3º...), usar esa secuencia
+      let pointsToRoute = [];
+      if (selectedPointIndexes.length > 0) {
+        pointsToRoute = selectedPointIndexes.map(idx => currentClientsData[idx]).filter(Boolean);
+      } else {
+        // De lo contrario, usar todos los pendientes por orden de secuencia estándar (SEC)
+        pointsToRoute = [...currentClientsData]
+          .filter(c => c.lat && c.lon && (c.estado || 'PENDIENTE') === 'PENDIENTE')
+          .sort((a, b) => a.sec - b.sec);
+      }
 
-      sortedPoints.forEach(c => {
-        waypoints.push(L.latLng(parseFloat(c.lat), parseFloat(c.lon)));
+      pointsToRoute.forEach(c => {
+        if (c.lat && c.lon) waypoints.push(L.latLng(parseFloat(c.lat), parseFloat(c.lon)));
       });
 
       if (waypoints.length > 1) {
-        // Generar la ruta calculada por OSRM (siguiendo calles reales)
+        // Generar la ruta calculada por OSRM siguiendo las calles reales del mapa
         routePolyline = L.Routing.control({
           waypoints: waypoints,
           router: L.Routing.osrmv1({
             serviceUrl: 'https://router.project-osrm.org/route/v1'
           }),
           lineOptions: {
-            styles: [{ color: '#2563eb', opacity: 0.8, weight: 5 }]
+            styles: [{ color: '#2563eb', opacity: 0.85, weight: 6 }]
           },
           addWaypoints: false,
           draggableWaypoints: false,
@@ -1046,14 +1083,8 @@
           show: false
         }).addTo(driverLMap);
       } else {
-        alert("No hay suficientes puntos pendientes para trazar la ruta por calles.");
+        alert("Selecciona al menos 1 o 2 puntos en el mapa para trazar tu ruta.");
       }
-    }
-
-    // ABRIR GOOGLE MAPS DIRECTAMENTE HACIA UN CLIENTE (GIRO A GIRO)
-    function openGoogleMapsNavigation(lat, lon) {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
-      window.open(url, '_blank');
     }
 
     function updateStatusCounters() {
@@ -1163,15 +1194,21 @@
       renderClientsList();
     }
 
+    // MANEJO DE ORDEN SECUENCIAL AL SELECCIONAR PUNTOS (1º, 2º, 3º...)
     function toggleSelectPointAndClose(idx) {
-      if (selectedPointIndexes.has(idx)) {
-        selectedPointIndexes.delete(idx);
+      const existingPos = selectedPointIndexes.indexOf(idx);
+
+      if (existingPos !== -1) {
+        selectedPointIndexes.splice(existingPos, 1);
       } else {
-        selectedPointIndexes.add(idx);
+        selectedPointIndexes.push(idx);
       }
+
       if (driverLMap) driverLMap.closePopup();
       updateSelectedPointsUI();
       renderDriverLMapPoints();
+
+      if (isGuidePathActive) drawRouteGuidePath();
     }
 
     function sendWhatsAppRejection(idx) {
@@ -1215,7 +1252,8 @@
         if (!c.lat || !c.lon) return;
 
         const latLng = [parseFloat(c.lat), parseFloat(c.lon)];
-        const isSelected = selectedPointIndexes.has(c._idx);
+        const orderPos = selectedPointIndexes.indexOf(c._idx);
+        const isSelected = orderPos !== -1;
         const vendorColor = getVendorColor(c.vendedor);
         const status = (c.estado || 'PENDIENTE').toUpperCase();
 
@@ -1272,16 +1310,10 @@
               ${c.obs ? `<span style="font-weight:700; color:#64748b;">MOTIVO/OBS</span> <span style="font-weight:800; color:#ef4444;">${c.obs}</span>` : ''}
             </div>
 
-            <div style="margin-top:8px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Navegación GPS:</div>
-            
-            <button onclick="openGoogleMapsNavigation(${c.lat}, ${c.lon})" style="width:100%; background:#0284c7; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:11px; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:4px;">
-              🧭 Ir en Google Maps (GPS Giro a Giro)
-            </button>
-
-            <div style="margin-top:4px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase;">Acciones de Selección:</div>
+            <div style="margin-top:8px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Armar Mi Ruta:</div>
             
             <button onclick="toggleSelectPointAndClose(${c._idx})" style="width:100%; background:${isSelected ? '#ef4444' : '#3b82f6'}; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:11px; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:4px;">
-              ${isSelected ? '✖ Deseleccionar este punto' : '➕ Seleccionar este punto'}
+              ${isSelected ? `✖ Quitar del camino (Es el ${orderPos + 1}º)` : `➕ Marcar como siguiente parada (Marcar ${selectedPointIndexes.length + 1}º)`}
             </button>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
@@ -1295,7 +1327,15 @@
 
         driverLayerGroup.addLayer(circle);
 
-        if (showLabels) {
+        if (isSelected) {
+          const badgeIcon = L.divIcon({
+            className: 'order-badge-tag',
+            html: `${orderPos + 1}º`,
+            iconAnchor: [-4, 16]
+          });
+          const badgeMarker = L.marker(latLng, { icon: badgeIcon, interactive: false });
+          driverLayerGroup.addLayer(badgeMarker);
+        } else if (showLabels) {
           const textIcon = L.divIcon({
             className: 'sec-number-tag',
             html: `${c.sec}`,
@@ -1319,10 +1359,10 @@
       const countLabel = document.getElementById('selectedPointsCount');
       const headerBtn = document.getElementById('btnHeaderDeselect');
 
-      if (selectedPointIndexes.size > 0) {
+      if (selectedPointIndexes.length > 0) {
         bar.classList.remove('hidden');
         if (headerBtn) headerBtn.classList.remove('hidden');
-        countLabel.innerText = `${selectedPointIndexes.size} seleccionados`;
+        countLabel.innerText = `${selectedPointIndexes.length} seleccionados`;
       } else {
         bar.classList.add('hidden');
         if (headerBtn) headerBtn.classList.add('hidden');
@@ -1330,16 +1370,26 @@
     }
 
     function clearSelectedPoints() {
-      selectedPointIndexes.clear();
+      selectedPointIndexes = [];
       updateSelectedPointsUI();
+      if (routePolyline && driverLMap) {
+        driverLMap.removeControl(routePolyline);
+        routePolyline = null;
+        isGuidePathActive = false;
+        const btn = document.getElementById('btnGuidePath');
+        if (btn) {
+          btn.className = "px-3.5 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5";
+          btn.innerHTML = `<i class="fa-solid fa-route"></i> Trazar Mi Ruta Seleccionada`;
+        }
+      }
       renderDriverLMapPoints();
     }
 
     // --- ACTUALIZACIÓN MASIVA CON MOTIVO OBLIGATORIO/OPCIONAL ---
     async function applyBulkStatusFromMap(newStatus) {
-      if (selectedPointIndexes.size === 0) return;
+      if (selectedPointIndexes.length === 0) return;
 
-      const idxs = Array.from(selectedPointIndexes);
+      const idxs = [...selectedPointIndexes];
       let customReason = "";
 
       const promptText = `Ingresa una nota o motivo para los ${idxs.length} puntos seleccionados (${newStatus}):`;
@@ -1388,9 +1438,6 @@
           <div class="flex justify-between items-center pt-2">
             <span class="text-xs font-bold">S/ ${c.subtotal}</span>
             <div class="flex gap-1">
-              <button onclick="openGoogleMapsNavigation(${c.lat}, ${c.lon})" class="px-2 py-1 bg-sky-600 text-white rounded-lg text-xs font-bold shadow-sm">
-                🧭 GPS
-              </button>
               <button onclick="sendWhatsAppRejection(${c._idx})" class="px-2 py-1 bg-rose-500 text-white rounded-lg text-xs font-bold shadow-sm">
                 📲 WSP
               </button>
