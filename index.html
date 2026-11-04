@@ -70,15 +70,15 @@
       white-space: nowrap !important;
     }
 
-    .order-badge-tag {
-      background: #4f46e5 !important;
+    .route-stop-badge {
+      background: #10b981 !important;
       border: 2px solid #ffffff !important;
-      border-radius: 10px !important;
+      border-radius: 8px !important;
       color: #ffffff !important;
       font-size: 10px !important;
       font-weight: 900 !important;
-      padding: 1px 4px !important;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+      padding: 1px 5px !important;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
       white-space: nowrap !important;
     }
 
@@ -88,7 +88,7 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
     }
 
-    /* Ocultar panel flotante de texto de indicaciones de OSRM */
+    /* Ocultar panel de texto con instrucciones de OSRM */
     .leaflet-routing-container { display: none !important; }
 
     /* ESTILOS PUNTO AZUL Y VEHÍCULO GPS */
@@ -191,9 +191,6 @@
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button onclick="toggleRouteGuidePath()" id="btnGuidePath" class="px-3.5 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
-              <i class="fa-solid fa-route"></i> Trazar Mi Ruta Seleccionada
-            </button>
             <button onclick="centerOnDriverLocation()" class="px-3.5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
               <i class="fa-solid fa-location-arrow"></i> Mi Ubicación
             </button>
@@ -204,7 +201,7 @@
               <i class="fa-solid fa-crosshairs"></i> Centrar Ruta
             </button>
             <button onclick="clearSelectedPoints()" id="btnHeaderDeselect" class="hidden px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl border border-rose-200 transition flex items-center gap-1">
-              <i class="fa-solid fa-xmark text-rose-500"></i> Deseleccionar Todo
+              <i class="fa-solid fa-trash-can text-rose-500"></i> Borrar Trayecto
             </button>
             <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center gap-1">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
@@ -212,9 +209,9 @@
           </div>
         </div>
 
-        <!-- TARJETAS DE CONTEO EN TIEMPO REAL (CON ZOOM EN PENDIENTES) -->
+        <!-- TARJETAS DE CONTEO (ZOOM A PENDIENTES) -->
         <div id="statusCountersContainer" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
-          <div onclick="zoomToPendingPoints()" title="Haz clic para hacer Zoom a los puntos pendientes" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-500 hover:ring-2 hover:ring-indigo-200 transition">
+          <div onclick="zoomToPendingPoints()" title="Haz clic para ver todos los pendientes" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-500 hover:ring-2 hover:ring-indigo-200 transition">
             <p class="text-[10px] font-bold text-slate-400 uppercase flex items-center justify-center gap-1">
               ⏳ Pendientes <i class="fa-solid fa-magnifying-glass-plus text-[9px] text-indigo-500"></i>
             </p>
@@ -238,27 +235,24 @@
           </div>
         </div>
 
-        <!-- BARRA MASIVA DE SELECCIÓN DE PUNTOS CON ORDEN PERSONALIZADO -->
+        <!-- BARRA MASIVA / PANEL DE RECORRIDO PERSONALIZADO -->
         <div id="multiSelectionBar" class="hidden bg-indigo-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-2">
           <div class="flex items-center gap-2">
-            <span class="bg-indigo-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 seleccionados</span>
-            <p class="text-xs text-indigo-200 font-medium">Orden de visita marcado (1º, 2º, 3º...):</p>
+            <span class="bg-emerald-600 px-2.5 py-1 rounded-xl text-xs font-black" id="selectedPointsCount">0 Paradas Enlazadas</span>
+            <p class="text-xs text-indigo-200 font-medium">Trayecto calculado en vivo por calles reales</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
-            <button onclick="toggleRouteGuidePath()" class="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500 flex items-center gap-1">
-              <i class="fa-solid fa-route"></i> Trazar este Camino
-            </button>
             <button onclick="applyBulkStatusFromMap('ENTREGADO')" class="px-2.5 py-1 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600">✅ ENTREGADO</button>
             <button onclick="applyBulkStatusFromMap('RECHAZADO')" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-500">❌ RECHAZADO</button>
             <button onclick="applyBulkStatusFromMap('PARCIAL')" class="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-500">🟧 PARCIAL</button>
             <button onclick="applyBulkStatusFromMap('OTRO MOTIVO')" class="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-500">🟣 OTRO</button>
             <button onclick="clearSelectedPoints()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-700 flex items-center gap-1">
-              <i class="fa-solid fa-xmark"></i> Deseleccionar Todo
+              <i class="fa-solid fa-xmark"></i> Borrar Todo
             </button>
           </div>
         </div>
 
-        <!-- MAPA CON LEYENDA Y MODO AMPLIFICADO -->
+        <!-- MAPA CON LEYENDA -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <div class="flex justify-between items-center flex-wrap gap-2">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -275,7 +269,7 @@
             </div>
           </div>
 
-          <!-- LEYENDA DE COLORES Y ESTADOS -->
+          <!-- LEYENDA -->
           <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] font-bold">
             <div id="driverVendorLegend" class="flex flex-wrap gap-1.5"></div>
             <div class="flex items-center gap-2 bg-slate-100 px-2 py-1 rounded-lg text-slate-600">
@@ -348,7 +342,7 @@
         <div id="csvStatus" class="text-xs font-bold"></div>
       </div>
 
-      <!-- BOTONES INTERACTIVOS DE TRANSPORTE Y FILTRADO AZUL/VERDE -->
+      <!-- BOTONES DE TRANSPORTE Y FILTRADO -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 border-l-4 border-amber-500">
         <div class="flex flex-wrap justify-between items-center gap-2">
           <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
@@ -363,7 +357,7 @@
         </div>
       </div>
 
-      <!-- VISTA GENERAL MAPA ADMIN CON PANTALLA COMPLETA -->
+      <!-- MAPA ADMIN -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <div class="flex justify-between items-center flex-wrap gap-2">
           <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -416,14 +410,13 @@
     let driverLayerGroup = null;
     let adminLayerGroup = null;
     let adminGpsLayerGroup = null;
-    let routePolyline = null; // Control de OSRM en Leaflet
-    let isGuidePathActive = false;
+    let routePolyline = null; // Instancia OSRM Routing
 
     let currentClientsData = [];
     let filteredClientsData = [];
     let currentRouteCode = null;
     let currentDocId = null;
-    let selectedPointIndexes = []; // ARRAY ORDENADO PARA GUARDAR SECUENCIA (1º, 2º, 3º...)
+    let selectedPointIndexes = []; // Array que almacena el orden exacto (P1, P2, P3...)
     let isInitialFitBoundsDone = false;
 
     let adminAllRoutesMap = {};
@@ -804,7 +797,7 @@
       }
     }
 
-    // LISTENER DE POSICIONES GPS EN TIEMPO REAL CON DETECCIÓN DE INACTIVIDAD
+    // LISTENER DE POSICIONES GPS EN TIEMPO REAL CON INACTIVIDAD
     function listenToAllDriverLocations() {
       if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
 
@@ -905,7 +898,7 @@
             populateVendorFilter(currentClientsData);
             updateStatusCounters();
             applyDriverFilters();
-            if (isGuidePathActive) drawRouteGuidePath();
+            if (selectedPointIndexes.length > 0) drawRouteGuidePath();
           }
         });
       } catch (err) {
@@ -913,7 +906,6 @@
       }
     }
 
-    // GENERAR ID ÚNICO DE TELÉFONO/DISPOSITIVO POR SESIÓN
     function getDeviceId() {
       let devId = sessionStorage.getItem('courier_device_id');
       if (!devId) {
@@ -923,7 +915,6 @@
       return devId;
     }
 
-    // RASTREAR POSICIÓN GPS DEL CHOFER
     function startDriverGPSWatch() {
       if (!navigator.geolocation) {
         const gpsLabel = document.getElementById('gpsStatusText');
@@ -1022,53 +1013,34 @@
       }
     }
 
-    // --- FUNCIÓN PARA GENERAR GUÍA DE RUTA PERSONALIZADA POR CALLES (OSRM) ---
-    function toggleRouteGuidePath() {
-      isGuidePathActive = !isGuidePathActive;
-      const btn = document.getElementById('btnGuidePath');
-
-      if (isGuidePathActive) {
-        btn.className = "px-3.5 py-1.5 bg-rose-600 text-white hover:bg-rose-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5";
-        btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> Ocultar Ruta Trazada`;
-        drawRouteGuidePath();
-      } else {
-        btn.className = "px-3.5 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5";
-        btn.innerHTML = `<i class="fa-solid fa-route"></i> Trazar Mi Ruta Seleccionada`;
-        if (routePolyline && driverLMap) {
-          driverLMap.removeControl(routePolyline);
-          routePolyline = null;
-        }
-      }
-    }
-
+    // ENRUTAMIENTO OSRM EN TIEMPO REAL SIN CAMBIAR EL ZOOM DEL MAPA
     function drawRouteGuidePath() {
       if (!driverLMap) return;
-      if (routePolyline) driverLMap.removeControl(routePolyline);
+      
+      // Limpiar enrutamiento anterior sin reiniciar el zoom
+      if (routePolyline) {
+        driverLMap.removeControl(routePolyline);
+        routePolyline = null;
+      }
+
+      if (selectedPointIndexes.length === 0) return;
 
       const waypoints = [];
 
-      // 1. Iniciar con la posición actual del GPS si existe
+      // 1. Iniciar en el camión si hay señal GPS
       if (currentDriverCoords) {
         waypoints.push(L.latLng(currentDriverCoords[0], currentDriverCoords[1]));
       }
 
-      // 2. Si el chofer seleccionó puntos manualmente (1º, 2º, 3º...), usar esa secuencia
-      let pointsToRoute = [];
-      if (selectedPointIndexes.length > 0) {
-        pointsToRoute = selectedPointIndexes.map(idx => currentClientsData[idx]).filter(Boolean);
-      } else {
-        // De lo contrario, usar todos los pendientes por orden de secuencia estándar (SEC)
-        pointsToRoute = [...currentClientsData]
-          .filter(c => c.lat && c.lon && (c.estado || 'PENDIENTE') === 'PENDIENTE')
-          .sort((a, b) => a.sec - b.sec);
-      }
-
-      pointsToRoute.forEach(c => {
-        if (c.lat && c.lon) waypoints.push(L.latLng(parseFloat(c.lat), parseFloat(c.lon)));
+      // 2. Añadir paradas seleccionadas en orden
+      selectedPointIndexes.forEach(idx => {
+        const c = currentClientsData[idx];
+        if (c && c.lat && c.lon) {
+          waypoints.push(L.latLng(parseFloat(c.lat), parseFloat(c.lon)));
+        }
       });
 
       if (waypoints.length > 1) {
-        // Generar la ruta calculada por OSRM siguiendo las calles reales del mapa
         routePolyline = L.Routing.control({
           waypoints: waypoints,
           router: L.Routing.osrmv1({
@@ -1079,11 +1051,9 @@
           },
           addWaypoints: false,
           draggableWaypoints: false,
-          fitSelectedRoutes: true,
+          fitSelectedRoutes: false, // NO CAMBIA EL ENCUADRE/ZOOM AL DIBUJAR
           show: false
         }).addTo(driverLMap);
-      } else {
-        alert("Selecciona al menos 1 o 2 puntos en el mapa para trazar tu ruta.");
       }
     }
 
@@ -1194,13 +1164,15 @@
       renderClientsList();
     }
 
-    // MANEJO DE ORDEN SECUENCIAL AL SELECCIONAR PUNTOS (1º, 2º, 3º...)
+    // AÑADIR O REMOVER UN PUNTO INDIVIDUAL DE LA RUTA EN TIEMPO REAL
     function toggleSelectPointAndClose(idx) {
-      const existingPos = selectedPointIndexes.indexOf(idx);
+      const posIndex = selectedPointIndexes.indexOf(idx);
 
-      if (existingPos !== -1) {
-        selectedPointIndexes.splice(existingPos, 1);
+      if (posIndex !== -1) {
+        // Si el punto ya estaba seleccionado, se elimina de forma individual
+        selectedPointIndexes.splice(posIndex, 1);
       } else {
+        // Si no estaba, se agrega al final del recorrido
         selectedPointIndexes.push(idx);
       }
 
@@ -1208,7 +1180,8 @@
       updateSelectedPointsUI();
       renderDriverLMapPoints();
 
-      if (isGuidePathActive) drawRouteGuidePath();
+      // Recalcular el trazado inmediatamente sin reajustar el zoom de la pantalla
+      drawRouteGuidePath();
     }
 
     function sendWhatsAppRejection(idx) {
@@ -1252,8 +1225,8 @@
         if (!c.lat || !c.lon) return;
 
         const latLng = [parseFloat(c.lat), parseFloat(c.lon)];
-        const orderPos = selectedPointIndexes.indexOf(c._idx);
-        const isSelected = orderPos !== -1;
+        const stopPos = selectedPointIndexes.indexOf(c._idx);
+        const isSelected = stopPos !== -1;
         const vendorColor = getVendorColor(c.vendedor);
         const status = (c.estado || 'PENDIENTE').toUpperCase();
 
@@ -1263,8 +1236,8 @@
         let radius = isSelected ? 8 : 4.5;
 
         if (isSelected) {
-          fillColor = '#4F46E5';
-          strokeColor = '#1E1B4B';
+          fillColor = '#10B981';
+          strokeColor = '#064E3B';
         } else if (status === 'ENTREGADO') {
           fillColor = '#10B981';
           strokeColor = '#059669';
@@ -1299,21 +1272,18 @@
               <span class="status-badge status-${status}">${c.estado || 'PENDIENTE'}</span>
             </div>
             <div style="display:grid; grid-template-columns: 100px 1fr; gap:3px; font-size:11px;">
+              <span style="font-weight:700; color:#64748b;">SEC ORIGINAL</span> <span style="font-weight:800; color:#0f172a;">${c.sec}</span>
               <span style="font-weight:700; color:#64748b;">VD (VENDEDOR)</span> <span style="font-weight:800; color:${vendorColor};">${c.vendedor || 'Ningún valor'}</span>
               <span style="font-weight:700; color:#64748b;">RUTA</span> <span>#${currentRouteCode}</span>
-              <span style="font-weight:700; color:#64748b;">TRANSPORTE</span> <span>${c.tpt || currentRouteCode}</span>
-              <span style="font-weight:700; color:#64748b;">SEC</span> <span>${c.sec}</span>
-              <span style="font-weight:700; color:#64748b;">TELEFONO</span> <span>${c.telefono || 'Ningún valor'}</span>
-              <span style="font-weight:700; color:#64748b;">RAZON SOCIAL</span> <span>${c.name}</span>
               <span style="font-weight:700; color:#64748b;">DOMICILIO</span> <span>${c.domicilio}</span>
               <span style="font-weight:700; color:#64748b;">MONTO</span> <span style="font-weight:800; color:#0f172a;">S/ ${c.subtotal || '0.00'}</span>
               ${c.obs ? `<span style="font-weight:700; color:#64748b;">MOTIVO/OBS</span> <span style="font-weight:800; color:#ef4444;">${c.obs}</span>` : ''}
             </div>
 
-            <div style="margin-top:8px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Armar Mi Ruta:</div>
+            <div style="margin-top:8px; font-weight:800; font-size:10px; color:#475569; text-transform:uppercase; border-top:1px solid #f1f5f9; padding-top:6px;">Control de Trayecto:</div>
             
-            <button onclick="toggleSelectPointAndClose(${c._idx})" style="width:100%; background:${isSelected ? '#ef4444' : '#3b82f6'}; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:11px; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:4px;">
-              ${isSelected ? `✖ Quitar del camino (Es el ${orderPos + 1}º)` : `➕ Marcar como siguiente parada (Marcar ${selectedPointIndexes.length + 1}º)`}
+            <button onclick="toggleSelectPointAndClose(${c._idx})" style="width:100%; background:${isSelected ? '#ef4444' : '#10b981'}; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:11px; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:4px;">
+              ${isSelected ? `✖ Quitar de mi ruta (Parada P${stopPos + 1})` : `➕ Agregar a mi ruta (Añadir P${selectedPointIndexes.length + 1})`}
             </button>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:4px;">
@@ -1328,9 +1298,10 @@
         driverLayerGroup.addLayer(circle);
 
         if (isSelected) {
+          // Mantener el SEC original y mostrar la parada del chofer P1, P2...
           const badgeIcon = L.divIcon({
-            className: 'order-badge-tag',
-            html: `${orderPos + 1}º`,
+            className: 'route-stop-badge',
+            html: `P${stopPos + 1}`,
             iconAnchor: [-4, 16]
           });
           const badgeMarker = L.marker(latLng, { icon: badgeIcon, interactive: false });
@@ -1362,7 +1333,7 @@
       if (selectedPointIndexes.length > 0) {
         bar.classList.remove('hidden');
         if (headerBtn) headerBtn.classList.remove('hidden');
-        countLabel.innerText = `${selectedPointIndexes.length} seleccionados`;
+        countLabel.innerText = `${selectedPointIndexes.length} Paradas Enlazadas`;
       } else {
         bar.classList.add('hidden');
         if (headerBtn) headerBtn.classList.add('hidden');
@@ -1375,17 +1346,10 @@
       if (routePolyline && driverLMap) {
         driverLMap.removeControl(routePolyline);
         routePolyline = null;
-        isGuidePathActive = false;
-        const btn = document.getElementById('btnGuidePath');
-        if (btn) {
-          btn.className = "px-3.5 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5";
-          btn.innerHTML = `<i class="fa-solid fa-route"></i> Trazar Mi Ruta Seleccionada`;
-        }
       }
       renderDriverLMapPoints();
     }
 
-    // --- ACTUALIZACIÓN MASIVA CON MOTIVO OBLIGATORIO/OPCIONAL ---
     async function applyBulkStatusFromMap(newStatus) {
       if (selectedPointIndexes.length === 0) return;
 
