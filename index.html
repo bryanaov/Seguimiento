@@ -59,14 +59,6 @@
     .leaflet-popup-content-wrapper { border-radius: 12px !important; padding: 4px 6px !important; box-shadow: 0 10px 25px rgba(0,0,0,0.3) !important; max-width: 300px !important; }
     .leaflet-popup-content { margin: 8px !important; line-height: 1.3 !important; }
     .leaflet-routing-container { display: none !important; }
-
-    .user-location-marker { position: relative; }
-    .user-location-dot { width: 14px; height: 14px; background-color: #2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.4); }
-    .user-location-pulse { position: absolute; top: -6px; left: -6px; width: 26px; height: 26px; border-radius: 50%; background-color: rgba(37, 99, 235, 0.4); animation: pulse-ring 1.8s infinite ease-out; }
-
-    @keyframes pulse-ring { 0% { transform: scale(0.3); opacity: 0.9; } 80% { transform: scale(1.5); opacity: 0; } 100% { opacity: 0; } }
-
-    .truck-gps-marker { background: #0f172a; color: #38bdf8; border: 2px solid #ffffff; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 13px; }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
@@ -106,13 +98,13 @@
             <i class="fa-solid fa-truck-arrow-right text-2xl"></i>
           </div>
           <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
-          <p class="text-xs text-slate-500 font-medium">Ingresa el código de tu unidad de transporte</p>
+          <p class="text-xs text-slate-500 font-medium">Ingresa el código de tu unidad de transporte (Ej: 14)</p>
         </div>
 
         <div class="space-y-3 pt-2">
           <div>
             <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
-            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14 o T14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
           </div>
           <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
@@ -136,7 +128,7 @@
             <button onclick="centerDriverMapOnPoints()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs rounded-xl border border-indigo-200 transition flex items-center gap-1">
               <i class="fa-solid fa-crosshairs"></i> Centrar Mapa
             </button>
-            <!-- BOTÓN BORRAR TRAZADO FUERA DEL MAPA (PERSISTENTE) -->
+            <!-- BOTÓN BORRAR TRAZADO FUERA DEL MAPA -->
             <button onclick="clearSelectedRoutePoints()" id="btnHeaderDeselect" class="hidden px-3.5 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
               <i class="fa-solid fa-trash-can"></i> Borrar Trazado de Ruta
             </button>
@@ -293,7 +285,7 @@
 
     function toggleDriverMapFullscreen() {
       const wrapper = document.getElementById('driverMapWrapper');
-      const isFS = wrapper.classList.toggle('is-fullscreen');
+      wrapper.classList.toggle('is-fullscreen');
       setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 150);
     }
 
@@ -322,13 +314,13 @@
       const idxTpt = getIndex(['TPT', 'RUTA', 'TRANSPORTE', 'CODIGO']);
       const idxSec = getIndex(['SEC', 'SECUENCIA', 'ORDEN']);
       const idxVend = getIndex(['VENDEDOR', 'VEND']);
-      const idxName = getIndex(['RAZON SOCIAL', 'NAME', 'CLIENTE']);
+      const idxName = getIndex(['NAME', 'CLIENTE', 'COD CLIENTE']); // CÓDIGO NUMÉRICO DE CLIENTE EN KML
+      const idxRazon = getIndex(['RAZON SOCIAL', 'RAZON']);
       const idxTel = getIndex(['TELEFONO', 'TEL']);
       const idxDom = getIndex(['DOMICILIO', 'DIRECCION']);
       const idxSub = getIndex(['SUBTOTAL FINAL', 'SUBTOTAL', 'MONTO']);
       const idxY = getIndex(['Y', 'LAT', 'LATITUD']);
       const idxX = getIndex(['X', 'LON', 'LONGITUD']);
-      const idxCodCli = getIndex(['CLIENTE', 'COD CLIENTE', 'ID CLIENTE']);
 
       const clients = [];
       for (let i = 1; i < lines.length; i++) {
@@ -337,17 +329,21 @@
         let tpt = idxTpt !== -1 ? cols[idxTpt] : 'DEFAULT';
         if (!tpt) continue;
 
+        let lat = idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) || 0 : 0;
+        let lon = idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) || 0 : 0;
+        let codCliente = idxName !== -1 ? cols[idxName].toString().trim() : '';
+
         clients.push({
           tpt: tpt.toString().trim(),
           sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
-          codCliente: idxCodCli !== -1 ? cols[idxCodCli].toString().trim() : '',
+          codCliente: codCliente,
           vendedor: idxVend !== -1 ? cols[idxVend].toString().trim() : '',
-          name: idxName !== -1 ? cols[idxName] : 'Cliente ' + i,
+          name: idxRazon !== -1 ? cols[idxRazon] : (codCliente ? `Cliente ${codCliente}` : 'Cliente ' + i),
           telefono: idxTel !== -1 ? cols[idxTel] : '',
           domicilio: idxDom !== -1 ? cols[idxDom] : '',
           subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
-          lat: idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) || 0 : 0,
-          lon: idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) || 0 : 0,
+          lat: lat,
+          lon: lon,
           estado: 'PENDIENTE',
           obs: '',
           items: []
@@ -404,7 +400,7 @@
           cantidad: cantVal < 1 ? Math.round(cantVal * 24) : Math.round(cantVal),
           subtotalOriginal: subtotalVal,
           subtotalActual: subtotalVal,
-          estadoItem: 'OK', // 'OK' o 'RECHAZADO'
+          estadoItem: 'OK',
           motivoItem: ''
         };
 
@@ -433,6 +429,7 @@
         }
         statusDiv.className = "text-xs font-bold text-emerald-600";
         statusDiv.innerText = `✅ Rutas cargadas (${parsedClients.length} clientes).`;
+        loadAdminData();
       };
       reader.readAsText(fileInput.files[0], 'LATIN1');
     }
@@ -473,20 +470,19 @@
       reader.readAsText(fileInput.files[0], 'LATIN1');
     }
 
-    // CARGA DE RUTA CHOFER
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
       if (!inputCode) return alert("Ingresa tu código de ruta.");
 
       let docRef = db.collection('routes').doc(inputCode);
       let docSnap = await docRef.get();
-      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
+      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe en Firebase.`);
 
       currentDocId = docRef.id;
       currentRouteCode = docSnap.data().code || inputCode;
       isInitialFitBoundsDone = false;
 
-      loadSavedRoutePoints(); // Cargar trazado guardado en el navegador
+      loadSavedRoutePoints();
 
       document.getElementById('driverLoginCard').classList.add('hidden');
       document.getElementById('driverRouteContainer').classList.remove('hidden');
@@ -512,6 +508,18 @@
       setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 200);
     }
 
+    function centerDriverMapOnPoints() {
+      if (!driverLMap || filteredClientsData.length === 0) return;
+      const bounds = filteredClientsData.filter(c => c.lat && c.lon).map(c => [c.lat, c.lon]);
+      if (bounds.length > 0) driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
+    }
+
+    function zoomToPendingPoints() {
+      if (!driverLMap || currentClientsData.length === 0) return;
+      const bounds = currentClientsData.filter(c => c.lat && c.lon && c.estado === 'PENDIENTE').map(c => [c.lat, c.lon]);
+      if (bounds.length > 0) driverLMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
+    }
+
     function applyDriverFilters() {
       filteredClientsData = currentClientsData;
       renderDriverLMapPoints();
@@ -523,8 +531,7 @@
       if (pos !== -1) selectedRouteIndexes.splice(pos, 1);
       else selectedRouteIndexes.push(idx);
 
-      saveRoutePointsToLocalStorage(); // Persistencia local automática
-
+      saveRoutePointsToLocalStorage();
       document.getElementById('btnHeaderDeselect').classList.toggle('hidden', selectedRouteIndexes.length === 0);
       renderDriverLMapPoints();
       drawRouteGuidePath();
@@ -571,7 +578,6 @@
       document.getElementById('cntRepasos').innerText = rep;
     }
 
-    // RENDER DE PUNTOS EN MAPA CON BOLETA Y DESCUENTO DINÁMICO
     function renderDriverLMapPoints() {
       if (!driverLMap || !driverLayerGroup) return;
       driverLayerGroup.clearLayers();
@@ -595,7 +601,6 @@
           radius: isRouteSelected ? 7 : 5, fillColor: fillColor, color: '#ffffff', weight: isRouteSelected ? 3 : 1.5, fillOpacity: opacity
         });
 
-        // Calcular subtotal actual restando los ítems rechazados
         let totalActual = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + (item.estadoItem === 'OK' ? item.subtotalActual : 0), 0) : parseFloat(c.subtotal || 0);
 
         let itemsHtml = '';
@@ -686,12 +691,12 @@
 
       client.items[itemIdx].estadoItem = status;
       if (status === 'RECHAZADO') {
-        const motivo = prompt("Motivo del rechazo de este artículo (ej. Sin stock, dañado):", "Sin stock") || "Sin stock";
+        const motivo = prompt("Motivo del rechazo de este artículo:", "Sin stock") || "Sin stock";
         client.items[itemIdx].motivoItem = motivo;
-        client.items[itemIdx].subtotalActual = 0; // Descuenta automáticamente el monto del producto
+        client.items[itemIdx].subtotalActual = 0;
       } else {
         client.items[itemIdx].motivoItem = '';
-        client.items[itemIdx].subtotalActual = client.items[itemIdx].subtotalOriginal; // Restaura el monto
+        client.items[itemIdx].subtotalActual = client.items[itemIdx].subtotalOriginal;
       }
 
       await saveClientsToFirebase();
@@ -704,7 +709,7 @@
       let customObs = client.obs || "";
 
       if (status === 'RECHAZADO' || status === 'CERRADO') {
-        customObs = prompt("Motivo del rechazo total (ej. Local cerrado, ausente):", "Cerrado") || "Cerrado";
+        customObs = prompt("Motivo del rechazo total:", "Cerrado") || "Cerrado";
         if (client.items) {
           client.items.forEach(item => {
             item.estadoItem = 'RECHAZADO';
@@ -715,7 +720,7 @@
       } else if (status === 'PARCIAL') {
         customObs = prompt("Motivo de entrega parcial:", "Parcial") || "Parcial";
       } else if (status === 'REPASO') {
-        customObs = prompt("Motivo del repaso / entrega posterior:", "Repaso") || "Repaso";
+        customObs = prompt("Motivo del repaso:", "Repaso") || "Repaso";
       }
 
       client.estado = status;
@@ -745,8 +750,28 @@
         L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(adminLMap);
         adminLayerGroup = L.layerGroup().addTo(adminLMap);
       }
+      setTimeout(() => { adminLMap.invalidateSize(); }, 150);
     }
-    function loadAdminData() {}
+
+    function loadAdminData() {
+      db.collection('routes').get().then(snapshot => {
+        if (!adminLayerGroup) return;
+        adminLayerGroup.clearLayers();
+        const bounds = [];
+        snapshot.forEach(doc => {
+          const clients = doc.data().clients || [];
+          clients.forEach(c => {
+            if (c.lat && c.lon) {
+              const marker = L.circleMarker([c.lat, c.lon], { radius: 4, fillColor: '#2563eb', color: '#fff', weight: 1, fillOpacity: 0.8 });
+              marker.bindPopup(`<b>#${c.sec} · ${c.name}</b><br>Ruta: ${doc.id}`);
+              adminLayerGroup.addLayer(marker);
+              bounds.push([c.lat, c.lon]);
+            }
+          });
+        });
+        if (bounds.length > 0 && adminLMap) adminLMap.fitBounds(bounds, { padding: [30, 30] });
+      });
+    }
   </script>
 </body>
 </html>
