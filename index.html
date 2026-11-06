@@ -34,22 +34,13 @@
 
     .map-wrapper.is-fullscreen {
       position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      z-index: 999999 !important;
-      border-radius: 0 !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      background: #0f172a !important;
+      top: 0 !important; left: 0 !important;
+      width: 100vw !important; height: 100vh !important;
+      z-index: 999999 !important; border-radius: 0 !important;
+      padding: 0 !important; margin: 0 !important; background: #0f172a !important;
     }
 
-    .map-wrapper.is-fullscreen .map-container-inner {
-      height: 100% !important;
-      width: 100% !important;
-      border-radius: 0 !important;
-    }
+    .map-wrapper.is-fullscreen .map-container-inner { height: 100% !important; width: 100% !important; border-radius: 0 !important; }
 
     .status-badge { padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 10px; display: inline-flex; align-items: center; gap: 4px; }
     .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
@@ -59,61 +50,26 @@
     .status-REPASO { background-color: #E0E7FF; color: #3730A3; border: 1px solid #C7D2FE; }
 
     .sec-number-tag {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      font-size: 10px !important;
-      font-weight: 900 !important;
-      color: #0f172a !important;
+      background: transparent !important; border: none !important; box-shadow: none !important;
+      font-size: 10px !important; font-weight: 900 !important; color: #0f172a !important;
       text-shadow: 1.5px 1.5px 0px #ffffff, -1.5px -1.5px 0px #ffffff, 1.5px -1.5px 0px #ffffff, -1.5px 1.5px 0px #ffffff !important;
       white-space: nowrap !important;
     }
 
-    /* POPUP AMPLIADO PARA BOLETA */
-    .leaflet-popup-content-wrapper {
-      border-radius: 12px !important;
-      padding: 4px 6px !important;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3) !important;
-      max-width: 290px !important;
-    }
+    .leaflet-popup-content-wrapper { border-radius: 12px !important; padding: 4px 6px !important; box-shadow: 0 10px 25px rgba(0,0,0,0.3) !important; max-width: 300px !important; }
     .leaflet-popup-content { margin: 8px !important; line-height: 1.3 !important; }
-
     .leaflet-routing-container { display: none !important; }
 
     .user-location-marker { position: relative; }
-    .user-location-dot {
-      width: 14px; height: 14px; background-color: #2563eb;
-      border: 2px solid #ffffff; border-radius: 50%;
-      box-shadow: 0 0 8px rgba(0,0,0,0.4);
-    }
-    .user-location-pulse {
-      position: absolute; top: -6px; left: -6px;
-      width: 26px; height: 26px; border-radius: 50%;
-      background-color: rgba(37, 99, 235, 0.4);
-      animation: pulse-ring 1.8s infinite ease-out;
-    }
+    .user-location-dot { width: 14px; height: 14px; background-color: #2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.4); }
+    .user-location-pulse { position: absolute; top: -6px; left: -6px; width: 26px; height: 26px; border-radius: 50%; background-color: rgba(37, 99, 235, 0.4); animation: pulse-ring 1.8s infinite ease-out; }
 
-    @keyframes pulse-ring {
-      0% { transform: scale(0.3); opacity: 0.9; }
-      80% { transform: scale(1.5); opacity: 0; }
-      100% { opacity: 0; }
-    }
+    @keyframes pulse-ring { 0% { transform: scale(0.3); opacity: 0.9; } 80% { transform: scale(1.5); opacity: 0; } 100% { opacity: 0; } }
 
-    .truck-gps-marker {
-      background: #0f172a; color: #38bdf8;
-      border: 2px solid #ffffff; border-radius: 50%;
-      width: 30px; height: 30px; display: flex;
-      align-items: center; justify-content: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 13px;
-    }
+    .truck-gps-marker { background: #0f172a; color: #38bdf8; border: 2px solid #ffffff; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 13px; }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
-
-  <!-- BANNER MODO OFFLINE -->
-  <div id="offlineSyncBanner" class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2 text-center sticky top-0 z-[100000] shadow-md flex items-center justify-center gap-2">
-    <span><i class="fa-solid fa-wifi-slash"></i> Modo Sin Conexión: Guardando localmente.</span>
-  </div>
 
   <!-- ENCABEZADO -->
   <header class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50 border-b border-slate-800">
@@ -126,7 +82,7 @@
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
             COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Boletas y Rastreo GPS</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Boletas y Descuento Dinámico</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -156,7 +112,7 @@
         <div class="space-y-3 pt-2">
           <div>
             <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
-            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 51 o T51" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14 o T14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
           </div>
           <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
@@ -169,27 +125,19 @@
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
-            <div class="flex items-center gap-3">
-              <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps HD En Línea
-              </p>
-              <p id="gpsStatusText" class="text-xs text-indigo-600 font-bold flex items-center gap-1">
-                <i class="fa-solid fa-location-crosshairs"></i> Buscando GPS...
-              </p>
-            </div>
+            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps HD En Línea
+            </p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button onclick="centerOnDriverLocation()" class="px-3.5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
-              <i class="fa-solid fa-location-arrow"></i> Mi Ubicación
-            </button>
             <button onclick="toggleDriverMapFullscreen()" class="px-3.5 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
               <i class="fa-solid fa-expand"></i> Ampliar Mapa
             </button>
             <button onclick="centerDriverMapOnPoints()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs rounded-xl border border-indigo-200 transition flex items-center gap-1">
               <i class="fa-solid fa-crosshairs"></i> Centrar Mapa
             </button>
-            <!-- BOTÓN BORRAR TRAZADO FUERA DEL MAPA -->
-            <button onclick="clearSelectedRoutePoints()" id="btnHeaderDeselect" class="hidden px-3.5 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 animate-bounce">
+            <!-- BOTÓN BORRAR TRAZADO FUERA DEL MAPA (PERSISTENTE) -->
+            <button onclick="clearSelectedRoutePoints()" id="btnHeaderDeselect" class="hidden px-3.5 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
               <i class="fa-solid fa-trash-can"></i> Borrar Trazado de Ruta
             </button>
             <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center gap-1">
@@ -199,11 +147,9 @@
         </div>
 
         <!-- TARJETAS DE CONTEO -->
-        <div id="statusCountersContainer" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
-          <div onclick="zoomToPendingPoints()" title="Haz clic para centrar en pendientes" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-500 hover:ring-2 hover:ring-indigo-200 transition">
-            <p class="text-[10px] font-bold text-slate-400 uppercase flex items-center justify-center gap-1">
-              ⏳ Pendientes <i class="fa-solid fa-magnifying-glass-plus text-[9px] text-indigo-500"></i>
-            </p>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
+          <div onclick="zoomToPendingPoints()" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-500 transition">
+            <p class="text-[10px] font-bold text-slate-400 uppercase">⏳ Pendientes</p>
             <p class="text-lg font-black text-slate-700" id="cntPendientes">0</p>
           </div>
           <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 shadow-sm">
@@ -230,50 +176,17 @@
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
               <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas y Boletas
             </h4>
-            <div class="flex items-center gap-2">
-              <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
-                <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
-                <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
-              </div>
+            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
+              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
+              <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
             </div>
           </div>
 
-          <!-- LEYENDA -->
-          <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] font-bold">
-            <div id="driverVendorLegend" class="flex flex-wrap gap-1.5"></div>
-            <div class="flex items-center gap-2 bg-slate-100 px-2 py-1 rounded-lg text-slate-600">
-              <span>Estilos:</span>
-              <span class="text-emerald-700 font-black">● Entregado</span>
-              <span class="text-rose-700 font-black">● Rechazado</span>
-              <span class="text-orange-700 font-black">● Parcial</span>
-              <span class="text-indigo-700 font-black">● Repaso</span>
-            </div>
-          </div>
-
-          <!-- CONTENEDOR MAPA -->
           <div id="driverMapWrapper" class="map-wrapper overflow-hidden">
             <div id="driverFullscreenHeader" class="hidden absolute top-3 right-3 z-[1000] flex gap-2">
-              <button onclick="toggleDriverMapFullscreen()" class="px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg hover:bg-rose-700 transition flex items-center gap-1">
-                <i class="fa-solid fa-compress"></i> Salir de Pantalla Completa
-              </button>
+              <button onclick="toggleDriverMapFullscreen()" class="px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg">Salir</button>
             </div>
             <div id="driverLeafletMapContainer" class="w-full h-full map-container-inner"></div>
-          </div>
-        </div>
-
-        <!-- FILTROS Y LISTA -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Buscar Cliente / Sec / Dirección:</label>
-              <input type="text" id="driverSearchInput" oninput="applyDriverFilters()" placeholder="Ej: 201475 o Sucre..." class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Filtrar por Vendedor:</label>
-              <select id="driverVendorFilter" onchange="applyDriverFilters()" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-white">
-                <option value="">-- Todos los Vendedores --</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -285,29 +198,13 @@
 
     <!-- VISTA ADMINISTRADOR -->
     <section id="viewAdmin" class="hidden space-y-4">
-      <div id="activeFileCard" class="hidden bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">Archivos Activos</span>
-            <h4 id="activeFileName" class="font-bold text-emerald-950 text-base">---</h4>
-          </div>
-          <p id="activeFileMeta" class="text-xs text-emerald-700 font-medium">---</p>
-        </div>
-        <button onclick="clearCurrentDayData()" class="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl transition">
-          <i class="fa-solid fa-trash-can"></i> Borrar datos del día
-        </button>
-      </div>
-
-      <!-- CARGA DE ARCHIVO 1 (RUTAS CSV) Y ARCHIVO 2 (COMPROBANTES CSV) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
           <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
             <i class="fa-solid fa-file-csv text-emerald-600"></i> 1. Cargar CSV de Rutas (Mapa)
           </h2>
-          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
-          <button onclick="processAndUploadCSV()" class="w-full px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 text-xs transition">
-            Cargar Rutas
-          </button>
+          <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:text-indigo-700">
+          <button onclick="processAndUploadCSV()" class="w-full px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs transition">Cargar Rutas</button>
           <div id="csvStatus" class="text-xs font-bold"></div>
         </div>
 
@@ -315,52 +212,15 @@
           <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
             <i class="fa-solid fa-file-excel text-indigo-600"></i> 2. Cargar CSV de Comprobantes/Artículos
           </h2>
-          <input type="file" id="inputItemsCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
-          <button onclick="processAndUploadItemsCSV()" class="w-full px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 text-xs transition">
-            Cargar Comprobantes y Artículos
-          </button>
+          <input type="file" id="inputItemsCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:text-indigo-700">
+          <button onclick="processAndUploadItemsCSV()" class="w-full px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-xs transition">Cargar Comprobantes</button>
           <div id="itemsCsvStatus" class="text-xs font-bold"></div>
         </div>
       </div>
 
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 border-l-4 border-amber-500">
-        <div class="flex flex-wrap justify-between items-center gap-2">
-          <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
-            <i class="fa-solid fa-truck text-amber-500"></i> Rutas Activas en Sistema
-          </h3>
-          <span id="activeFilterBadge" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
-            Mostrando: Todas las rutas
-          </span>
-        </div>
-        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
-          <span class="text-slate-400 font-normal">No hay rutas cargadas aún.</span>
-        </div>
-      </div>
-
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-        <div class="flex justify-between items-center flex-wrap gap-2">
-          <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
-            <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa General y Monitoreo GPS (Administrador)
-          </h3>
-          <div class="flex items-center gap-2">
-            <select id="adminRouteSelect" onchange="selectAdminRoute(this.value)" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-slate-50 outline-none">
-              <option value="ALL">🌐 Ver Todas las Rutas</option>
-            </select>
-            <button onclick="selectAdminRoute('ALL')" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 hover:bg-indigo-100 transition flex items-center gap-1.5">
-              <i class="fa-solid fa-arrows-to-eye"></i> Recentrar Todo
-            </button>
-            <button onclick="toggleAdminMapFullscreen()" class="px-3.5 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition flex items-center gap-1.5 shadow-sm">
-              <i class="fa-solid fa-expand"></i> Ampliar Mapa Completo
-            </button>
-          </div>
-        </div>
-
+        <h3 class="font-bold text-slate-900 text-base">Mapa General de Administrador</h3>
         <div id="adminMapWrapper" class="map-wrapper overflow-hidden">
-          <div id="adminFullscreenHeader" class="hidden absolute top-3 right-3 z-[1000] flex gap-2">
-            <button onclick="toggleAdminMapFullscreen()" class="px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg hover:bg-rose-700 transition flex items-center gap-1">
-              <i class="fa-solid fa-compress"></i> Salir de Pantalla Completa
-            </button>
-          </div>
           <div id="adminLeafletMapContainer" class="w-full h-full map-container-inner"></div>
         </div>
       </div>
@@ -387,7 +247,6 @@
     let adminLMap = null;
     let driverLayerGroup = null;
     let adminLayerGroup = null;
-    let adminGpsLayerGroup = null;
     let routePolyline = null;
 
     let currentClientsData = [];
@@ -397,62 +256,45 @@
 
     let selectedRouteIndexes = [];
     let isInitialFitBoundsDone = false;
-    let adminAllRoutesMap = {};
-    let selectedAdminRouteKey = 'ALL';
 
-    let watchPositionId = null;
-    let driverLocationMarker = null;
-    let currentDriverCoords = null;
-    let adminTrackingUnsubscribe = null;
+    function getStorageRouteKey() {
+      return `courier_route_indices_${currentRouteCode || 'default'}`;
+    }
 
-    const VENDOR_COLORS = [
-      '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#F59E0B', 
-      '#EF4444', '#14B8A6', '#6366F1', '#84CC16', '#A855F7', '#06B6D4', '#F97316'
-    ];
+    function loadSavedRoutePoints() {
+      try {
+        const saved = localStorage.getItem(getStorageRouteKey());
+        selectedRouteIndexes = saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        selectedRouteIndexes = [];
+      }
+    }
 
-    function getVendorColor(v) {
-      if (!v || v.toString().trim() === '') return '#6B7280';
-      let hash = 0;
-      const str = v.toString().trim().toUpperCase();
-      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-      return VENDOR_COLORS[Math.abs(hash) % VENDOR_COLORS.length];
+    function saveRoutePointsToLocalStorage() {
+      try {
+        localStorage.setItem(getStorageRouteKey(), JSON.stringify(selectedRouteIndexes));
+      } catch (e) {}
     }
 
     function switchTab(tab) {
       document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
       document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
-
       if (tab === 'admin') {
-        setTimeout(() => {
-          initAdminLMap();
-          loadAdminData();
-          listenToAllDriverLocations();
-        }, 150);
-      } else if (tab === 'driver') {
-        if (adminTrackingUnsubscribe) adminTrackingUnsubscribe();
-        if (driverLMap) setTimeout(() => { driverLMap.invalidateSize(); }, 150);
+        setTimeout(() => { initAdminLMap(); loadAdminData(); }, 150);
+      } else if (tab === 'driver' && driverLMap) {
+        setTimeout(() => { driverLMap.invalidateSize(); }, 150);
       }
     }
 
     function requestAdminAccess() {
-      const pass = prompt("🔒 Ingrese la contraseña de Administrador:");
+      const pass = prompt("🔒 Contraseña de Administrador:");
       if (pass === ADMIN_PASSWORD) switchTab('admin');
     }
 
     function toggleDriverMapFullscreen() {
       const wrapper = document.getElementById('driverMapWrapper');
-      const headerBtn = document.getElementById('driverFullscreenHeader');
       const isFS = wrapper.classList.toggle('is-fullscreen');
-      headerBtn.classList.toggle('hidden', !isFS);
       setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 150);
-    }
-
-    function toggleAdminMapFullscreen() {
-      const wrapper = document.getElementById('adminMapWrapper');
-      const headerBtn = document.getElementById('adminFullscreenHeader');
-      const isFS = wrapper.classList.toggle('is-fullscreen');
-      headerBtn.classList.toggle('hidden', !isFS);
-      setTimeout(() => { if (adminLMap) adminLMap.invalidateSize(); }, 150);
     }
 
     function parseCSV(text) {
@@ -463,9 +305,7 @@
       if ((firstLine.match(/,/g) || []).length > (firstLine.match(/;/g) || []).length) delimiter = ',';
 
       function parseRow(rowStr) {
-        const result = [];
-        let current = '';
-        let inQuotes = false;
+        const result = []; let current = ''; let inQuotes = false;
         for (let i = 0; i < rowStr.length; i++) {
           const char = rowStr[i];
           if (char === '"') inQuotes = !inQuotes;
@@ -479,11 +319,11 @@
       const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
       const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
 
-      const idxTpt = getIndex(['TPT', 'RUTA', 'CHOFER', 'TRANSPORTE', 'CODIGO']);
+      const idxTpt = getIndex(['TPT', 'RUTA', 'TRANSPORTE', 'CODIGO']);
       const idxSec = getIndex(['SEC', 'SECUENCIA', 'ORDEN']);
       const idxVend = getIndex(['VENDEDOR', 'VEND']);
       const idxName = getIndex(['RAZON SOCIAL', 'NAME', 'CLIENTE']);
-      const idxTel = getIndex(['TELEFONO', 'TEL', 'CELULAR']);
+      const idxTel = getIndex(['TELEFONO', 'TEL']);
       const idxDom = getIndex(['DOMICILIO', 'DIRECCION']);
       const idxSub = getIndex(['SUBTOTAL FINAL', 'SUBTOTAL', 'MONTO']);
       const idxY = getIndex(['Y', 'LAT', 'LATITUD']);
@@ -494,28 +334,23 @@
       for (let i = 1; i < lines.length; i++) {
         const cols = parseRow(lines[i]);
         if (cols.length < 2) continue;
-
         let tpt = idxTpt !== -1 ? cols[idxTpt] : 'DEFAULT';
         if (!tpt) continue;
-
-        let lat = idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) : 0;
-        let lon = idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) : 0;
-        let codCliente = idxCodCli !== -1 ? cols[idxCodCli].toString().trim() : '';
 
         clients.push({
           tpt: tpt.toString().trim(),
           sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
-          codCliente: codCliente,
+          codCliente: idxCodCli !== -1 ? cols[idxCodCli].toString().trim() : '',
           vendedor: idxVend !== -1 ? cols[idxVend].toString().trim() : '',
           name: idxName !== -1 ? cols[idxName] : 'Cliente ' + i,
           telefono: idxTel !== -1 ? cols[idxTel] : '',
           domicilio: idxDom !== -1 ? cols[idxDom] : '',
           subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
-          lat: isNaN(lat) ? 0 : lat,
-          lon: isNaN(lon) ? 0 : lon,
+          lat: idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) || 0 : 0,
+          lon: idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) || 0 : 0,
           estado: 'PENDIENTE',
           obs: '',
-          items: [] // Se llenará con el segundo archivo
+          items: []
         });
       }
       return clients;
@@ -523,15 +358,13 @@
 
     function parseItemsCSV(text) {
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-      if (lines.length === 0) return [];
+      if (lines.length === 0) return {};
       const firstLine = lines[0];
       let delimiter = ';';
       if ((firstLine.match(/,/g) || []).length > (firstLine.match(/;/g) || []).length) delimiter = ',';
 
       function parseRow(rowStr) {
-        const result = [];
-        let current = '';
-        let inQuotes = false;
+        const result = []; let current = ''; let inQuotes = false;
         for (let i = 0; i < rowStr.length; i++) {
           const char = rowStr[i];
           if (char === '"') inQuotes = !inQuotes;
@@ -545,36 +378,32 @@
       const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
       const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
 
-      const idxTpt = getIndex(['TRANSPORTE', 'TPT', 'RUTA']);
       const idxCli = getIndex(['CLIENTE', 'COD CLIENTE']);
       const idxComp = getIndex(['COMPROBANTE', 'TIPO']);
-      const idxSerie = getIndex(['SERIE', 'PTO DE VENTA']);
-      const idxNum = getIndex(['NUMERO', 'NRO']);
-      const idxArt = getIndex(['DESCRIPCION DE ARTICULO', 'ARTICULO', 'PRODUCTO']);
-      const idxBultos = getIndex(['BULTOS TOTAL', 'BULTOS']);
-      const idxUnidadesPorBulto = getIndex(['UNIDADES POR BULTO']);
-      const idxSub = getIndex(['SUBTOTAL FINAL', 'SUBTOTAL']);
+      const idxArt = getIndex(['DESCRIPCION DE ARTICULO', 'ARTICULO']);
+      const idxCant = getIndex(['CANT BOLETA', 'CANTIDAD', 'BULTOS']);
+      const idxSub = getIndex(['SUMA DE SUBTOTAL FINAL', 'SUBTOTAL FINAL', 'SUBTOTAL']);
 
-      const itemsMap = {}; // Key: codCliente (o tpt_cli) -> array of items
+      const itemsMap = {};
       for (let i = 1; i < lines.length; i++) {
         const cols = parseRow(lines[i]);
         if (cols.length < 2) continue;
 
-        let clienteKey = idxCli !== -1 ? cols[idxCli].toString().trim() : '';
-        if (!clienteKey) continue;
+        let clienteKey = idxCli !== -1 ? cols[idxCli].toString().trim().toUpperCase() : '';
+        if (!clienteKey || clienteKey.includes('TOTAL')) continue;
 
-        let bultos = idxBultos !== -1 ? parseFloat(cols[idxBultos].replace(',', '.')) || 0 : 0;
-        let upb = idxUnidadesPorBulto !== -1 ? parseFloat(cols[idxUnidadesPorBulto].replace(',', '.')) || 1 : 1;
-        let unidadesCalculadas = Math.round(bultos * upb);
-        if (unidadesCalculadas <= 0) unidadesCalculadas = 1;
+        let articuloDesc = idxArt !== -1 ? cols[idxArt] : 'Artículo';
+        if (!articuloDesc || articuloDesc === 'NaN') continue;
+
+        let cantVal = idxCant !== -1 ? parseFloat(cols[idxCant].replace(',', '.')) || 1 : 1;
+        let subtotalVal = idxSub !== -1 ? parseFloat(cols[idxSub].replace(',', '.')) || 0 : 0;
 
         const itemObj = {
           comprobante: idxComp !== -1 ? cols[idxComp] : 'BOLETA',
-          serie: idxSerie !== -1 ? cols[idxSerie] : '',
-          numero: idxNum !== -1 ? cols[idxNum] : '',
-          articulo: idxArt !== -1 ? cols[idxArt] : 'Artículo',
-          cantidad: unidadesCalculadas,
-          subtotal: idxSub !== -1 ? cols[idxSub] : '0.00',
+          articulo: articuloDesc,
+          cantidad: cantVal < 1 ? Math.round(cantVal * 24) : Math.round(cantVal),
+          subtotalOriginal: subtotalVal,
+          subtotalActual: subtotalVal,
           estadoItem: 'OK', // 'OK' o 'RECHAZADO'
           motivoItem: ''
         };
@@ -588,252 +417,103 @@
     async function processAndUploadCSV() {
       const fileInput = document.getElementById('inputCsvFile');
       const statusDiv = document.getElementById('csvStatus');
-      if (!fileInput.files || fileInput.files.length === 0) {
-        statusDiv.className = "text-xs font-bold text-rose-600";
-        statusDiv.innerText = "Selecciona un archivo .csv de rutas";
-        return;
-      }
-      statusDiv.className = "text-xs font-bold text-indigo-600";
-      statusDiv.innerText = "⏳ Subiendo rutas...";
-
-      const file = fileInput.files[0];
+      if (!fileInput.files.length) return;
       const reader = new FileReader();
       reader.onload = async (e) => {
-        try {
-          const parsedClients = parseCSV(e.target.result);
-          const routesMap = {};
-          parsedClients.forEach(client => {
-            const rawCode = client.tpt;
-            if (!routesMap[rawCode]) routesMap[rawCode] = [];
-            routesMap[rawCode].push(client);
-          });
-
-          for (const code of Object.keys(routesMap)) {
-            const group = routesMap[code];
-            group.sort((a, b) => a.sec - b.sec);
-            await db.collection('routes').doc(code).set({
-              code: code,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              clients: group
-            }, { merge: true });
-          }
-          statusDiv.className = "text-xs font-bold text-emerald-600";
-          statusDiv.innerText = `✅ Rutas cargadas con éxito (${parsedClients.length} clientes).`;
-          fileInput.value = '';
-          loadAdminData();
-        } catch (err) {
-          statusDiv.className = "text-xs font-bold text-rose-600";
-          statusDiv.innerText = `Error: ${err.message}`;
+        const parsedClients = parseCSV(e.target.result);
+        const routesMap = {};
+        parsedClients.forEach(c => {
+          if (!routesMap[c.tpt]) routesMap[c.tpt] = [];
+          routesMap[c.tpt].push(c);
+        });
+        for (const code of Object.keys(routesMap)) {
+          await db.collection('routes').doc(code).set({
+            code, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), clients: routesMap[code]
+          }, { merge: true });
         }
+        statusDiv.className = "text-xs font-bold text-emerald-600";
+        statusDiv.innerText = `✅ Rutas cargadas (${parsedClients.length} clientes).`;
       };
-      reader.readAsText(file, 'UTF-8');
+      reader.readAsText(fileInput.files[0], 'LATIN1');
     }
 
     async function processAndUploadItemsCSV() {
       const fileInput = document.getElementById('inputItemsCsvFile');
       const statusDiv = document.getElementById('itemsCsvStatus');
-      if (!fileInput.files || fileInput.files.length === 0) {
-        statusDiv.className = "text-xs font-bold text-rose-600";
-        statusDiv.innerText = "Selecciona el archivo de comprobantes/artículos";
-        return;
-      }
-      statusDiv.className = "text-xs font-bold text-indigo-600";
-      statusDiv.innerText = "⏳ Cruzando artículos con clientes...";
-
-      const file = fileInput.files[0];
+      if (!fileInput.files.length) return;
       const reader = new FileReader();
       reader.onload = async (e) => {
-        try {
-          const itemsMap = parseItemsCSV(e.target.result);
-          const routesSnapshot = await db.collection('routes').get();
-          
-          let updatedCount = 0;
-          for (const doc of routesSnapshot.docs) {
-            const routeData = doc.data();
-            let clients = routeData.clients || [];
-            let modified = false;
+        const itemsMap = parseItemsCSV(e.target.result);
+        const routesSnapshot = await db.collection('routes').get();
+        let updatedCount = 0;
 
-            clients = clients.map(c => {
-              // Buscar por codCliente exacto
-              const matchedItems = itemsMap[c.codCliente] || itemsMap[c.name] || [];
-              if (matchedItems.length > 0) {
-                modified = true;
-                updatedCount++;
-                return { ...c, items: matchedItems };
-              }
-              return c;
-            });
+        for (const doc of routesSnapshot.docs) {
+          const routeData = doc.data();
+          let clients = routeData.clients || [];
+          let modified = false;
 
-            if (modified) {
-              await db.collection('routes').doc(doc.id).update({ clients });
+          clients = clients.map(c => {
+            const codClean = (c.codCliente || '').toString().trim().toUpperCase();
+            const matchedItems = itemsMap[codClean] || [];
+            if (matchedItems.length > 0) {
+              modified = true;
+              updatedCount++;
+              return { ...c, items: matchedItems };
             }
+            return c;
+          });
+
+          if (modified) {
+            await db.collection('routes').doc(doc.id).update({ clients });
           }
-
-          statusDiv.className = "text-xs font-bold text-emerald-600";
-          statusDiv.innerText = `✅ ¡Artículos vinculados a ${updatedCount} clientes!`;
-          fileInput.value = '';
-          loadAdminData();
-        } catch (err) {
-          statusDiv.className = "text-xs font-bold text-rose-600";
-          statusDiv.innerText = `Error: ${err.message}`;
         }
+        statusDiv.className = "text-xs font-bold text-emerald-600";
+        statusDiv.innerText = `✅ ¡Comprobantes vinculados a ${updatedCount} clientes!`;
       };
-      reader.readAsText(file, 'UTF-8');
+      reader.readAsText(fileInput.files[0], 'LATIN1');
     }
 
-    async function clearCurrentDayData() {
-      if (!confirm("¿Borrar todas las rutas cargadas?")) return;
-      const snapshot = await db.collection('routes').get();
-      const batch = db.batch();
-      snapshot.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-      alert("✅ Datos eliminados.");
-      loadAdminData();
-    }
-
-    function initAdminLMap() {
-      if (!adminLMap) {
-        adminLMap = L.map('adminLeafletMapContainer').setView([-16.3988, -71.5350], 12);
-        L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-          maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-        }).addTo(adminLMap);
-        adminLayerGroup = L.layerGroup().addTo(adminLMap);
-        adminGpsLayerGroup = L.layerGroup().addTo(adminLMap);
-      }
-      setTimeout(() => { if (adminLMap) adminLMap.invalidateSize(); }, 200);
-    }
-
-    function loadAdminData() {
-      db.collection('routes').get().then(snapshot => {
-        const keysDiv = document.getElementById('routeKeysList');
-        const selectElem = document.getElementById('adminRouteSelect');
-        keysDiv.innerHTML = '';
-        selectElem.innerHTML = '<option value="ALL">🌐 Ver Todas las Rutas</option>';
-        adminAllRoutesMap = {};
-
-        if (snapshot.empty) {
-          keysDiv.innerHTML = '<span class="text-slate-400 font-normal">No hay rutas cargadas.</span>';
-          if (adminLayerGroup) adminLayerGroup.clearLayers();
-          return;
-        }
-
-        snapshot.forEach(doc => {
-          const routeId = doc.id;
-          const routeClients = doc.data().clients || [];
-          adminAllRoutesMap[routeId] = routeClients;
-
-          keysDiv.innerHTML += `
-            <button onclick="selectAdminRoute('${routeId}')" id="btnRoute_${routeId}" class="px-3 py-1 rounded-xl border border-slate-300 bg-white text-slate-700 font-bold text-xs hover:bg-indigo-50 shadow-sm">
-              Ruta #${routeId} (${routeClients.length})
-            </button>
-          `;
-          const opt = document.createElement('option');
-          opt.value = routeId;
-          opt.innerText = `Ruta #${routeId}`;
-          selectElem.appendChild(opt);
-        });
-        selectAdminRoute('ALL');
-      });
-    }
-
-    function selectAdminRoute(routeKey) {
-      selectedAdminRouteKey = routeKey;
-      let clientsToRender = [];
-      if (routeKey === 'ALL') {
-        Object.values(adminAllRoutesMap).forEach(list => clientsToRender = clientsToRender.concat(list));
-      } else {
-        clientsToRender = adminAllRoutesMap[routeKey] || [];
-      }
-      renderAdminLMap(clientsToRender);
-    }
-
-    function renderAdminLMap(clients) {
-      if (!adminLMap || !adminLayerGroup) return;
-      adminLayerGroup.clearLayers();
-      const bounds = [];
-      clients.forEach(c => {
-        if (!c.lat || !c.lon) return;
-        const circle = L.circleMarker([c.lat, c.lon], {
-          radius: 5, fillColor: getVendorColor(c.vendedor), color: '#ffffff', weight: 1.5, fillOpacity: 0.95
-        });
-        circle.bindPopup(`<b>#${c.sec} · ${c.name}</b><br>Estado: ${c.estado}`);
-        adminLayerGroup.addLayer(circle);
-        bounds.push([c.lat, c.lon]);
-      });
-      if (bounds.length > 0) adminLMap.fitBounds(bounds, { padding: [30, 30] });
-    }
-
-    function listenToAllDriverLocations() {}
-
-    // RUTA CHOFER
+    // CARGA DE RUTA CHOFER
     async function loadDriverRoute() {
       let inputCode = document.getElementById('inputRouteCode').value.trim();
       if (!inputCode) return alert("Ingresa tu código de ruta.");
 
-      try {
-        let docRef = db.collection('routes').doc(inputCode);
-        let docSnap = await docRef.get();
-        if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
+      let docRef = db.collection('routes').doc(inputCode);
+      let docSnap = await docRef.get();
+      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
 
-        currentDocId = docRef.id;
-        currentRouteCode = docSnap.data().code || inputCode;
-        isInitialFitBoundsDone = false;
+      currentDocId = docRef.id;
+      currentRouteCode = docSnap.data().code || inputCode;
+      isInitialFitBoundsDone = false;
 
-        document.getElementById('driverLoginCard').classList.add('hidden');
-        document.getElementById('driverRouteContainer').classList.remove('hidden');
-        document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
+      loadSavedRoutePoints(); // Cargar trazado guardado en el navegador
 
-        initDriverLMap();
+      document.getElementById('driverLoginCard').classList.add('hidden');
+      document.getElementById('driverRouteContainer').classList.remove('hidden');
+      document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
 
-        db.collection('routes').doc(currentDocId).onSnapshot(doc => {
-          if (doc.exists) {
-            currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
-            populateVendorFilter(currentClientsData);
-            updateStatusCounters();
-            applyDriverFilters();
-          }
-        });
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
+      initDriverLMap();
+
+      db.collection('routes').doc(currentDocId).onSnapshot(doc => {
+        if (doc.exists) {
+          currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
+          updateStatusCounters();
+          applyDriverFilters();
+        }
+      });
     }
 
     function initDriverLMap() {
       if (!driverLMap) {
         driverLMap = L.map('driverLeafletMapContainer').setView([-16.3988, -71.5350], 14);
-        L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-          maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-        }).addTo(driverLMap);
+        L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(driverLMap);
         driverLayerGroup = L.layerGroup().addTo(driverLMap);
       }
       setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 200);
     }
 
-    function centerDriverMapOnPoints() {
-      if (!driverLMap || filteredClientsData.length === 0) return;
-      const bounds = filteredClientsData.filter(c => c.lat && c.lon).map(c => [c.lat, c.lon]);
-      if (bounds.length > 0) driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
-    }
-
-    function zoomToPendingPoints() {
-      if (!driverLMap || currentClientsData.length === 0) return;
-      const bounds = currentClientsData.filter(c => c.lat && c.lon && c.estado === 'PENDIENTE').map(c => [c.lat, c.lon]);
-      if (bounds.length > 0) driverLMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
-    }
-
     function applyDriverFilters() {
-      const searchText = document.getElementById('driverSearchInput').value.toLowerCase().trim();
-      const selectedVendor = document.getElementById('driverVendorFilter').value;
-      const hideVisited = document.getElementById('chkHideVisited').checked;
-
-      filteredClientsData = currentClientsData.filter(c => {
-        const isVisited = c.estado !== 'PENDIENTE';
-        if (hideVisited && isVisited) return false;
-        const matchVendor = !selectedVendor || c.vendedor.toString() === selectedVendor;
-        const matchSearch = !searchText || c.name.toLowerCase().includes(searchText) || c.domicilio.toLowerCase().includes(searchText) || c.sec.toString().includes(searchText);
-        return matchVendor && matchSearch;
-      });
-
+      filteredClientsData = currentClientsData;
       renderDriverLMapPoints();
       renderClientsList();
     }
@@ -843,18 +523,19 @@
       if (pos !== -1) selectedRouteIndexes.splice(pos, 1);
       else selectedRouteIndexes.push(idx);
 
+      saveRoutePointsToLocalStorage(); // Persistencia local automática
+
       document.getElementById('btnHeaderDeselect').classList.toggle('hidden', selectedRouteIndexes.length === 0);
       renderDriverLMapPoints();
       drawRouteGuidePath();
     }
 
     function clearSelectedRoutePoints() {
+      if (!confirm("¿Borrar todo el trazado de la ruta?")) return;
       selectedRouteIndexes = [];
+      localStorage.removeItem(getStorageRouteKey());
       document.getElementById('btnHeaderDeselect').classList.add('hidden');
-      if (routePolyline && driverLMap) {
-        driverLMap.removeControl(routePolyline);
-        routePolyline = null;
-      }
+      if (routePolyline && driverLMap) { driverLMap.removeControl(routePolyline); routePolyline = null; }
       renderDriverLMapPoints();
     }
 
@@ -863,11 +544,7 @@
       if (routePolyline) { driverLMap.removeControl(routePolyline); routePolyline = null; }
       if (selectedRouteIndexes.length === 0) return;
 
-      const waypoints = selectedRouteIndexes.map(idx => {
-        const c = currentClientsData[idx];
-        return L.latLng(c.lat, c.lon);
-      });
-
+      const waypoints = selectedRouteIndexes.map(idx => L.latLng(currentClientsData[idx].lat, currentClientsData[idx].lon));
       if (waypoints.length > 0) {
         routePolyline = L.Routing.control({
           waypoints: waypoints,
@@ -894,24 +571,7 @@
       document.getElementById('cntRepasos').innerText = rep;
     }
 
-    function populateVendorFilter(clients) {
-      const select = document.getElementById('driverVendorFilter');
-      const legendDiv = document.getElementById('driverVendorLegend');
-      const vendors = new Set();
-      clients.forEach(c => { if (c.vendedor) vendors.add(c.vendedor); });
-
-      select.innerHTML = '<option value="">-- Todos los Vendedores --</option>';
-      if (legendDiv) legendDiv.innerHTML = '';
-
-      Array.from(vendors).sort().forEach(v => {
-        const color = getVendorColor(v);
-        select.innerHTML += `<option value="${v}">Vendedor ${v}</option>`;
-        if (legendDiv) {
-          legendDiv.innerHTML += `<span class="inline-flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-md border text-slate-700"><span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span> Vend ${v}</span>`;
-        }
-      });
-    }
-
+    // RENDER DE PUNTOS EN MAPA CON BOLETA Y DESCUENTO DINÁMICO
     function renderDriverLMapPoints() {
       if (!driverLMap || !driverLayerGroup) return;
       driverLayerGroup.clearLayers();
@@ -920,28 +580,31 @@
       filteredClientsData.forEach(c => {
         if (!c.lat || !c.lon) return;
         const isRouteSelected = selectedRouteIndexes.includes(c._idx);
-        let fillColor = getVendorColor(c.vendedor);
+        let fillColor = '#2563eb';
         let opacity = 1.0;
-        let radius = isRouteSelected ? 7 : 5;
 
-        if (isRouteSelected) fillColor = '#2563eb';
-        else if (c.estado === 'ENTREGADO') { fillColor = '#10B981'; opacity = 0.4; }
-        else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') { fillColor = '#EF4444'; opacity = 0.5; }
-        else if (c.estado === 'PARCIAL') { fillColor = '#F97316'; opacity = 0.6; }
-        else if (c.estado === 'REPASO') { fillColor = '#6366F1'; opacity = 0.8; }
+        if (!isRouteSelected) {
+          if (c.estado === 'ENTREGADO') { fillColor = '#10B981'; opacity = 0.4; }
+          else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') { fillColor = '#EF4444'; opacity = 0.5; }
+          else if (c.estado === 'PARCIAL') { fillColor = '#F97316'; opacity = 0.6; }
+          else if (c.estado === 'REPASO') { fillColor = '#6366F1'; opacity = 0.8; }
+          else { fillColor = '#64748b'; }
+        }
 
         const circle = L.circleMarker([c.lat, c.lon], {
-          radius: radius, fillColor: fillColor, color: '#ffffff', weight: isRouteSelected ? 3 : 1.5, fillOpacity: opacity
+          radius: isRouteSelected ? 7 : 5, fillColor: fillColor, color: '#ffffff', weight: isRouteSelected ? 3 : 1.5, fillOpacity: opacity
         });
 
-        // HTML BOLETA INTERACTIVA CON SCROLL EN EL POPUP
+        // Calcular subtotal actual restando los ítems rechazados
+        let totalActual = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + (item.estadoItem === 'OK' ? item.subtotalActual : 0), 0) : parseFloat(c.subtotal || 0);
+
         let itemsHtml = '';
         if (c.items && c.items.length > 0) {
           itemsHtml = c.items.map((item, i) => `
-            <div class="flex justify-between items-center bg-white p-1.5 rounded border border-slate-200 mb-1 text-[10px]">
+            <div class="flex justify-between items-center bg-white p-1 rounded border mb-1 text-[10px]">
               <div>
                 <b>${item.articulo}</b><br>
-                <span>Cant: ${item.cantidad} | S/ ${item.subtotal}</span>
+                <span>Cant: ${item.cantidad} | S/ ${item.subtotalActual.toFixed(2)} ${item.estadoItem === 'RECHAZADO' ? '<span class="text-rose-600 font-bold">(Rechazado)</span>' : ''}</span>
               </div>
               <div class="flex gap-1">
                 <button onclick="toggleItemStatus(${c._idx}, ${i}, 'OK')" class="px-1.5 py-0.5 rounded ${item.estadoItem === 'OK' ? 'bg-emerald-600 text-white' : 'bg-slate-200'} font-bold">✅</button>
@@ -950,21 +613,20 @@
             </div>
           `).join('');
         } else {
-          itemsHtml = '<p class="text-[10px] text-slate-400">Sin artículos cargados en este cliente.</p>';
+          itemsHtml = '<p class="text-[10px] text-slate-400">Sin artículos cargados.</p>';
         }
 
         circle.bindPopup(`
-          <div style="font-size:11px; color:#1e293b; width:260px;">
+          <div style="font-size:11px; color:#1e293b; width:280px;">
             <div style="font-weight:800; font-size:12px; margin-bottom:4px; display:flex; justify-content:space-between;">
               <span>#${c.sec} · ${c.name}</span>
               <span class="status-badge status-${c.estado}">${c.estado}</span>
             </div>
             <div style="font-size:10px; color:#475569; margin-bottom:4px;">
-              <b>Dir:</b> ${c.domicilio}<br><b>Monto:</b> S/ ${c.subtotal} | <b>VD:</b> ${c.vendedor}
+              <b>Dir:</b> ${c.domicilio}<br><b>Total a Cobrar:</b> <span class="text-emerald-700 font-black">S/ ${totalActual.toFixed(2)}</span>
             </div>
-            
-            <!-- LISTA DE PRODUCTOS CON SCROLL -->
-            <div style="max-height:120px; overflow-y:auto; border:1px solid #cbd5e1; padding:4px; border-radius:6px; background:#f8fafc; margin-bottom:6px;">
+
+            <div style="max-height:110px; overflow-y:auto; border:1px solid #cbd5e1; padding:4px; border-radius:6px; background:#f8fafc; margin-bottom:6px;">
               ${itemsHtml}
             </div>
 
@@ -982,10 +644,7 @@
         `);
 
         driverLayerGroup.addLayer(circle);
-
-        const textIcon = L.divIcon({ className: 'sec-number-tag', html: `${c.sec}`, iconAnchor: [-6, 8] });
-        driverLayerGroup.addLayer(L.marker([c.lat, c.lon], { icon: textIcon, interactive: false }));
-
+        driverLayerGroup.addLayer(L.marker([c.lat, c.lon], { icon: L.divIcon({ className: 'sec-number-tag', html: `${c.sec}`, iconAnchor: [-6, 8] }), interactive: false }));
         bounds.push([c.lat, c.lon]);
       });
 
@@ -997,17 +656,17 @@
 
     function renderClientsList() {
       const list = document.getElementById('driverClientsList');
-      list.innerHTML = filteredClientsData.map(c => `
-        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
-          <div class="flex justify-between items-center">
-            <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
-            <span class="status-badge status-${c.estado}">${c.estado}</span>
-          </div>
-          <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
-          ${c.obs ? `<p class="text-xs font-bold text-rose-600">Motivo: ${c.obs}</p>` : ''}
-          <div class="flex justify-between items-center pt-2">
-            <span class="text-xs font-bold">S/ ${c.subtotal}</span>
-            <div class="flex gap-1">
+      list.innerHTML = filteredClientsData.map(c => {
+        let totalActual = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + (item.estadoItem === 'OK' ? item.subtotalActual : 0), 0) : parseFloat(c.subtotal || 0);
+        return `
+          <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
+              <span class="status-badge status-${c.estado}">${c.estado}</span>
+            </div>
+            <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
+            <div class="flex justify-between items-center pt-2">
+              <span class="text-xs font-bold text-emerald-700">Total a Cobrar: S/ ${totalActual.toFixed(2)}</span>
               <select onchange="updateClientCompleteStatus(${c._idx}, this.value)" class="text-xs font-bold border rounded-lg px-2 py-1 bg-white">
                 <option value="PENDIENTE" ${c.estado === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
                 <option value="ENTREGADO" ${c.estado === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
@@ -1017,8 +676,8 @@
               </select>
             </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     async function toggleItemStatus(clientIdx, itemIdx, status) {
@@ -1029,8 +688,10 @@
       if (status === 'RECHAZADO') {
         const motivo = prompt("Motivo del rechazo de este artículo (ej. Sin stock, dañado):", "Sin stock") || "Sin stock";
         client.items[itemIdx].motivoItem = motivo;
+        client.items[itemIdx].subtotalActual = 0; // Descuenta automáticamente el monto del producto
       } else {
         client.items[itemIdx].motivoItem = '';
+        client.items[itemIdx].subtotalActual = client.items[itemIdx].subtotalOriginal; // Restaura el monto
       }
 
       await saveClientsToFirebase();
@@ -1043,34 +704,28 @@
       let customObs = client.obs || "";
 
       if (status === 'RECHAZADO' || status === 'CERRADO') {
-        customObs = prompt("Motivo del rechazo total (ej. Local cerrado, ausente):", "Cerrado / Ausente") || "Cerrado";
-        // Marcar todos los ítems como rechazados automáticamente
+        customObs = prompt("Motivo del rechazo total (ej. Local cerrado, ausente):", "Cerrado") || "Cerrado";
         if (client.items) {
           client.items.forEach(item => {
             item.estadoItem = 'RECHAZADO';
             item.motivoItem = customObs;
+            item.subtotalActual = 0;
           });
         }
       } else if (status === 'PARCIAL') {
-        customObs = prompt("Motivo de entrega parcial (ej. Sin dinero para todo):", "Parcial") || "Parcial";
+        customObs = prompt("Motivo de entrega parcial:", "Parcial") || "Parcial";
       } else if (status === 'REPASO') {
-        customObs = prompt("Motivo del repaso / entrega posterior:", "Repaso programado") || "Repaso";
+        customObs = prompt("Motivo del repaso / entrega posterior:", "Repaso") || "Repaso";
       }
 
       client.estado = status;
       client.obs = customObs;
-
-      if (status !== 'PENDIENTE') {
-        const rPos = selectedRouteIndexes.indexOf(idx);
-        if (rPos !== -1) selectedRouteIndexes.splice(rPos, 1);
-      }
 
       await saveClientsToFirebase();
       if (driverLMap) driverLMap.closePopup();
       renderDriverLMapPoints();
       renderClientsList();
       updateStatusCounters();
-      drawRouteGuidePath();
     }
 
     async function saveClientsToFirebase() {
@@ -1080,10 +735,18 @@
     }
 
     function logoutDriverSession() {
-      clearSelectedRoutePoints();
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
     }
+
+    function initAdminLMap() {
+      if (!adminLMap) {
+        adminLMap = L.map('adminLeafletMapContainer').setView([-16.3988, -71.5350], 12);
+        L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(adminLMap);
+        adminLayerGroup = L.layerGroup().addTo(adminLMap);
+      }
+    }
+    function loadAdminData() {}
   </script>
 </body>
 </html>
