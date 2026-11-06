@@ -64,7 +64,7 @@
           <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
             COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística con Boletas y Descuento Dinámico</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística y Control de Boletas</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -343,7 +343,7 @@
       const idxTpt = getIndex(['TPT', 'RUTA', 'TRANSPORTE', 'CODIGO']);
       const idxSec = getIndex(['SEC', 'SECUENCIA', 'ORDEN']);
       const idxVend = getIndex(['VENDEDOR', 'VEND']);
-      const idxName = getIndex(['NAME', 'CLIENTE', 'COD CLIENTE']); // CÓDIGO NUMÉRICO CLAVE
+      const idxName = getIndex(['NAME', 'CLIENTE', 'COD CLIENTE']); // CLAVE EXACTA DE KML
       const idxRazon = getIndex(['RAZON SOCIAL', 'RAZON']);
       const idxTel = getIndex(['TELEFONO', 'TEL']);
       const idxDom = getIndex(['DOMICILIO', 'DIRECCION']);
@@ -768,7 +768,7 @@
               <span class="status-badge status-${c.estado}">${c.estado}</span>
             </div>
             <div style="font-size:10px; color:#475569; margin-bottom:4px;">
-              <b>Dir:</b> ${c.domicilio}<br><b>Total a Cobrar:</b> <span class="text-emerald-700 font-black">S/ ${totalActual.toFixed(2)}</span>
+              <b>Código:</b> ${c.codCliente}<br><b>Dir:</b> ${c.domicilio}<br><b>Total a Cobrar:</b> <span class="text-emerald-700 font-black">S/ ${totalActual.toFixed(2)}</span>
               ${c.obs ? `<br><b class="text-rose-600">Motivo: ${c.obs}</b>` : ''}
             </div>
 
@@ -808,7 +808,7 @@
         return `
           <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
             <div class="flex justify-between items-center">
-              <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
+              <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name} (Cod: ${c.codCliente})</span>
               <span class="status-badge status-${c.estado}">${c.estado}</span>
             </div>
             <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
