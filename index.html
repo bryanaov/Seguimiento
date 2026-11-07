@@ -23,15 +23,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <style>
-    .map-wrapper { height: 560px; width: 100%; border-radius: 12px; transition: all 0.3s ease; position: relative; background-color: #f8fafc; z-index: 1; }
-    .map-wrapper.is-fullscreen {
-      position: fixed !important; top: 0 !important; left: 0 !important;
-      width: 100vw !important; height: 100vh !important;
-      z-index: 999999 !important; border-radius: 0 !important;
-      padding: 0 !important; margin: 0 !important; background: #0f172a !important;
-    }
-    .map-wrapper.is-fullscreen .map-container-inner { height: 100% !important; width: 100% !important; border-radius: 0 !important; }
-
     .status-badge { padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
     .status-PENDIENTE { background-color: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
     .status-ENTREGADO { background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
@@ -46,6 +37,27 @@
       white-space: nowrap !important;
     }
     .leaflet-routing-container { display: none !important; }
+
+    /* PANTALLA COMPLETA RESPONSIVA (CELULAR Y PC) */
+    #driverFullscreenWrapper.is-fullscreen {
+      position: fixed !important; top: 0 !important; left: 0 !important;
+      width: 100vw !important; height: 100vh !important;
+      z-index: 999999 !important; border-radius: 0 !important;
+      padding: 8px !important; margin: 0 !important; background: #0f172a !important;
+      display: flex; flex-direction: column;
+    }
+    #driverFullscreenWrapper.is-fullscreen .map-wrapper-col { flex: 1; min-height: 45vh; display: flex; flex-direction: column; }
+    #driverFullscreenWrapper.is-fullscreen .map-inner { flex: 1; height: 100% !important; border-radius: 12px; }
+    #driverFullscreenWrapper.is-fullscreen .side-panel { flex: 1; max-height: 50vh; overflow-y: auto; background: white; border-radius: 12px; }
+    
+    @media (min-width: 1024px) {
+      #driverFullscreenWrapper.is-fullscreen { flex-direction: row; padding: 16px !important; gap: 16px; }
+      #driverFullscreenWrapper.is-fullscreen .map-wrapper-col { flex: 2; height: 100%; min-height: 100%; }
+      #driverFullscreenWrapper.is-fullscreen .side-panel { flex: 1; max-height: 100%; }
+    }
+
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { opacity: 1; }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
@@ -79,6 +91,7 @@
 
     <!-- VISTA CHOFER -->
     <section id="viewDriver" class="block space-y-4">
+      <!-- LOGIN -->
       <div id="driverLoginCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 max-w-lg mx-auto">
         <div class="text-center space-y-1">
           <div class="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-1">
@@ -87,11 +100,10 @@
           <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
           <p class="text-xs text-slate-500 font-medium">Ingresa tu código de transporte (Ej: 18)</p>
         </div>
-
         <div class="space-y-3 pt-2">
           <div>
-            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
-            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 18" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Ruta</label>
+            <input type="text" id="inputRouteCode" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
           </div>
           <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
@@ -101,24 +113,17 @@
 
       <!-- PANEL DE RUTA CARGADA -->
       <div id="driverRouteContainer" class="hidden space-y-4">
+        <!-- CABECERA RUTA -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-3">
           <div class="space-y-0.5">
             <h3 class="font-black text-slate-900 text-xl" id="driverRouteTitle">Ruta #</h3>
-            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Maps HD En Línea
-            </p>
+            <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sincronizado</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button onclick="toggleDriverMapFullscreen()" class="px-3.5 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
-              <i class="fa-solid fa-expand"></i> Ampliar Mapa
-            </button>
-            <button onclick="centerDriverMapOnPoints()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs rounded-xl border border-indigo-200 transition flex items-center gap-1">
+            <button onclick="centerDriverMapOnPoints()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 flex items-center gap-1">
               <i class="fa-solid fa-crosshairs"></i> Centrar Mapa
             </button>
-            <button onclick="clearSelectedRoutePoints()" id="btnHeaderDeselect" class="hidden px-3.5 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
-              <i class="fa-solid fa-trash-can"></i> Borrar Trazado
-            </button>
-            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center gap-1">
+            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 flex items-center gap-1">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
             </button>
           </div>
@@ -148,40 +153,44 @@
           </div>
         </div>
 
-        <!-- LAYOUT DE MAPA + PANEL LATERAL -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <!-- MAPA (2 Columnas) -->
-          <div class="lg:col-span-2 bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-            <div class="flex justify-between items-center flex-wrap gap-2">
+        <!-- LAYOUT MAPA + PANEL (Responsivo a Celular/Zoom) -->
+        <div id="driverFullscreenWrapper" class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-white p-3 lg:p-4 rounded-2xl shadow-sm border border-slate-200/80 transition-all">
+          
+          <!-- COLUMNA MAPA -->
+          <div class="map-wrapper-col flex flex-col space-y-3">
+            <div class="flex justify-between items-center flex-wrap gap-2 shrink-0">
               <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                 <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas
               </h4>
-              <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
-                <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
-                <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
+              <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                  <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
+                  <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
+                </div>
+                <button onclick="toggleDriverMapFullscreen()" id="btnExpandirMapa" class="px-3.5 py-1.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-sm transition">
+                  <i class="fa-solid fa-expand"></i> Ampliar
+                </button>
               </div>
             </div>
-
-            <div id="driverMapWrapper" class="map-wrapper overflow-hidden">
-              <div id="driverLeafletMapContainer" class="w-full h-full map-container-inner"></div>
-            </div>
+            <!-- CONTENEDOR MAPA LEAFLET -->
+            <div class="w-full h-[450px] lg:h-[600px] relative overflow-hidden bg-slate-100 rounded-xl border border-slate-200 map-inner z-10" id="driverLeafletMapContainer"></div>
           </div>
 
-          <!-- PANEL LATERAL FIJO DE BOLETA Y PRODUCTOS -->
-          <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col h-[560px]">
-            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+          <!-- COLUMNA PANEL LATERAL (BOLETA Y TRAZADO) -->
+          <div class="side-panel flex flex-col bg-slate-50 rounded-xl border border-slate-200 p-3 h-[450px] lg:h-[640px]">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-200 shrink-0">
               <h4 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
                 <i class="fa-solid fa-file-invoice-dollar text-indigo-600"></i> Detalle de Boleta
               </h4>
               <button onclick="closeSidePanel()" id="btnClosePanel" class="hidden text-xs font-bold text-rose-600 hover:text-rose-800 px-2 py-1 rounded bg-rose-50 border border-rose-200 transition">
-                <i class="fa-solid fa-xmark"></i> Cerrar
+                <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
 
-            <div id="sidePanelContent" class="flex-1 overflow-y-auto pt-3 space-y-3 text-xs">
-              <div class="text-center text-slate-400 py-20 space-y-2">
-                <i class="fa-solid fa-hand-pointer text-3xl text-slate-300"></i>
-                <p class="font-medium">Selecciona un punto en el mapa para ver sus productos, boleta y cobrar.</p>
+            <div id="sidePanelContent" class="flex-1 overflow-y-auto pt-3 space-y-3 text-xs pr-1 relative">
+              <div class="text-center text-slate-400 py-10 lg:py-32 space-y-3">
+                <i class="fa-solid fa-hand-pointer text-4xl text-slate-300"></i>
+                <p class="font-medium text-[13px]">Selecciona un punto en el mapa.<br>Sin globos, todo aparece aquí.</p>
               </div>
             </div>
           </div>
@@ -197,18 +206,13 @@
     <section id="viewAdmin" class="hidden space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-            <i class="fa-solid fa-file-csv text-emerald-600"></i> 1. Cargar CSV de Rutas (Mapa)
-          </h2>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-file-csv text-emerald-600"></i> 1. Cargar Rutas (Mapa)</h2>
           <input type="file" id="inputCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:text-indigo-700">
           <button onclick="processAndUploadCSV()" class="w-full px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs transition">Cargar Rutas</button>
           <div id="csvStatus" class="text-xs font-bold"></div>
         </div>
-
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
-          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-            <i class="fa-solid fa-file-excel text-indigo-600"></i> 2. Cargar CSV de Comprobantes/Artículos
-          </h2>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-file-excel text-indigo-600"></i> 2. Cargar Comprobantes</h2>
           <input type="file" id="inputItemsCsvFile" accept=".csv, .txt" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:text-indigo-700">
           <button onclick="processAndUploadItemsCSV()" class="w-full px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-xs transition">Cargar Comprobantes</button>
           <div id="itemsCsvStatus" class="text-xs font-bold"></div>
@@ -217,19 +221,15 @@
 
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 border-l-4 border-amber-500">
         <div class="flex flex-wrap justify-between items-center gap-2">
-          <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2">
-            <i class="fa-solid fa-truck text-amber-500"></i> Seleccionar Ruta para Monitoreo y Liquidación
-          </h3>
+          <h3 class="font-bold text-slate-800 text-xs uppercase flex items-center gap-2"><i class="fa-solid fa-truck text-amber-500"></i> Liquidación de Ruta</h3>
           <select id="adminRouteSelect" onchange="selectAdminRoute(this.value)" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-slate-50 outline-none">
             <option value="ALL">🌐 Ver Todas las Rutas</option>
           </select>
         </div>
-        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
-          <span class="text-slate-400 font-normal">Carga un archivo para ver las rutas.</span>
-        </div>
+        <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1"></div>
       </div>
 
-      <!-- TARJETAS DE CONTEO Y FINANZAS DEL ADMIN -->
+      <!-- TARJETAS DE CONTEO ADMIN -->
       <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
         <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
           <p class="text-[10px] font-bold text-slate-400 uppercase">📍 Total Clientes</p>
@@ -257,35 +257,34 @@
         </div>
       </div>
 
+      <!-- FINANZAS ADMIN -->
       <div id="adminFinancialSummary" class="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
           <p class="text-[10px] font-bold text-slate-400 uppercase">Total Programado</p>
           <p class="text-lg font-black text-slate-800" id="adminTotalProg">S/ 0.00</p>
         </div>
         <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 shadow-sm">
-          <p class="text-[10px] font-bold text-emerald-600 uppercase">Dinero Entregado (Neto)</p>
+          <p class="text-[10px] font-bold text-emerald-600 uppercase">Dinero Entregado</p>
           <p class="text-lg font-black text-emerald-700" id="adminTotalEntregado">S/ 0.00</p>
         </div>
         <div class="bg-rose-50 p-3 rounded-xl border border-rose-200 shadow-sm">
-          <p class="text-[10px] font-bold text-rose-600 uppercase">Dinero Rechazado / Descuentos</p>
+          <p class="text-[10px] font-bold text-rose-600 uppercase">Rechazos / Descuentos</p>
           <p class="text-lg font-black text-rose-700" id="adminTotalRechazado">S/ 0.00</p>
         </div>
         <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-200 shadow-sm">
-          <p class="text-[10px] font-bold text-indigo-600 uppercase">💵 Dinero a Traer a Caja</p>
+          <p class="text-[10px] font-bold text-indigo-600 uppercase">💵 Dinero a Caja</p>
           <p class="text-lg font-black text-indigo-700" id="adminDineroCaja">S/ 0.00</p>
         </div>
       </div>
 
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
         <div class="flex justify-between items-center">
-          <h3 class="font-bold text-slate-900 text-base">Mapa General y Monitoreo de Rutas</h3>
+          <h3 class="font-bold text-slate-900 text-base">Mapa General de Rutas</h3>
           <button onclick="clearCurrentDayData()" class="px-3 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-xl hover:bg-rose-700 transition">
-            <i class="fa-solid fa-trash-can"></i> Borrar Datos del Día
+            <i class="fa-solid fa-trash-can"></i> Borrar Datos
           </button>
         </div>
-        <div id="adminMapWrapper" class="map-wrapper overflow-hidden">
-          <div id="adminLeafletMapContainer" class="w-full h-full map-container-inner"></div>
-        </div>
+        <div class="w-full h-[500px] bg-slate-100 rounded-xl border border-slate-200 overflow-hidden" id="adminLeafletMapContainer"></div>
       </div>
     </section>
 
@@ -302,74 +301,65 @@
       messagingSenderId: "226032355815",
       appId: "1:226032355815:web:0e7e78e217ca77363a1542"
     };
-
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let driverLMap = null;
-    let adminLMap = null;
-    let driverLayerGroup = null;
-    let adminLayerGroup = null;
-    let routePolyline = null;
-
-    let currentClientsData = [];
-    let filteredClientsData = [];
-    let currentRouteCode = null;
-    let currentDocId = null;
-
-    let selectedRouteIndexes = [];
-    let isInitialFitBoundsDone = false;
-    let adminAllRoutesMap = {};
-    let selectedAdminRouteKey = 'ALL';
+    let driverLMap = null; let adminLMap = null;
+    let driverLayerGroup = null; let adminLayerGroup = null; let routePolyline = null;
+    let currentClientsData = []; let filteredClientsData = [];
+    let currentRouteCode = null; let currentDocId = null;
+    let selectedRouteIndexes = []; let isInitialFitBoundsDone = false;
+    let adminAllRoutesMap = {}; let selectedAdminRouteKey = 'ALL';
     let selectedClientIndex = null;
 
-    function getStorageRouteKey() {
-      return `courier_route_indices_${currentRouteCode || 'default'}`;
-    }
-
-    function loadSavedRoutePoints() {
-      try {
-        const saved = localStorage.getItem(getStorageRouteKey());
-        selectedRouteIndexes = saved ? JSON.parse(saved) : [];
-      } catch (e) {
-        selectedRouteIndexes = [];
+    // COLORES POR VENDEDOR
+    const vendedorColors = {}; let colorVendedorIndex = 0;
+    const colorPalette = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#0ea5e9', '#84cc16', '#f43f5e', '#6366f1'];
+    function getColorPorVendedor(vendedorId) {
+      if (!vendedorId) return '#64748b';
+      if (!vendedorColors[vendedorId]) {
+        vendedorColors[vendedorId] = colorPalette[colorVendedorIndex % colorPalette.length];
+        colorVendedorIndex++;
       }
+      return vendedorColors[vendedorId];
     }
 
-    function saveRoutePointsToLocalStorage() {
-      try {
-        localStorage.setItem(getStorageRouteKey(), JSON.stringify(selectedRouteIndexes));
-      } catch (e) {}
+    // PERSISTENCIA DEL TRAZADO
+    function getStorageRouteKey() { return `courier_route_indices_${currentRouteCode || 'default'}`; }
+    function loadSavedRoutePoints() {
+      try { selectedRouteIndexes = JSON.parse(localStorage.getItem(getStorageRouteKey())) || []; } catch(e) { selectedRouteIndexes = []; }
     }
+    function saveRoutePointsToLocalStorage() { localStorage.setItem(getStorageRouteKey(), JSON.stringify(selectedRouteIndexes)); }
 
     function switchTab(tab) {
       document.getElementById('viewDriver').classList.toggle('hidden', tab !== 'driver');
       document.getElementById('viewAdmin').classList.toggle('hidden', tab !== 'admin');
-      if (tab === 'admin') {
-        setTimeout(() => { initAdminLMap(); loadAdminData(); }, 150);
-      } else if (tab === 'driver' && driverLMap) {
-        setTimeout(() => { driverLMap.invalidateSize(); }, 150);
-      }
+      if (tab === 'admin') setTimeout(() => { initAdminLMap(); loadAdminData(); }, 150);
+      else if (tab === 'driver' && driverLMap) setTimeout(() => { driverLMap.invalidateSize(); }, 150);
     }
-
-    function requestAdminAccess() {
-      const pass = prompt("🔒 Contraseña de Administrador:");
-      if (pass === ADMIN_PASSWORD) switchTab('admin');
-    }
+    function requestAdminAccess() { if (prompt("🔒 Contraseña de Administrador:") === ADMIN_PASSWORD) switchTab('admin'); }
 
     function toggleDriverMapFullscreen() {
-      const wrapper = document.getElementById('driverMapWrapper');
+      const wrapper = document.getElementById('driverFullscreenWrapper');
+      const btn = document.getElementById('btnExpandirMapa');
       wrapper.classList.toggle('is-fullscreen');
-      setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 150);
+      
+      if (wrapper.classList.contains('is-fullscreen')) {
+        btn.innerHTML = '<i class="fa-solid fa-compress"></i> Reducir';
+        btn.classList.replace('bg-indigo-600', 'bg-rose-600');
+      } else {
+        btn.innerHTML = '<i class="fa-solid fa-expand"></i> Ampliar';
+        btn.classList.replace('bg-rose-600', 'bg-indigo-600');
+      }
+      setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 200);
     }
 
+    // PARSEO DE CSV Y DECIMALES EXACTOS
     function parseCSV(text) {
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
       if (lines.length === 0) return [];
-      const firstLine = lines[0];
-      let delimiter = ';';
-      if ((firstLine.match(/,/g) || []).length > (firstLine.match(/;/g) || []).length) delimiter = ',';
-
+      let delimiter = (lines[0].match(/,/g) || []).length > (lines[0].match(/;/g) || []).length ? ',' : ';';
+      
       function parseRow(rowStr) {
         const result = []; let current = ''; let inQuotes = false;
         for (let i = 0; i < rowStr.length; i++) {
@@ -378,10 +368,8 @@
           else if (char === delimiter && !inQuotes) { result.push(current.trim()); current = ''; }
           else current += char;
         }
-        result.push(current.trim());
-        return result;
+        result.push(current.trim()); return result;
       }
-
       const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
       const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
 
@@ -398,29 +386,20 @@
 
       const clients = [];
       for (let i = 1; i < lines.length; i++) {
-        const cols = parseRow(lines[i]);
-        if (cols.length < 2) continue;
-        let tpt = idxTpt !== -1 ? cols[idxTpt] : 'DEFAULT';
-        if (!tpt) continue;
-
-        let lat = idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) || 0 : 0;
-        let lon = idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) || 0 : 0;
-        let codCliente = idxName !== -1 ? cols[idxName].toString().trim() : '';
-
+        const cols = parseRow(lines[i]); if (cols.length < 2) continue;
+        let tpt = idxTpt !== -1 ? cols[idxTpt] : 'DEFAULT'; if (!tpt) continue;
         clients.push({
           tpt: tpt.toString().trim(),
           sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
-          codCliente: codCliente,
+          codCliente: idxName !== -1 ? cols[idxName].toString().trim() : '',
           vendedor: idxVend !== -1 ? cols[idxVend].toString().trim() : '',
-          name: idxRazon !== -1 ? cols[idxRazon] : (codCliente ? `Cliente ${codCliente}` : 'Cliente ' + i),
+          name: idxRazon !== -1 ? cols[idxRazon] : (idxName !== -1 ? cols[idxName] : 'Cliente ' + i),
           telefono: idxTel !== -1 ? cols[idxTel] : '',
           domicilio: idxDom !== -1 ? cols[idxDom] : '',
           subtotal: idxSub !== -1 ? parseFloat(cols[idxSub].toString().replace(',', '.')) || 0 : 0,
-          lat: lat,
-          lon: lon,
-          estado: 'PENDIENTE',
-          obs: '',
-          items: []
+          lat: idxY !== -1 ? parseFloat(cols[idxY].replace(',', '.')) || 0 : 0,
+          lon: idxX !== -1 ? parseFloat(cols[idxX].replace(',', '.')) || 0 : 0,
+          estado: 'PENDIENTE', obs: '', items: []
         });
       }
       return clients;
@@ -429,10 +408,8 @@
     function parseItemsCSV(text) {
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
       if (lines.length === 0) return {};
-      const firstLine = lines[0];
-      let delimiter = ';';
-      if ((firstLine.match(/,/g) || []).length > (firstLine.match(/;/g) || []).length) delimiter = ',';
-
+      let delimiter = (lines[0].match(/,/g) || []).length > (lines[0].match(/;/g) || []).length ? ',' : ';';
+      
       function parseRow(rowStr) {
         const result = []; let current = ''; let inQuotes = false;
         for (let i = 0; i < rowStr.length; i++) {
@@ -441,12 +418,10 @@
           else if (char === delimiter && !inQuotes) { result.push(current.trim()); current = ''; }
           else current += char;
         }
-        result.push(current.trim());
-        return result;
+        result.push(current.trim()); return result;
       }
-
       const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
-      const getIndex = (names) => headers.findIndex(h => names.some(n === h || h.includes(n)));
+      const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
 
       const idxCli = getIndex(['CLIENTE', 'COD CLIENTE']);
       const idxComp = getIndex(['COMPROBANTE', 'TIPO']);
@@ -456,28 +431,22 @@
 
       const itemsMap = {};
       for (let i = 1; i < lines.length; i++) {
-        const cols = parseRow(lines[i]);
-        if (cols.length < 2) continue;
-
-        let clienteKey = idxCli !== -1 ? cols[idxCli].toString().trim().toUpperCase() : '';
+        const cols = parseRow(lines[i]); if (cols.length < 2) continue;
+        let clienteKey = idxCli !== -1 ? cols[idxCli].toString().trim().toUpperCase().replace(/\.0$/, '') : '';
         if (!clienteKey || clienteKey.includes('TOTAL')) continue;
 
-        let articuloDesc = idxArt !== -1 ? cols[idxArt] : 'Artículo';
-        if (!articuloDesc || articuloDesc === 'NaN') continue;
-
-        let cantVal = idxCant !== -1 ? parseFloat(cols[idxCant].replace(',', '.')) || 0 : 0;
-        let subtotalVal = idxSub !== -1 ? parseFloat(cols[idxSub].replace(',', '.')) || 0 : 0;
+        let cantVal = idxCant !== -1 ? cols[idxCant].replace(',', '.') : "0";
+        let exactCant = parseFloat(cantVal); 
 
         const itemObj = {
           comprobante: idxComp !== -1 ? cols[idxComp] : 'BOLETA',
-          articulo: articuloDesc,
-          cantidad: cantVal, // MANTIENE EXACTAMENTE LOS DECIMALES (0.001, 0.002, etc.)
-          subtotalOriginal: subtotalVal,
-          subtotalActual: subtotalVal,
-          estadoItem: 'OK',
-          motivoItem: ''
+          articulo: idxArt !== -1 ? cols[idxArt] : 'Artículo',
+          cantidad: exactCant,
+          cantRechazada: 0, // Nueva propiedad para matemáticas exactas en PARCIAL
+          subtotalOriginal: idxSub !== -1 ? parseFloat(cols[idxSub].replace(',', '.')) || 0 : 0,
+          subtotalActual: idxSub !== -1 ? parseFloat(cols[idxSub].replace(',', '.')) || 0 : 0,
+          estadoItem: 'OK'
         };
-
         if (!itemsMap[clienteKey]) itemsMap[clienteKey] = [];
         itemsMap[clienteKey].push(itemObj);
       }
@@ -486,7 +455,6 @@
 
     async function processAndUploadCSV() {
       const fileInput = document.getElementById('inputCsvFile');
-      const statusDiv = document.getElementById('csvStatus');
       if (!fileInput.files.length) return;
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -497,12 +465,10 @@
           routesMap[c.tpt].push(c);
         });
         for (const code of Object.keys(routesMap)) {
-          await db.collection('routes').doc(code).set({
-            code, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), clients: routesMap[code]
-          }, { merge: true });
+          await db.collection('routes').doc(code).set({ code, clients: routesMap[code] }, { merge: true });
         }
-        statusDiv.className = "text-xs font-bold text-emerald-600";
-        statusDiv.innerText = `✅ Rutas cargadas (${parsedClients.length} clientes).`;
+        document.getElementById('csvStatus').className = "text-xs font-bold text-emerald-600";
+        document.getElementById('csvStatus').innerText = `✅ Rutas cargadas (${parsedClients.length} clientes).`;
         loadAdminData();
       };
       reader.readAsText(fileInput.files[0], 'LATIN1');
@@ -510,36 +476,25 @@
 
     async function processAndUploadItemsCSV() {
       const fileInput = document.getElementById('inputItemsCsvFile');
-      const statusDiv = document.getElementById('itemsCsvStatus');
       if (!fileInput.files.length) return;
       const reader = new FileReader();
       reader.onload = async (e) => {
         const itemsMap = parseItemsCSV(e.target.result);
         const routesSnapshot = await db.collection('routes').get();
         let updatedCount = 0;
-
         for (const doc of routesSnapshot.docs) {
-          const routeData = doc.data();
-          let clients = routeData.clients || [];
+          let clients = doc.data().clients || [];
           let modified = false;
-
           clients = clients.map(c => {
-            const codClean = (c.codCliente || '').toString().trim().toUpperCase();
+            const codClean = (c.codCliente || '').toString().trim().toUpperCase().replace(/\.0$/, '');
             const matchedItems = itemsMap[codClean] || [];
-            if (matchedItems.length > 0) {
-              modified = true;
-              updatedCount++;
-              return { ...c, items: matchedItems };
-            }
+            if (matchedItems.length > 0) { modified = true; updatedCount++; return { ...c, items: matchedItems }; }
             return c;
           });
-
-          if (modified) {
-            await db.collection('routes').doc(doc.id).update({ clients });
-          }
+          if (modified) await db.collection('routes').doc(doc.id).update({ clients });
         }
-        statusDiv.className = "text-xs font-bold text-emerald-600";
-        statusDiv.innerText = `✅ ¡Comprobantes vinculados a ${updatedCount} clientes!`;
+        document.getElementById('itemsCsvStatus').className = "text-xs font-bold text-emerald-600";
+        document.getElementById('itemsCsvStatus').innerText = `✅ Comprobantes vinculados a ${updatedCount} clientes!`;
         loadAdminData();
       };
       reader.readAsText(fileInput.files[0], 'LATIN1');
@@ -551,10 +506,366 @@
       const batch = db.batch();
       snapshot.forEach(doc => batch.delete(doc.ref));
       await batch.commit();
-      alert("✅ Datos eliminados.");
-      loadAdminData();
+      alert("✅ Datos eliminados."); loadAdminData();
     }
 
+    // --- CARGA CHOFER ---
+    async function loadDriverRoute() {
+      let inputCode = document.getElementById('inputRouteCode').value.trim();
+      if (!inputCode) return alert("Ingresa tu código de ruta.");
+      let docSnap = await db.collection('routes').doc(inputCode).get();
+      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
+
+      currentDocId = docSnap.id;
+      currentRouteCode = docSnap.data().code || inputCode;
+      isInitialFitBoundsDone = false;
+      loadSavedRoutePoints();
+
+      document.getElementById('driverLoginCard').classList.add('hidden');
+      document.getElementById('driverRouteContainer').classList.remove('hidden');
+      document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
+      initDriverLMap();
+
+      db.collection('routes').doc(currentDocId).onSnapshot(doc => {
+        if (doc.exists) {
+          currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
+          updateStatusCounters();
+          applyDriverFilters();
+          if (selectedClientIndex !== null) selectClientForSidePanel(selectedClientIndex);
+        }
+      });
+    }
+
+    function initDriverLMap() {
+      if (!driverLMap) {
+        driverLMap = L.map('driverLeafletMapContainer', {zoomControl: false}).setView([-16.3988, -71.5350], 14);
+        L.control.zoom({ position: 'topright' }).addTo(driverLMap);
+        L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(driverLMap);
+        driverLayerGroup = L.layerGroup().addTo(driverLMap);
+      }
+      setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 200);
+    }
+
+    function centerDriverMapOnPoints() {
+      const bounds = filteredClientsData.filter(c => c.lat && c.lon).map(c => [c.lat, c.lon]);
+      if (bounds.length > 0 && driverLMap) driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
+    }
+    function zoomToPendingPoints() {
+      const bounds = currentClientsData.filter(c => c.lat && c.lon && c.estado === 'PENDIENTE').map(c => [c.lat, c.lon]);
+      if (bounds.length > 0 && driverLMap) driverLMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
+    }
+
+    function applyDriverFilters() {
+      const hideVisited = document.getElementById('chkHideVisited').checked;
+      filteredClientsData = hideVisited ? currentClientsData.filter(c => c.estado === 'PENDIENTE' || selectedRouteIndexes.includes(c._idx)) : currentClientsData;
+      renderDriverLMapPoints();
+      renderClientsList();
+    }
+
+    function toggleSelectRoutePoint(idx) {
+      const pos = selectedRouteIndexes.indexOf(idx);
+      if (pos !== -1) selectedRouteIndexes.splice(pos, 1); else selectedRouteIndexes.push(idx);
+      saveRoutePointsToLocalStorage();
+      renderDriverLMapPoints();
+      drawRouteGuidePath();
+      if(selectedClientIndex === idx) selectClientForSidePanel(idx);
+    }
+
+    function clearSelectedRoutePoints() {
+      if (!confirm("¿Borrar todo el trazado de la ruta?")) return;
+      selectedRouteIndexes = [];
+      saveRoutePointsToLocalStorage();
+      if (routePolyline && driverLMap) { driverLMap.removeControl(routePolyline); routePolyline = null; }
+      renderDriverLMapPoints();
+      if(selectedClientIndex !== null) selectClientForSidePanel(selectedClientIndex);
+    }
+
+    function drawRouteGuidePath() {
+      if (!driverLMap) return;
+      if (routePolyline) { driverLMap.removeControl(routePolyline); routePolyline = null; }
+      if (selectedRouteIndexes.length === 0) return;
+      const waypoints = selectedRouteIndexes.map(idx => L.latLng(currentClientsData[idx].lat, currentClientsData[idx].lon));
+      routePolyline = L.Routing.control({
+        waypoints: waypoints,
+        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+        lineOptions: { styles: [{ color: '#3b82f6', opacity: 0.9, weight: 6 }] },
+        addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: false, show: false
+      }).addTo(driverLMap);
+    }
+
+    function updateStatusCounters() {
+      let pend = 0, ent = 0, rech = 0, parc = 0, rep = 0;
+      currentClientsData.forEach(c => {
+        if (c.estado === 'ENTREGADO') ent++;
+        else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') rech++;
+        else if (c.estado === 'PARCIAL') parc++;
+        else if (c.estado === 'REPASO') rep++;
+        else pend++;
+      });
+      document.getElementById('cntPendientes').innerText = pend;
+      document.getElementById('cntEntregados').innerText = ent;
+      document.getElementById('cntRechazados').innerText = rech;
+      document.getElementById('cntParciales').innerText = parc;
+      document.getElementById('cntRepasos').innerText = rep;
+    }
+
+    function renderDriverLMapPoints() {
+      if (!driverLMap || !driverLayerGroup) return;
+      driverLayerGroup.clearLayers();
+      const bounds = [];
+
+      filteredClientsData.forEach(c => {
+        if (!c.lat || !c.lon) return;
+        const isSelected = selectedRouteIndexes.includes(c._idx);
+        
+        let fillColor = getColorPorVendedor(c.vendedor);
+        let opacity = 1.0;
+
+        if (c.estado === 'ENTREGADO') { fillColor = '#10B981'; opacity = 0.5; }
+        else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') { fillColor = '#EF4444'; opacity = 0.6; }
+        else if (c.estado === 'PARCIAL') { fillColor = '#F97316'; opacity = 0.7; }
+        else if (c.estado === 'REPASO') { fillColor = '#6366F1'; opacity = 0.8; }
+        
+        const circle = L.circleMarker([c.lat, c.lon], {
+          radius: isSelected ? 8 : 6, 
+          fillColor: fillColor, 
+          color: isSelected ? '#1e3a8a' : '#ffffff', 
+          weight: isSelected ? 3 : 1.5, 
+          fillOpacity: opacity
+        });
+
+        // SIN GLOBOS: Al hacer clic, abre panel
+        circle.on('click', () => { selectClientForSidePanel(c._idx); });
+
+        driverLayerGroup.addLayer(circle);
+        driverLayerGroup.addLayer(L.marker([c.lat, c.lon], { icon: L.divIcon({ className: 'sec-number-tag', html: `${c.sec}`, iconAnchor: [-6, 8] }), interactive: false }));
+        bounds.push([c.lat, c.lon]);
+      });
+      if (bounds.length > 0 && !isInitialFitBoundsDone) {
+        driverLMap.fitBounds(bounds, { padding: [20, 20] });
+        isInitialFitBoundsDone = true;
+      }
+      drawRouteGuidePath();
+    }
+
+    // PANEL LATERAL: Matemáticas Exactas
+    function selectClientForSidePanel(idx) {
+      selectedClientIndex = idx;
+      const c = currentClientsData[idx];
+      if (!c) return;
+
+      document.getElementById('btnClosePanel').classList.remove('hidden');
+      const isRouteSelected = selectedRouteIndexes.includes(c._idx);
+      
+      let totalActual = 0;
+      if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') {
+        totalActual = 0;
+      } else {
+        totalActual = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + item.subtotalActual, 0) : parseFloat(c.subtotal || 0);
+      }
+
+      let itemsHtml = '';
+      if (c.items && c.items.length > 0) {
+        itemsHtml = c.items.map((item, i) => {
+          let extraControls = '';
+          // CÁLCULO PARCIAL: Mostrar cuadro para cantidad rechazada
+          if (c.estado === 'PARCIAL') {
+            extraControls = `
+              <div class="mt-2 bg-orange-50 p-2 rounded border border-orange-200 flex items-center justify-between gap-2">
+                <span class="text-[10px] font-bold text-orange-700">Cant. Rechazada:</span>
+                <input type="number" step="0.001" min="0" max="${item.cantidad}" value="${item.cantRechazada || 0}" 
+                  onchange="updateItemPartialQuantity(${c._idx}, ${i}, this.value)" 
+                  class="w-16 px-1.5 py-1 text-xs border border-orange-300 rounded font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-orange-500">
+              </div>
+            `;
+          }
+
+          return `
+          <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm mb-2">
+            <div class="flex justify-between items-start gap-1">
+              <div class="flex-1">
+                <p class="font-bold text-slate-800 leading-tight">${item.articulo}</p>
+                <div class="flex justify-between items-end pr-2 pt-1.5">
+                  <p class="text-[11px] text-slate-500">Pedida: <b class="text-slate-700">${item.cantidad}</b></p>
+                  <p class="text-[11px] font-black ${c.estado === 'RECHAZADO' || item.subtotalActual === 0 ? 'text-rose-600 line-through' : 'text-emerald-700'}">S/ ${item.subtotalActual.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+            ${extraControls}
+          </div>
+          `;
+        }).join('');
+      } else {
+        itemsHtml = '<p class="text-slate-400 text-center py-4 bg-white rounded-xl border border-slate-200 border-dashed">Sin artículos vinculados.</p>';
+      }
+
+      document.getElementById('sidePanelContent').innerHTML = `
+        <div class="space-y-4 pb-4">
+          <!-- CABECERA -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-black text-slate-900 text-base">#${c.sec} · ${c.name}</span>
+              <span class="status-badge status-${c.estado}">${c.estado}</span>
+            </div>
+            <div class="text-[12px] text-slate-600 space-y-0.5 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
+              <p><b>Cód:</b> ${c.codCliente} | <b>Vend:</b> <span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background:${getColorPorVendedor(c.vendedor)};color:white;">${c.vendedor||'S/V'}</span></p>
+              <p><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
+              <div class="pt-2 mt-2 border-t border-indigo-100/50 flex justify-between items-center">
+                <span class="font-bold text-slate-700">Total a Cobrar:</span>
+                <span class="text-emerald-700 font-black text-xl">S/ ${totalActual.toFixed(2)}</span>
+              </div>
+              ${c.obs ? `<p class="text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded mt-1 text-[11px]"><i class="fa-solid fa-circle-exclamation"></i> ${c.obs}</p>` : ''}
+            </div>
+          </div>
+
+          <!-- BOTÓN TRAZAR RUTA AQUÍ (Independiente) -->
+          <button onclick="toggleSelectRoutePoint(${c._idx})" class="w-full py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wide text-white ${isRouteSelected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'} transition shadow-sm flex items-center justify-center gap-2">
+            ${isRouteSelected ? '<i class="fa-solid fa-link-slash"></i> Quitar del Trazado' : '<i class="fa-solid fa-route"></i> Trazar Ruta a este Punto'}
+          </button>
+
+          <!-- BOLETA -->
+          <div>
+            <p class="font-bold text-slate-400 text-[10px] uppercase tracking-wider mb-2">Boleta de Productos:</p>
+            <div class="space-y-1">
+              ${itemsHtml}
+            </div>
+          </div>
+
+          <!-- ACCIONES GENERALES -->
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+            <button onclick="updateClientCompleteStatus(${c._idx}, 'ENTREGADO')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl transition text-[11px]">✅ ENTREGADO</button>
+            <button onclick="updateClientCompleteStatus(${c._idx}, 'RECHAZADO')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-xl transition text-[11px]">❌ RECHAZAR TODO</button>
+            <button onclick="updateClientCompleteStatus(${c._idx}, 'PARCIAL')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-xl transition text-[11px]">🟧 PARCIAL</button>
+            <button onclick="updateClientCompleteStatus(${c._idx}, 'REPASO')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl transition text-[11px]">🔁 REPASO</button>
+          </div>
+          <button onclick="updateClientCompleteStatus(${c._idx}, 'PENDIENTE')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-[11px] uppercase tracking-wide mt-2">⏳ Marcar Pendiente (Restablecer)</button>
+        </div>
+      `;
+    }
+
+    // CALCULO MATEMÁTICO PARCIAL EXACTO
+    async function updateItemPartialQuantity(clientIdx, itemIdx, rejectedQtyStr) {
+      const client = currentClientsData[clientIdx];
+      if (!client || !client.items[itemIdx]) return;
+      const item = client.items[itemIdx];
+
+      let rejectedQty = parseFloat(rejectedQtyStr) || 0;
+      if (rejectedQty < 0) rejectedQty = 0;
+      if (rejectedQty > item.cantidad) rejectedQty = item.cantidad;
+
+      item.cantRechazada = rejectedQty;
+      
+      if (item.cantidad > 0) {
+        // Regla de tres simple exacta: (Subtotal Original / Cantidad Total) * Cantidad Restante
+        let unitPrice = item.subtotalOriginal / item.cantidad;
+        let qtyAccepted = item.cantidad - item.cantRechazada;
+        item.subtotalActual = qtyAccepted * unitPrice;
+      }
+
+      await saveClientsToFirebase();
+      renderClientsList();
+      selectClientForSidePanel(clientIdx); // Refrescar panel
+    }
+
+    async function updateClientCompleteStatus(idx, status) {
+      const client = currentClientsData[idx];
+      let customObs = "";
+
+      // ACCIÓN MASIVA SEGÚN ESTADO
+      if (status === 'RECHAZADO' || status === 'CERRADO') {
+        customObs = prompt("Motivo del rechazo total (ej. Local cerrado):", "Cerrado / Ausente") || "Rechazado";
+        if (client.items) {
+          client.items.forEach(item => {
+            item.cantRechazada = item.cantidad;
+            item.subtotalActual = 0;
+            item.estadoItem = 'RECHAZADO';
+          });
+        }
+      } 
+      else if (status === 'ENTREGADO') {
+        if (client.items) {
+          client.items.forEach(item => {
+            item.cantRechazada = 0;
+            item.subtotalActual = item.subtotalOriginal;
+            item.estadoItem = 'OK';
+          });
+        }
+      }
+      else if (status === 'PARCIAL') {
+        customObs = "Entrega Incompleta";
+        // Si entra a parcial, habilitamos el descuento, por defecto los valores quedan igual hasta que edite
+        if (client.items) {
+          client.items.forEach(item => { item.estadoItem = 'OK'; });
+        }
+      } 
+      else if (status === 'REPASO') {
+        customObs = "Repaso";
+      } 
+      else if (status === 'PENDIENTE') {
+        // Restaurar estado original 100%
+        if (client.items) {
+          client.items.forEach(item => {
+            item.cantRechazada = 0;
+            item.subtotalActual = item.subtotalOriginal;
+            item.estadoItem = 'OK';
+          });
+        }
+      }
+
+      client.estado = status;
+      client.obs = customObs;
+
+      await saveClientsToFirebase();
+      renderDriverLMapPoints();
+      renderClientsList();
+      updateStatusCounters();
+      selectClientForSidePanel(idx);
+    }
+
+    function closeSidePanel() {
+      selectedClientIndex = null;
+      document.getElementById('btnClosePanel').classList.add('hidden');
+      document.getElementById('sidePanelContent').innerHTML = `
+        <div class="text-center text-slate-400 py-10 lg:py-32 space-y-3">
+          <i class="fa-solid fa-hand-pointer text-4xl text-slate-300"></i>
+          <p class="font-medium text-[13px]">Selecciona un punto en el mapa.<br>Sin globos, todo aparece aquí.</p>
+        </div>
+      `;
+    }
+
+    function renderClientsList() {
+      const list = document.getElementById('driverClientsList');
+      list.innerHTML = filteredClientsData.map(c => {
+        let totalActual = c.estado === 'RECHAZADO' || c.estado === 'CERRADO' ? 0 : (c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + item.subtotalActual, 0) : parseFloat(c.subtotal || 0));
+        return `
+          <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 cursor-pointer hover:border-indigo-400 transition" onclick="selectClientForSidePanel(${c._idx})">
+            <div class="flex justify-between items-center">
+              <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name} (Cod: ${c.codCliente})</span>
+              <span class="status-badge status-${c.estado}">${c.estado}</span>
+            </div>
+            <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
+            ${c.obs ? `<p class="text-xs font-bold text-rose-600">Motivo: ${c.obs}</p>` : ''}
+            <div class="flex justify-between items-center pt-2">
+              <span class="text-xs font-bold text-emerald-700">Total a Cobrar: S/ ${totalActual.toFixed(2)}</span>
+              <span class="text-xs text-indigo-600 font-bold hover:underline">Ver Boleta &rarr;</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function saveClientsToFirebase() {
+      await db.collection('routes').doc(currentDocId).update({
+        clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
+      });
+    }
+
+    function logoutDriverSession() {
+      document.getElementById('driverRouteContainer').classList.add('hidden');
+      document.getElementById('driverLoginCard').classList.remove('hidden');
+    }
+
+    // --- VISTA ADMIN ---
     function initAdminLMap() {
       if (!adminLMap) {
         adminLMap = L.map('adminLeafletMapContainer').setView([-16.3988, -71.5350], 12);
@@ -568,8 +879,7 @@
       db.collection('routes').get().then(snapshot => {
         const keysDiv = document.getElementById('routeKeysList');
         const selectElem = document.getElementById('adminRouteSelect');
-        keysDiv.innerHTML = '';
-        selectElem.innerHTML = '<option value="ALL">🌐 Ver Todas las Rutas</option>';
+        keysDiv.innerHTML = ''; selectElem.innerHTML = '<option value="ALL">🌐 Ver Todas las Rutas</option>';
         adminAllRoutesMap = {};
 
         if (snapshot.empty) {
@@ -590,8 +900,7 @@
             </button>
           `;
           const opt = document.createElement('option');
-          opt.value = routeId;
-          opt.innerText = `Ruta #${routeId}`;
+          opt.value = routeId; opt.innerText = `Ruta #${routeId}`;
           selectElem.appendChild(opt);
         });
         selectAdminRoute(selectedAdminRouteKey);
@@ -621,9 +930,10 @@
         else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') color = '#EF4444';
         else if (c.estado === 'PARCIAL') color = '#F97316';
         else if (c.estado === 'REPASO') color = '#6366F1';
+        else color = getColorPorVendedor(c.vendedor);
 
         const circle = L.circleMarker([c.lat, c.lon], { radius: 5, fillColor: color, color: '#ffffff', weight: 1.5, fillOpacity: 0.9 });
-        circle.bindTooltip(`<b>#${c.sec} · ${c.name}</b><br>Estado: ${c.estado}`, {direction: 'top'});
+        circle.bindTooltip(`<b>#${c.sec} · ${c.name}</b><br>Vend: ${c.vendedor}<br>Estado: ${c.estado}`, {direction: 'top'});
         adminLayerGroup.addLayer(circle);
         bounds.push([c.lat, c.lon]);
       });
@@ -631,12 +941,8 @@
     }
 
     function updateAdminFinancialsAndCounts(clients) {
-      let totalProg = 0;
-      let totalEntregado = 0;
-      let totalRechazado = 0;
-
-      let cntTot = clients.length;
-      let cntPend = 0, cntEnt = 0, cntRech = 0, cntParc = 0, cntRep = 0;
+      let totalProg = 0, totalEntregado = 0, totalRechazado = 0;
+      let cntTot = clients.length, cntPend = 0, cntEnt = 0, cntRech = 0, cntParc = 0, cntRep = 0;
 
       clients.forEach(c => {
         if (c.estado === 'ENTREGADO') cntEnt++;
@@ -646,12 +952,12 @@
         else cntPend++;
 
         let originalSub = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + item.subtotalOriginal, 0) : parseFloat(c.subtotal || 0);
-        let currentSub = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + (item.estadoItem === 'OK' ? item.subtotalActual : 0), 0) : (c.estado === 'ENTREGADO' || c.estado === 'PARCIAL' ? parseFloat(c.subtotal || 0) : 0);
+        let currentSub = c.estado === 'RECHAZADO' || c.estado === 'CERRADO' ? 0 : (c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + item.subtotalActual, 0) : (c.estado === 'ENTREGADO' || c.estado === 'PARCIAL' ? parseFloat(c.subtotal || 0) : 0));
 
         totalProg += originalSub;
         if (c.estado === 'ENTREGADO' || c.estado === 'PARCIAL') {
           totalEntregado += currentSub;
-          totalRechazado += (originalSub - currentSub);
+          totalRechazado += (originalSub - currentSub); // Suma exacto lo q no entregó en parcial
         } else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') {
           totalRechazado += originalSub;
         }
@@ -668,328 +974,6 @@
       document.getElementById('adminTotalEntregado').innerText = `S/ ${totalEntregado.toFixed(2)}`;
       document.getElementById('adminTotalRechazado').innerText = `S/ ${totalRechazado.toFixed(2)}`;
       document.getElementById('adminDineroCaja').innerText = `S/ ${totalEntregado.toFixed(2)}`;
-    }
-
-    // CARGA DE RUTA CHOFER
-    async function loadDriverRoute() {
-      let inputCode = document.getElementById('inputRouteCode').value.trim();
-      if (!inputCode) return alert("Ingresa tu código de ruta.");
-
-      let docRef = db.collection('routes').doc(inputCode);
-      let docSnap = await docRef.get();
-      if (!docSnap.exists) return alert(`❌ La ruta #${inputCode} no existe.`);
-
-      currentDocId = docRef.id;
-      currentRouteCode = docSnap.data().code || inputCode;
-      isInitialFitBoundsDone = false;
-
-      loadSavedRoutePoints();
-
-      document.getElementById('driverLoginCard').classList.add('hidden');
-      document.getElementById('driverRouteContainer').classList.remove('hidden');
-      document.getElementById('driverRouteTitle').innerText = `Ruta #${currentRouteCode}`;
-
-      initDriverLMap();
-
-      db.collection('routes').doc(currentDocId).onSnapshot(doc => {
-        if (doc.exists) {
-          currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
-          updateStatusCounters();
-          applyDriverFilters();
-          if (selectedClientIndex !== null) {
-            selectClientForSidePanel(selectedClientIndex);
-          }
-        }
-      });
-    }
-
-    function initDriverLMap() {
-      if (!driverLMap) {
-        driverLMap = L.map('driverLeafletMapContainer').setView([-16.3988, -71.5350], 14);
-        L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(driverLMap);
-        driverLayerGroup = L.layerGroup().addTo(driverLMap);
-      }
-      setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 200);
-    }
-
-    function centerDriverMapOnPoints() {
-      if (!driverLMap || filteredClientsData.length === 0) return;
-      const bounds = filteredClientsData.filter(c => c.lat && c.lon).map(c => [c.lat, c.lon]);
-      if (bounds.length > 0) driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
-    }
-
-    function zoomToPendingPoints() {
-      if (!driverLMap || currentClientsData.length === 0) return;
-      const bounds = currentClientsData.filter(c => c.lat && c.lon && c.estado === 'PENDIENTE').map(c => [c.lat, c.lon]);
-      if (bounds.length > 0) driverLMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
-    }
-
-    function applyDriverFilters() {
-      filteredClientsData = currentClientsData;
-      renderDriverLMapPoints();
-      renderClientsList();
-    }
-
-    function toggleSelectRoutePoint(idx) {
-      const pos = selectedRouteIndexes.indexOf(idx);
-      if (pos !== -1) selectedRouteIndexes.splice(pos, 1);
-      else selectedRouteIndexes.push(idx);
-
-      saveRoutePointsToLocalStorage();
-      document.getElementById('btnHeaderDeselect').classList.toggle('hidden', selectedRouteIndexes.length === 0);
-      renderDriverLMapPoints();
-      drawRouteGuidePath();
-    }
-
-    function clearSelectedRoutePoints() {
-      if (!confirm("¿Borrar todo el trazado de la ruta?")) return;
-      selectedRouteIndexes = [];
-      localStorage.removeItem(getStorageRouteKey());
-      document.getElementById('btnHeaderDeselect').classList.add('hidden');
-      if (routePolyline && driverLMap) { driverLMap.removeControl(routePolyline); routePolyline = null; }
-      renderDriverLMapPoints();
-    }
-
-    function drawRouteGuidePath() {
-      if (!driverLMap) return;
-      if (routePolyline) { driverLMap.removeControl(routePolyline); routePolyline = null; }
-      if (selectedRouteIndexes.length === 0) return;
-
-      const waypoints = selectedRouteIndexes.map(idx => L.latLng(currentClientsData[idx].lat, currentClientsData[idx].lon));
-      if (waypoints.length > 0) {
-        routePolyline = L.Routing.control({
-          waypoints: waypoints,
-          router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
-          lineOptions: { styles: [{ color: '#2563eb', opacity: 0.85, weight: 5 }] },
-          addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: false, show: false
-        }).addTo(driverLMap);
-      }
-    }
-
-    function updateStatusCounters() {
-      let pend = 0, ent = 0, rech = 0, parc = 0, rep = 0;
-      currentClientsData.forEach(c => {
-        if (c.estado === 'ENTREGADO') ent++;
-        else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') rech++;
-        else if (c.estado === 'PARCIAL') parc++;
-        else if (c.estado === 'REPASO') rep++;
-        else pend++;
-      });
-      document.getElementById('cntPendientes').innerText = pend;
-      document.getElementById('cntEntregados').innerText = ent;
-      document.getElementById('cntRechazados').innerText = rech;
-      document.getElementById('cntParciales').innerText = parc;
-      document.getElementById('cntRepasos').innerText = rep;
-    }
-
-    function selectClientForSidePanel(idx) {
-      selectedClientIndex = idx;
-      const c = currentClientsData[idx];
-      if (!c) return;
-
-      document.getElementById('btnClosePanel').classList.remove('hidden');
-      let totalActual = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + (item.estadoItem === 'OK' ? item.subtotalActual : 0), 0) : parseFloat(c.subtotal || 0);
-
-      let itemsHtml = '';
-      if (c.items && c.items.length > 0) {
-        itemsHtml = c.items.map((item, i) => `
-          <div class="bg-slate-50 p-2 rounded-xl border border-slate-200 mb-1.5 space-y-1">
-            <div class="flex justify-between items-start gap-1">
-              <div>
-                <p class="font-bold text-slate-800">${item.articulo}</p>
-                <p class="text-[10px] text-slate-500">Cant: ${item.cantidad} | S/ ${item.subtotalActual.toFixed(2)} ${item.estadoItem === 'RECHAZADO' ? `<span class="text-rose-600 font-bold">(${item.motivoItem})</span>` : ''}</p>
-              </div>
-              <div class="flex gap-1">
-                <button onclick="toggleItemStatus(${c._idx}, ${i}, 'OK')" class="px-2 py-1 rounded-lg ${item.estadoItem === 'OK' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'} font-bold text-[10px]">✅</button>
-                <button onclick="toggleItemStatus(${c._idx}, ${i}, 'RECHAZADO')" class="px-2 py-1 rounded-lg ${item.estadoItem === 'RECHAZADO' ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-700'} font-bold text-[10px]">❌</button>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      } else {
-        itemsHtml = '<p class="text-slate-400 text-center py-4">Sin artículos cargados en este cliente.</p>';
-      }
-
-      document.getElementById('sidePanelContent').innerHTML = `
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name}</span>
-            <span class="status-badge status-${c.estado}">${c.estado}</span>
-          </div>
-          <div class="text-[11px] text-slate-600 space-y-0.5">
-            <p><b>Código:</b> ${c.codCliente}</p>
-            <p><b>Dir:</b> ${c.domicilio}</p>
-            <p class="text-emerald-700 font-black text-xs pt-1">Total a Cobrar: S/ ${totalActual.toFixed(2)}</p>
-            ${c.obs ? `<p class="text-rose-600 font-bold pt-0.5">Motivo: ${c.obs}</p>` : ''}
-          </div>
-
-          <div>
-            <p class="font-bold text-slate-700 text-[11px] uppercase tracking-wider mb-1">Boleta de Productos:</p>
-            <div class="max-height-[180px] overflow-y-auto space-y-1">
-              ${itemsHtml}
-            </div>
-          </div>
-
-          <!-- BOTONES DE CAMBIO DE ESTADO (SIN BOTÓN DE TRAZAR RUTA AQUÍ) -->
-          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-            <button onclick="updateClientCompleteStatus(${c._idx}, 'ENTREGADO')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl transition text-[11px]">✅ ENTREGADO</button>
-            <button onclick="updateClientCompleteStatus(${c._idx}, 'RECHAZADO')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-xl transition text-[11px]">❌ RECHAZAR</button>
-            <button onclick="updateClientCompleteStatus(${c._idx}, 'PARCIAL')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-xl transition text-[11px]">🟧 PARCIAL</button>
-            <button onclick="updateClientCompleteStatus(${c._idx}, 'REPASO')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl transition text-[11px]">🔁 REPASO</button>
-          </div>
-          <button onclick="updateClientCompleteStatus(${c._idx}, 'PENDIENTE')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded-xl transition text-[11px]">⏳ MARCAR PENDIENTE</button>
-        </div>
-      `;
-    }
-
-    function closeSidePanel() {
-      selectedClientIndex = null;
-      document.getElementById('btnClosePanel').classList.add('hidden');
-      document.getElementById('sidePanelContent').innerHTML = `
-        <div class="text-center text-slate-400 py-20 space-y-2">
-          <i class="fa-solid fa-hand-pointer text-3xl text-slate-300"></i>
-          <p class="font-medium">Selecciona un punto en el mapa para ver sus productos, boleta y cobrar.</p>
-        </div>
-      `;
-    }
-
-    function renderDriverLMapPoints() {
-      if (!driverLMap || !driverLayerGroup) return;
-      driverLayerGroup.clearLayers();
-      const bounds = [];
-
-      filteredClientsData.forEach(c => {
-        if (!c.lat || !c.lon) return;
-        const isRouteSelected = selectedRouteIndexes.includes(c._idx);
-        let fillColor = '#2563eb';
-        let opacity = 1.0;
-
-        if (!isRouteSelected) {
-          if (c.estado === 'ENTREGADO') { fillColor = '#10B981'; opacity = 0.4; }
-          else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') { fillColor = '#EF4444'; opacity = 0.5; }
-          else if (c.estado === 'PARCIAL') { fillColor = '#F97316'; opacity = 0.6; }
-          else if (c.estado === 'REPASO') { fillColor = '#6366F1'; opacity = 0.8; }
-          else { fillColor = '#64748b'; }
-        }
-
-        const circle = L.circleMarker([c.lat, c.lon], {
-          radius: isRouteSelected ? 7 : 5, fillColor: fillColor, color: '#ffffff', weight: isRouteSelected ? 3 : 1.5, fillOpacity: opacity
-        });
-
-        circle.on('click', () => {
-          selectClientForSidePanel(c._idx);
-        });
-
-        // POPUP LIMPIO SOLO PARA TRAZAR RUTA EN EL MAPA
-        circle.bindPopup(`
-          <div style="font-size:11px; text-align:center; min-width:140px;">
-            <b>#${c.sec} · ${c.name}</b><br>
-            <span style="color:#64748b; font-size:10px;">${c.estado}</span><br><br>
-            <button onclick="toggleSelectRoutePoint(${c._idx})" style="background:${isRouteSelected ? '#ef4444' : '#2563eb'}; color:white; border:none; padding:5px 10px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer; width:100%;">
-              ${isRouteSelected ? '✖ Quitar Trazado' : '➕ Trazar Ruta'}
-            </button>
-          </div>
-        `);
-
-        driverLayerGroup.addLayer(circle);
-        driverLayerGroup.addLayer(L.marker([c.lat, c.lon], { icon: L.divIcon({ className: 'sec-number-tag', html: `${c.sec}`, iconAnchor: [-6, 8] }), interactive: false }));
-        bounds.push([c.lat, c.lon]);
-      });
-
-      if (bounds.length > 0 && !isInitialFitBoundsDone) {
-        driverLMap.fitBounds(bounds, { padding: [20, 20] });
-        isInitialFitBoundsDone = true;
-      }
-    }
-
-    function renderClientsList() {
-      const list = document.getElementById('driverClientsList');
-      list.innerHTML = filteredClientsData.map(c => {
-        let totalActual = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + (item.estadoItem === 'OK' ? item.subtotalActual : 0), 0) : parseFloat(c.subtotal || 0);
-        return `
-          <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 cursor-pointer hover:border-indigo-400 transition" onclick="selectClientForSidePanel(${c._idx})">
-            <div class="flex justify-between items-center">
-              <span class="font-black text-slate-900 text-sm">#${c.sec} · ${c.name} (Cod: ${c.codCliente})</span>
-              <span class="status-badge status-${c.estado}">${c.estado}</span>
-            </div>
-            <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-rose-500"></i> ${c.domicilio}</p>
-            ${c.obs ? `<p class="text-xs font-bold text-rose-600">Motivo: ${c.obs}</p>` : ''}
-            <div class="flex justify-between items-center pt-2">
-              <span class="text-xs font-bold text-emerald-700">Total a Cobrar: S/ ${totalActual.toFixed(2)}</span>
-              <span class="text-xs text-indigo-600 font-bold hover:underline">Ver Boleta &rarr;</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    async function toggleItemStatus(clientIdx, itemIdx, status) {
-      const client = currentClientsData[clientIdx];
-      if (!client || !client.items[itemIdx]) return;
-
-      client.items[itemIdx].estadoItem = status;
-      if (status === 'RECHAZADO') {
-        const motivo = prompt("Motivo del rechazo de este artículo (ej. Sin stock, dañado):", "Sin stock") || "Sin stock";
-        client.items[itemIdx].motivoItem = motivo;
-        client.items[itemIdx].subtotalActual = 0;
-      } else {
-        client.items[itemIdx].motivoItem = '';
-        client.items[itemIdx].subtotalActual = client.items[itemIdx].subtotalOriginal;
-      }
-
-      await saveClientsToFirebase();
-      renderDriverLMapPoints();
-      renderClientsList();
-      selectClientForSidePanel(clientIdx);
-    }
-
-    async function updateClientCompleteStatus(idx, status) {
-      const client = currentClientsData[idx];
-      let customObs = client.obs || "";
-
-      if (status === 'RECHAZADO' || status === 'CERRADO') {
-        customObs = prompt("Motivo del rechazo total (ej. Local cerrado, sin dinero):", "Cerrado / Ausente") || "Cerrado";
-        if (client.items) {
-          client.items.forEach(item => {
-            item.estadoItem = 'RECHAZADO';
-            item.motivoItem = customObs;
-            item.subtotalActual = 0;
-          });
-        }
-      } else if (status === 'PARCIAL') {
-        customObs = prompt("Motivo de entrega parcial (ej. No completó dinero, falta espacio):", "Parcial") || "Parcial";
-      } else if (status === 'REPASO') {
-        customObs = prompt("Motivo del repaso / entrega posterior:", "Repaso programado") || "Repaso";
-      } else if (status === 'PENDIENTE') {
-        customObs = "";
-        if (client.items) {
-          client.items.forEach(item => {
-            item.estadoItem = 'OK';
-            item.motivoItem = '';
-            item.subtotalActual = item.subtotalOriginal;
-          });
-        }
-      }
-
-      client.estado = status;
-      client.obs = customObs;
-
-      await saveClientsToFirebase();
-      renderDriverLMapPoints();
-      renderClientsList();
-      updateStatusCounters();
-      selectClientForSidePanel(idx);
-    }
-
-    async function saveClientsToFirebase() {
-      await db.collection('routes').doc(currentDocId).update({
-        clients: currentClientsData.map(c => { const { _idx, ...rest } = c; return rest; })
-      });
-    }
-
-    function logoutDriverSession() {
-      document.getElementById('driverRouteContainer').classList.add('hidden');
-      document.getElementById('driverLoginCard').classList.remove('hidden');
     }
   </script>
 </body>
