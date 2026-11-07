@@ -85,13 +85,13 @@
             <i class="fa-solid fa-truck-arrow-right text-2xl"></i>
           </div>
           <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
-          <p class="text-xs text-slate-500 font-medium">Ingresa tu código de transporte (Ej: 14)</p>
+          <p class="text-xs text-slate-500 font-medium">Ingresa tu código de transporte (Ej: 18)</p>
         </div>
 
         <div class="space-y-3 pt-2">
           <div>
             <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Transporte / Ruta</label>
-            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 14" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <input type="text" id="inputRouteCode" placeholder="Ejemplo: 18" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
           </div>
           <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
@@ -116,7 +116,7 @@
               <i class="fa-solid fa-crosshairs"></i> Centrar Mapa
             </button>
             <button onclick="clearSelectedRoutePoints()" id="btnHeaderDeselect" class="hidden px-3.5 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
-              <i class="fa-solid fa-trash-can"></i> Borrar Trazado de Ruta
+              <i class="fa-solid fa-trash-can"></i> Borrar Trazado
             </button>
             <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center gap-1">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
@@ -148,7 +148,7 @@
           </div>
         </div>
 
-        <!-- LAYOUT DE MAPA + PANEL LATERAL FIJO -->
+        <!-- LAYOUT DE MAPA + PANEL LATERAL -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <!-- MAPA (2 Columnas) -->
           <div class="lg:col-span-2 bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
@@ -226,6 +226,34 @@
         </div>
         <div id="routeKeysList" class="flex flex-wrap gap-2 text-xs font-bold pt-1">
           <span class="text-slate-400 font-normal">Carga un archivo para ver las rutas.</span>
+        </div>
+      </div>
+
+      <!-- TARJETAS DE CONTEO Y FINANZAS DEL ADMIN -->
+      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-[10px] font-bold text-slate-400 uppercase">📍 Total Clientes</p>
+          <p class="text-base font-black text-slate-700" id="adminCntTotal">0</p>
+        </div>
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-[10px] font-bold text-slate-500 uppercase">⏳ Pendientes</p>
+          <p class="text-base font-black text-slate-700" id="adminCntPend">0</p>
+        </div>
+        <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 shadow-sm">
+          <p class="text-[10px] font-bold text-emerald-600 uppercase">✅ Entregados</p>
+          <p class="text-base font-black text-emerald-700" id="adminCntEnt">0</p>
+        </div>
+        <div class="bg-rose-50 p-2.5 rounded-xl border border-rose-200 shadow-sm">
+          <p class="text-[10px] font-bold text-rose-600 uppercase">❌ Rechazados</p>
+          <p class="text-base font-black text-rose-700" id="adminCntRech">0</p>
+        </div>
+        <div class="bg-orange-50 p-2.5 rounded-xl border border-orange-200 shadow-sm">
+          <p class="text-[10px] font-bold text-orange-600 uppercase">🟧 Parciales</p>
+          <p class="text-base font-black text-orange-700" id="adminCntParc">0</p>
+        </div>
+        <div class="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200 shadow-sm">
+          <p class="text-[10px] font-bold text-indigo-600 uppercase">🔁 Repasos</p>
+          <p class="text-base font-black text-indigo-700" id="adminCntRep">0</p>
         </div>
       </div>
 
@@ -418,7 +446,7 @@
       }
 
       const headers = parseRow(lines[0]).map(h => h.replace(/^[\uFEFF\s"']+|[\s"']+$/g, '').toUpperCase());
-      const getIndex = (names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
+      const getIndex = (names) => headers.findIndex(h => names.some(n === h || h.includes(n)));
 
       const idxCli = getIndex(['CLIENTE', 'COD CLIENTE']);
       const idxComp = getIndex(['COMPROBANTE', 'TIPO']);
@@ -437,13 +465,13 @@
         let articuloDesc = idxArt !== -1 ? cols[idxArt] : 'Artículo';
         if (!articuloDesc || articuloDesc === 'NaN') continue;
 
-        let cantVal = idxCant !== -1 ? parseFloat(cols[idxCant].replace(',', '.')) || 1 : 1;
+        let cantVal = idxCant !== -1 ? parseFloat(cols[idxCant].replace(',', '.')) || 0 : 0;
         let subtotalVal = idxSub !== -1 ? parseFloat(cols[idxSub].replace(',', '.')) || 0 : 0;
 
         const itemObj = {
           comprobante: idxComp !== -1 ? cols[idxComp] : 'BOLETA',
           articulo: articuloDesc,
-          cantidad: cantVal < 1 ? Math.round(cantVal * 24) : Math.round(cantVal),
+          cantidad: cantVal, // MANTIENE EXACTAMENTE LOS DECIMALES (0.001, 0.002, etc.)
           subtotalOriginal: subtotalVal,
           subtotalActual: subtotalVal,
           estadoItem: 'OK',
@@ -547,7 +575,7 @@
         if (snapshot.empty) {
           keysDiv.innerHTML = '<span class="text-slate-400 font-normal">No hay rutas cargadas.</span>';
           if (adminLayerGroup) adminLayerGroup.clearLayers();
-          updateAdminFinancials([]);
+          updateAdminFinancialsAndCounts([]);
           return;
         }
 
@@ -579,7 +607,7 @@
         clientsToRender = adminAllRoutesMap[routeKey] || [];
       }
       renderAdminLMap(clientsToRender);
-      updateAdminFinancials(clientsToRender);
+      updateAdminFinancialsAndCounts(clientsToRender);
     }
 
     function renderAdminLMap(clients) {
@@ -595,19 +623,28 @@
         else if (c.estado === 'REPASO') color = '#6366F1';
 
         const circle = L.circleMarker([c.lat, c.lon], { radius: 5, fillColor: color, color: '#ffffff', weight: 1.5, fillOpacity: 0.9 });
-        circle.bindTooltip(`<b>#${c.sec} · ${c.name}</b>`, {direction: 'top'});
+        circle.bindTooltip(`<b>#${c.sec} · ${c.name}</b><br>Estado: ${c.estado}`, {direction: 'top'});
         adminLayerGroup.addLayer(circle);
         bounds.push([c.lat, c.lon]);
       });
       if (bounds.length > 0 && adminLMap) adminLMap.fitBounds(bounds, { padding: [30, 30] });
     }
 
-    function updateAdminFinancials(clients) {
+    function updateAdminFinancialsAndCounts(clients) {
       let totalProg = 0;
       let totalEntregado = 0;
       let totalRechazado = 0;
 
+      let cntTot = clients.length;
+      let cntPend = 0, cntEnt = 0, cntRech = 0, cntParc = 0, cntRep = 0;
+
       clients.forEach(c => {
+        if (c.estado === 'ENTREGADO') cntEnt++;
+        else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') cntRech++;
+        else if (c.estado === 'PARCIAL') cntParc++;
+        else if (c.estado === 'REPASO') cntRep++;
+        else cntPend++;
+
         let originalSub = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + item.subtotalOriginal, 0) : parseFloat(c.subtotal || 0);
         let currentSub = c.items && c.items.length > 0 ? c.items.reduce((sum, item) => sum + (item.estadoItem === 'OK' ? item.subtotalActual : 0), 0) : (c.estado === 'ENTREGADO' || c.estado === 'PARCIAL' ? parseFloat(c.subtotal || 0) : 0);
 
@@ -619,6 +656,13 @@
           totalRechazado += originalSub;
         }
       });
+
+      document.getElementById('adminCntTotal').innerText = cntTot;
+      document.getElementById('adminCntPend').innerText = cntPend;
+      document.getElementById('adminCntEnt').innerText = cntEnt;
+      document.getElementById('adminCntRech').innerText = cntRech;
+      document.getElementById('adminCntParc').innerText = cntParc;
+      document.getElementById('adminCntRep').innerText = cntRep;
 
       document.getElementById('adminTotalProg').innerText = `S/ ${totalProg.toFixed(2)}`;
       document.getElementById('adminTotalEntregado').innerText = `S/ ${totalEntregado.toFixed(2)}`;
@@ -766,8 +810,6 @@
         itemsHtml = '<p class="text-slate-400 text-center py-4">Sin artículos cargados en este cliente.</p>';
       }
 
-      const isRouteSelected = selectedRouteIndexes.includes(c._idx);
-
       document.getElementById('sidePanelContent').innerHTML = `
         <div class="space-y-3">
           <div class="flex justify-between items-center">
@@ -788,16 +830,14 @@
             </div>
           </div>
 
-          <button onclick="toggleSelectRoutePoint(${c._idx})" class="w-full py-2 rounded-xl font-bold text-xs text-white ${isRouteSelected ? 'bg-rose-600' : 'bg-blue-600'} transition shadow-sm">
-            ${isRouteSelected ? '✖ Quitar de mi trazado' : '➕ Trazar Ruta a este Punto'}
-          </button>
-
-          <div class="grid grid-cols-2 gap-2 pt-1">
+          <!-- BOTONES DE CAMBIO DE ESTADO (SIN BOTÓN DE TRAZAR RUTA AQUÍ) -->
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
             <button onclick="updateClientCompleteStatus(${c._idx}, 'ENTREGADO')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl transition text-[11px]">✅ ENTREGADO</button>
             <button onclick="updateClientCompleteStatus(${c._idx}, 'RECHAZADO')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-xl transition text-[11px]">❌ RECHAZAR</button>
             <button onclick="updateClientCompleteStatus(${c._idx}, 'PARCIAL')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-xl transition text-[11px]">🟧 PARCIAL</button>
             <button onclick="updateClientCompleteStatus(${c._idx}, 'REPASO')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl transition text-[11px]">🔁 REPASO</button>
           </div>
+          <button onclick="updateClientCompleteStatus(${c._idx}, 'PENDIENTE')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded-xl transition text-[11px]">⏳ MARCAR PENDIENTE</button>
         </div>
       `;
     }
@@ -840,7 +880,16 @@
           selectClientForSidePanel(c._idx);
         });
 
-        circle.bindTooltip(`<b>#${c.sec} · ${c.name}</b>`, {direction: 'top'});
+        // POPUP LIMPIO SOLO PARA TRAZAR RUTA EN EL MAPA
+        circle.bindPopup(`
+          <div style="font-size:11px; text-align:center; min-width:140px;">
+            <b>#${c.sec} · ${c.name}</b><br>
+            <span style="color:#64748b; font-size:10px;">${c.estado}</span><br><br>
+            <button onclick="toggleSelectRoutePoint(${c._idx})" style="background:${isRouteSelected ? '#ef4444' : '#2563eb'}; color:white; border:none; padding:5px 10px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer; width:100%;">
+              ${isRouteSelected ? '✖ Quitar Trazado' : '➕ Trazar Ruta'}
+            </button>
+          </div>
+        `);
 
         driverLayerGroup.addLayer(circle);
         driverLayerGroup.addLayer(L.marker([c.lat, c.lon], { icon: L.divIcon({ className: 'sec-number-tag', html: `${c.sec}`, iconAnchor: [-6, 8] }), interactive: false }));
@@ -911,6 +960,15 @@
         customObs = prompt("Motivo de entrega parcial (ej. No completó dinero, falta espacio):", "Parcial") || "Parcial";
       } else if (status === 'REPASO') {
         customObs = prompt("Motivo del repaso / entrega posterior:", "Repaso programado") || "Repaso";
+      } else if (status === 'PENDIENTE') {
+        customObs = "";
+        if (client.items) {
+          client.items.forEach(item => {
+            item.estadoItem = 'OK';
+            item.motivoItem = '';
+            item.subtotalActual = item.subtotalOriginal;
+          });
+        }
       }
 
       client.estado = status;
