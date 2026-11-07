@@ -38,24 +38,6 @@
     }
     .leaflet-routing-container { display: none !important; }
 
-    /* PANTALLA COMPLETA RESPONSIVA (CELULAR Y PC) */
-    #driverFullscreenWrapper.is-fullscreen {
-      position: fixed !important; top: 0 !important; left: 0 !important;
-      width: 100vw !important; height: 100vh !important;
-      z-index: 999999 !important; border-radius: 0 !important;
-      padding: 8px !important; margin: 0 !important; background: #0f172a !important;
-      display: flex; flex-direction: column;
-    }
-    #driverFullscreenWrapper.is-fullscreen .map-wrapper-col { flex: 1; min-height: 45vh; display: flex; flex-direction: column; }
-    #driverFullscreenWrapper.is-fullscreen .map-inner { flex: 1; height: 100% !important; border-radius: 12px; }
-    #driverFullscreenWrapper.is-fullscreen .side-panel { flex: 1; max-height: 50vh; overflow-y: auto; background: white; border-radius: 12px; }
-    
-    @media (min-width: 1024px) {
-      #driverFullscreenWrapper.is-fullscreen { flex-direction: row; padding: 16px !important; gap: 16px; }
-      #driverFullscreenWrapper.is-fullscreen .map-wrapper-col { flex: 2; height: 100%; min-height: 100%; }
-      #driverFullscreenWrapper.is-fullscreen .side-panel { flex: 1; max-height: 100%; }
-    }
-
     input[type=number]::-webkit-inner-spin-button, 
     input[type=number]::-webkit-outer-spin-button { opacity: 1; }
   </style>
@@ -92,18 +74,18 @@
     <!-- VISTA CHOFER -->
     <section id="viewDriver" class="block space-y-4">
       <!-- LOGIN -->
-      <div id="driverLoginCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 max-w-lg mx-auto">
+      <div id="driverLoginCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 max-w-lg mx-auto mt-10">
         <div class="text-center space-y-1">
           <div class="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-1">
             <i class="fa-solid fa-truck-arrow-right text-2xl"></i>
           </div>
           <h2 class="text-lg font-black text-slate-900">Acceso a Ruta de Reparto</h2>
-          <p class="text-xs text-slate-500 font-medium">Ingresa tu código de transporte (Ej: 18)</p>
+          <p class="text-xs text-slate-500 font-medium">Ingresa tu código de ruta (Ej: 18)</p>
         </div>
         <div class="space-y-3 pt-2">
           <div>
             <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Código de Ruta</label>
-            <input type="text" id="inputRouteCode" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <input type="text" id="inputRouteCode" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-base uppercase font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="EJ. 18">
           </div>
           <button onclick="loadDriverRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-right-to-bracket"></i> Ingresar a Ruta
@@ -120,10 +102,10 @@
             <p class="text-xs text-emerald-600 font-bold flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sincronizado</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button onclick="centerDriverMapOnPoints()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 flex items-center gap-1">
+            <button onclick="centerDriverMapOnPoints()" class="px-3.5 py-2 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-crosshairs"></i> Centrar Mapa
             </button>
-            <button onclick="logoutDriverSession()" class="px-3 py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 flex items-center gap-1">
+            <button onclick="logoutDriverSession()" class="px-3.5 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-right-from-bracket"></i> Salir
             </button>
           </div>
@@ -153,46 +135,32 @@
           </div>
         </div>
 
-        <!-- LAYOUT MAPA + PANEL (Responsivo a Celular/Zoom) -->
-        <div id="driverFullscreenWrapper" class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-white p-3 lg:p-4 rounded-2xl shadow-sm border border-slate-200/80 transition-all">
-          
-          <!-- COLUMNA MAPA -->
-          <div class="map-wrapper-col flex flex-col space-y-3">
-            <div class="flex justify-between items-center flex-wrap gap-2 shrink-0">
-              <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas
-              </h4>
-              <div class="flex items-center gap-2">
-                <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                  <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
-                  <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
-                </div>
-                <button onclick="toggleDriverMapFullscreen()" id="btnExpandirMapa" class="px-3.5 py-1.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-sm transition">
-                  <i class="fa-solid fa-expand"></i> Ampliar
-                </button>
-              </div>
+        <!-- MAPA GIGANTE A ANCHO COMPLETO -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 relative">
+          <div class="flex justify-between items-center flex-wrap gap-2">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa General de Entregas (Toca un punto para gestionar)
+            </h4>
+            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+              <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
+              <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
             </div>
-            <!-- CONTENEDOR MAPA LEAFLET -->
-            <div class="w-full h-[450px] lg:h-[600px] relative overflow-hidden bg-slate-100 rounded-xl border border-slate-200 map-inner z-10" id="driverLeafletMapContainer"></div>
           </div>
+          
+          <!-- CONTENEDOR LEAFLET GIGANTE -->
+          <div class="w-full h-[650px] relative overflow-hidden bg-slate-100 rounded-xl border border-slate-200 z-10" id="driverLeafletMapContainer"></div>
 
-          <!-- COLUMNA PANEL LATERAL (BOLETA Y TRAZADO) -->
-          <div class="side-panel flex flex-col bg-slate-50 rounded-xl border border-slate-200 p-3 h-[450px] lg:h-[640px]">
-            <div class="flex justify-between items-center pb-3 border-b border-slate-200 shrink-0">
-              <h4 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+          <!-- PANEL FLOTANTE DE BOLETA (Aparece al tocar el punto sin estorbar) -->
+          <div id="floatingSidePanel" class="hidden absolute top-20 right-6 w-96 max-w-[92vw] max-h-[85vh] bg-white rounded-2xl shadow-2xl border border-slate-300 z-[9999] flex flex-col p-4">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100 shrink-0">
+              <h4 class="font-black text-slate-900 text-sm flex items-center gap-2">
                 <i class="fa-solid fa-file-invoice-dollar text-indigo-600"></i> Detalle de Boleta
               </h4>
-              <button onclick="closeSidePanel()" id="btnClosePanel" class="hidden text-xs font-bold text-rose-600 hover:text-rose-800 px-2 py-1 rounded bg-rose-50 border border-rose-200 transition">
-                <i class="fa-solid fa-xmark"></i>
+              <button onclick="closeSidePanel()" class="text-xs font-bold text-rose-600 hover:text-rose-800 px-2 py-1 rounded bg-rose-50 border border-rose-200 transition">
+                <i class="fa-solid fa-xmark"></i> Cerrar
               </button>
             </div>
-
-            <div id="sidePanelContent" class="flex-1 overflow-y-auto pt-3 space-y-3 text-xs pr-1 relative">
-              <div class="text-center text-slate-400 py-10 lg:py-32 space-y-3">
-                <i class="fa-solid fa-hand-pointer text-4xl text-slate-300"></i>
-                <p class="font-medium text-[13px]">Selecciona un punto en el mapa.<br>Sin globos, todo aparece aquí.</p>
-              </div>
-            </div>
+            <div id="sidePanelContent" class="flex-1 overflow-y-auto pt-3 space-y-3 text-xs pr-1"></div>
           </div>
         </div>
 
@@ -339,22 +307,7 @@
     }
     function requestAdminAccess() { if (prompt("🔒 Contraseña de Administrador:") === ADMIN_PASSWORD) switchTab('admin'); }
 
-    function toggleDriverMapFullscreen() {
-      const wrapper = document.getElementById('driverFullscreenWrapper');
-      const btn = document.getElementById('btnExpandirMapa');
-      wrapper.classList.toggle('is-fullscreen');
-      
-      if (wrapper.classList.contains('is-fullscreen')) {
-        btn.innerHTML = '<i class="fa-solid fa-compress"></i> Reducir';
-        btn.classList.replace('bg-indigo-600', 'bg-rose-600');
-      } else {
-        btn.innerHTML = '<i class="fa-solid fa-expand"></i> Ampliar';
-        btn.classList.replace('bg-rose-600', 'bg-indigo-600');
-      }
-      setTimeout(() => { if (driverLMap) driverLMap.invalidateSize(); }, 200);
-    }
-
-    // PARSEO DE CSV Y DECIMALES EXACTOS
+    // PARSEO DE CSV DE RUTAS
     function parseCSV(text) {
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
       if (lines.length === 0) return [];
@@ -391,7 +344,7 @@
         clients.push({
           tpt: tpt.toString().trim(),
           sec: idxSec !== -1 ? parseInt(cols[idxSec]) || i : i,
-          codCliente: idxName !== -1 ? cols[idxName].toString().trim() : '',
+          codCliente: idxName !== -1 ? cols[idxName].toString().trim().toUpperCase().replace(/\.0$/, '') : '',
           vendedor: idxVend !== -1 ? cols[idxVend].toString().trim() : '',
           name: idxRazon !== -1 ? cols[idxRazon] : (idxName !== -1 ? cols[idxName] : 'Cliente ' + i),
           telefono: idxTel !== -1 ? cols[idxTel] : '',
@@ -405,6 +358,7 @@
       return clients;
     }
 
+    // PARSEO DE COMPROBANTES (IGNORA TOTALES Y LEE DESCRIPCIÓN DE ARTÍCULO)
     function parseItemsCSV(text) {
       const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
       if (lines.length === 0) return {};
@@ -433,6 +387,8 @@
       for (let i = 1; i < lines.length; i++) {
         const cols = parseRow(lines[i]); if (cols.length < 2) continue;
         let clienteKey = idxCli !== -1 ? cols[idxCli].toString().trim().toUpperCase().replace(/\.0$/, '') : '';
+        
+        // ESCUDO: Ignorar filas vacías o que contengan la palabra TOTAL
         if (!clienteKey || clienteKey.includes('TOTAL')) continue;
 
         let cantVal = idxCant !== -1 ? cols[idxCant].replace(',', '.') : "0";
@@ -442,7 +398,7 @@
           comprobante: idxComp !== -1 ? cols[idxComp] : 'BOLETA',
           articulo: idxArt !== -1 ? cols[idxArt] : 'Artículo',
           cantidad: exactCant,
-          cantRechazada: 0, // Nueva propiedad para matemáticas exactas en PARCIAL
+          cantRechazada: 0,
           subtotalOriginal: idxSub !== -1 ? parseFloat(cols[idxSub].replace(',', '.')) || 0 : 0,
           subtotalActual: idxSub !== -1 ? parseFloat(cols[idxSub].replace(',', '.')) || 0 : 0,
           estadoItem: 'OK'
@@ -571,15 +527,6 @@
       if(selectedClientIndex === idx) selectClientForSidePanel(idx);
     }
 
-    function clearSelectedRoutePoints() {
-      if (!confirm("¿Borrar todo el trazado de la ruta?")) return;
-      selectedRouteIndexes = [];
-      saveRoutePointsToLocalStorage();
-      if (routePolyline && driverLMap) { driverLMap.removeControl(routePolyline); routePolyline = null; }
-      renderDriverLMapPoints();
-      if(selectedClientIndex !== null) selectClientForSidePanel(selectedClientIndex);
-    }
-
     function drawRouteGuidePath() {
       if (!driverLMap) return;
       if (routePolyline) { driverLMap.removeControl(routePolyline); routePolyline = null; }
@@ -634,7 +581,7 @@
           fillOpacity: opacity
         });
 
-        // SIN GLOBOS: Al hacer clic, abre panel
+        // SIN GLOBOS: Al hacer clic, abre panel flotante
         circle.on('click', () => { selectClientForSidePanel(c._idx); });
 
         driverLayerGroup.addLayer(circle);
@@ -648,13 +595,13 @@
       drawRouteGuidePath();
     }
 
-    // PANEL LATERAL: Matemáticas Exactas
+    // PANEL FLOTANTE DE BOLETA
     function selectClientForSidePanel(idx) {
       selectedClientIndex = idx;
       const c = currentClientsData[idx];
       if (!c) return;
 
-      document.getElementById('btnClosePanel').classList.remove('hidden');
+      document.getElementById('floatingSidePanel').classList.remove('hidden');
       const isRouteSelected = selectedRouteIndexes.includes(c._idx);
       
       let totalActual = 0;
@@ -680,14 +627,19 @@
             `;
           }
 
+          // BONIFICACIONES: Si es S/ 0.00, se muestra normal sin tachar de rojo
+          let isBonif = item.subtotalOriginal === 0;
+          let subtotalStyle = isBonif ? 'text-indigo-600 font-bold' : (c.estado === 'RECHAZADO' || item.subtotalActual === 0 ? 'text-rose-600 line-through' : 'text-emerald-700');
+          let labelBadge = isBonif ? '<span class="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-bold ml-1">BONIF</span>' : '';
+
           return `
           <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm mb-2">
             <div class="flex justify-between items-start gap-1">
               <div class="flex-1">
-                <p class="font-bold text-slate-800 leading-tight">${item.articulo}</p>
+                <p class="font-bold text-slate-800 leading-tight">${item.articulo} ${labelBadge}</p>
                 <div class="flex justify-between items-end pr-2 pt-1.5">
                   <p class="text-[11px] text-slate-500">Pedida: <b class="text-slate-700">${item.cantidad}</b></p>
-                  <p class="text-[11px] font-black ${c.estado === 'RECHAZADO' || item.subtotalActual === 0 ? 'text-rose-600 line-through' : 'text-emerald-700'}">S/ ${item.subtotalActual.toFixed(2)}</p>
+                  <p class="text-[11px] font-black ${subtotalStyle}">S/ ${item.subtotalActual.toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -700,7 +652,7 @@
       }
 
       document.getElementById('sidePanelContent').innerHTML = `
-        <div class="space-y-4 pb-4">
+        <div class="space-y-4 pb-2">
           <!-- CABECERA -->
           <div>
             <div class="flex justify-between items-center mb-1">
@@ -718,7 +670,7 @@
             </div>
           </div>
 
-          <!-- BOTÓN TRAZAR RUTA AQUÍ (Independiente) -->
+          <!-- BOTÓN TRAZAR RUTA -->
           <button onclick="toggleSelectRoutePoint(${c._idx})" class="w-full py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wide text-white ${isRouteSelected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'} transition shadow-sm flex items-center justify-center gap-2">
             ${isRouteSelected ? '<i class="fa-solid fa-link-slash"></i> Quitar del Trazado' : '<i class="fa-solid fa-route"></i> Trazar Ruta a este Punto'}
           </button>
@@ -726,7 +678,7 @@
           <!-- BOLETA -->
           <div>
             <p class="font-bold text-slate-400 text-[10px] uppercase tracking-wider mb-2">Boleta de Productos:</p>
-            <div class="space-y-1">
+            <div class="space-y-1 max-h-56 overflow-y-auto pr-1">
               ${itemsHtml}
             </div>
           </div>
@@ -738,12 +690,11 @@
             <button onclick="updateClientCompleteStatus(${c._idx}, 'PARCIAL')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-xl transition text-[11px]">🟧 PARCIAL</button>
             <button onclick="updateClientCompleteStatus(${c._idx}, 'REPASO')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl transition text-[11px]">🔁 REPASO</button>
           </div>
-          <button onclick="updateClientCompleteStatus(${c._idx}, 'PENDIENTE')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-[11px] uppercase tracking-wide mt-2">⏳ Marcar Pendiente (Restablecer)</button>
+          <button onclick="updateClientCompleteStatus(${c._idx}, 'PENDIENTE')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-[11px] uppercase tracking-wide mt-1">⏳ Marcar Pendiente (Restablecer)</button>
         </div>
       `;
     }
 
-    // CALCULO MATEMÁTICO PARCIAL EXACTO
     async function updateItemPartialQuantity(clientIdx, itemIdx, rejectedQtyStr) {
       const client = currentClientsData[clientIdx];
       if (!client || !client.items[itemIdx]) return;
@@ -756,7 +707,6 @@
       item.cantRechazada = rejectedQty;
       
       if (item.cantidad > 0) {
-        // Regla de tres simple exacta: (Subtotal Original / Cantidad Total) * Cantidad Restante
         let unitPrice = item.subtotalOriginal / item.cantidad;
         let qtyAccepted = item.cantidad - item.cantRechazada;
         item.subtotalActual = qtyAccepted * unitPrice;
@@ -764,20 +714,20 @@
 
       await saveClientsToFirebase();
       renderClientsList();
-      selectClientForSidePanel(clientIdx); // Refrescar panel
+      selectClientForSidePanel(clientIdx);
     }
 
     async function updateClientCompleteStatus(idx, status) {
       const client = currentClientsData[idx];
       let customObs = "";
 
-      // ACCIÓN MASIVA SEGÚN ESTADO
       if (status === 'RECHAZADO' || status === 'CERRADO') {
         customObs = prompt("Motivo del rechazo total (ej. Local cerrado):", "Cerrado / Ausente") || "Rechazado";
         if (client.items) {
           client.items.forEach(item => {
             item.cantRechazada = item.cantidad;
-            item.subtotalActual = 0;
+            // Las bonificaciones (S/ 0) no generan resta en caja
+            item.subtotalActual = item.subtotalOriginal === 0 ? 0 : 0;
             item.estadoItem = 'RECHAZADO';
           });
         }
@@ -793,16 +743,11 @@
       }
       else if (status === 'PARCIAL') {
         customObs = "Entrega Incompleta";
-        // Si entra a parcial, habilitamos el descuento, por defecto los valores quedan igual hasta que edite
-        if (client.items) {
-          client.items.forEach(item => { item.estadoItem = 'OK'; });
-        }
       } 
       else if (status === 'REPASO') {
         customObs = "Repaso";
       } 
       else if (status === 'PENDIENTE') {
-        // Restaurar estado original 100%
         if (client.items) {
           client.items.forEach(item => {
             item.cantRechazada = 0;
@@ -824,13 +769,7 @@
 
     function closeSidePanel() {
       selectedClientIndex = null;
-      document.getElementById('btnClosePanel').classList.add('hidden');
-      document.getElementById('sidePanelContent').innerHTML = `
-        <div class="text-center text-slate-400 py-10 lg:py-32 space-y-3">
-          <i class="fa-solid fa-hand-pointer text-4xl text-slate-300"></i>
-          <p class="font-medium text-[13px]">Selecciona un punto en el mapa.<br>Sin globos, todo aparece aquí.</p>
-        </div>
-      `;
+      document.getElementById('floatingSidePanel').classList.add('hidden');
     }
 
     function renderClientsList() {
@@ -957,7 +896,7 @@
         totalProg += originalSub;
         if (c.estado === 'ENTREGADO' || c.estado === 'PARCIAL') {
           totalEntregado += currentSub;
-          totalRechazado += (originalSub - currentSub); // Suma exacto lo q no entregó en parcial
+          totalRechazado += (originalSub - currentSub);
         } else if (c.estado === 'RECHAZADO' || c.estado === 'CERRADO') {
           totalRechazado += originalSub;
         }
