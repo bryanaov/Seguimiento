@@ -158,7 +158,7 @@
               <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa General de Entregas (Toca un punto para gestionar)
             </h4>
             <div class="flex items-center gap-2 flex-wrap">
-              <button onclick="traceSelectedClient()" id="btnTraceRoute" class="px-3 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 hover:bg-blue-700 transition shadow-sm">
+              <button onclick="toggleRouteMode()" id="btnTraceRoute" class="px-3 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 hover:bg-blue-700 transition shadow-sm">
                 <i class="fa-solid fa-route"></i> <span id="btnTraceLabel">Trazar ruta</span>
               </button>
               <button onclick="clearRoutePath()" title="Borrar ruta trazada" class="px-3 py-1.5 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 flex items-center gap-1.5 hover:bg-rose-100 transition">
@@ -176,6 +176,8 @@
               </div>
             </div>
           </div>
+
+          <div id="routeHint" class="hidden bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-3 py-1.5 text-xs font-bold shrink-0">🧭 Modo ruta: toca los puntos en el orden de entrega. Cuando termines pulsa "Terminar ruta" y la ruta queda fija.</div>
 
           <!-- MAPA + BOLETA ACOPLADA (lado a lado en PC, arriba/abajo en celular) -->
           <div id="mapShell" class="flex flex-col md:flex-row gap-3 w-full h-[650px]">
@@ -221,6 +223,8 @@
           <div id="itemsCsvStatus" class="text-xs font-bold"></div>
         </div>
       </div>
+
+      <div id="staleBanner" class="hidden bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl px-4 py-3 text-sm font-bold"></div>
 
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3 border-l-4 border-amber-500">
         <div class="flex flex-wrap justify-between items-center gap-2">
@@ -320,6 +324,7 @@
     let pointCircles = new Map(); let labelLayer = null; let labelTimer = null;
     let gpsWatchId = null, gpsActive = false, gpsFollow = false, meMarker = null, meAccuracy = null;
     let lastGpsSent = 0, lastGpsPos = null, wakeLock = null;
+    let routeMode = false, routeNewPending = false, routeDrawTimer = null;
     let adminTruckLayer = null, trucksUnsub = null, trucksTimer = null; const truckMarkers = {}; let trucksData = {};
 
     // ---------- UTILIDADES ----------
@@ -564,7 +569,7 @@
         const text = await readFileSmart(fileInput.files[0]);
         const { map: itemsMap, info } = parseItemsCSV(text);
         const routesSnapshot = await db.collection('routes').get();
-        let updatedCount = 0;
+        let updatedCount = 0; let staleLeft = 0;
         for (const doc of routesSnapshot.docs) {
           let clients = doc.data().clients || [];
           let modified = false;
@@ -581,13 +586,14 @@
             }
             return c;
           });
+          staleLeft += clients.filter(isStaleItems).length;
           if (modified) await db.collection('routes').doc(doc.id).update({ clients });
         }
         const detalle = info.descMissing
           ? ` ⚠️ No encontré la columna con el nombre del producto (solo se muestra "${info.desc}"). Columnas de tu CSV: ${(info.headers || []).join(' | ')}.`
           : ` Producto: "${info.desc}"${info.cod ? ` · Código: "${info.cod}"` : ''}.`;
         status.className = "text-xs font-bold text-emerald-600";
-        status.innerText = `✅ Comprobantes vinculados a ${updatedCount} clientes.${detalle}`;
+        status.innerText = `✅ Comprobantes vinculados a ${updatedCount} clientes.${detalle}${staleLeft ? ' ⚠️ ' + staleLeft + ' clientes siguen con solo códigos porque no están en este archivo.' : ''}`;
         loadAdminData();
       } catch (err) {
         status.className = "text-xs font-bold text-rose-600";
@@ -630,9 +636,11 @@
       unsubscribeRoute = db.collection('routes').doc(currentDocId).onSnapshot(doc => {
         if (!doc.exists) return;
         currentClientsData = (doc.data().clients || []).map((c, i) => ({ ...c, _idx: i }));
+        const pruned = pruneDoneRoutePoints();
         updateStatusCounters();
         applyDriverFilters();
         if (!routeDrawn) { drawRouteGuidePath(); routeDrawn = true; }
+        else if (pruned) drawRouteGuidePath();
         if (selectedClientIndex !== null) selectClientForSidePanel(selectedClientIndex);
       });
     }
@@ -686,27 +694,59 @@
       if (pos !== -1) selectedRouteIndexes.splice(pos, 1); else selectedRouteIndexes.push(idx);
       saveRoutePointsToLocalStorage();
       renderDriverLMapPoints();
-      drawRouteGuidePath();
+      scheduleRouteDraw();
       renderClientsList();
       updateTraceButton();
     }
 
-    // Botón "Trazar ruta" de la barra del mapa: agrega/quita el cliente seleccionado del trazado
-    function traceSelectedClient() {
-      if (selectedClientIndex === null || !currentClientsData[selectedClientIndex]) { flashTraceLabel('Toca un punto primero'); return; }
-      toggleSelectRoutePoint(selectedClientIndex);
+    // ---------- MODO "TRAZAR RUTA": se activa una vez y luego se tocan los puntos en orden ----------
+    const DONE_STATES = ['ENTREGADO', 'RECHAZADO', 'CERRADO', 'PARCIAL'];   // ya visitados: salen de la ruta
+    const TRACE_BTN_IDLE = 'px-3 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 hover:bg-blue-700 transition shadow-sm';
+    const TRACE_BTN_ACTIVE = 'px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 hover:bg-emerald-700 transition shadow-sm ring-2 ring-emerald-300';
+
+    // "Trazar ruta" activa el modo; "Terminar ruta" lo apaga y la ruta queda fija y guardada
+    function toggleRouteMode() {
+      routeMode = !routeMode;
+      routeNewPending = routeMode;      // la ruta anterior se mantiene hasta que toques el primer punto de la nueva
+      updateTraceButton();
     }
+
+    // En modo ruta, cada toque en un punto lo agrega (o lo quita si ya estaba)
+    function handleRouteModeClick(idx) {
+      const c = currentClientsData[idx];
+      if (!c || DONE_STATES.includes(c.estado)) return;     // los ya entregados/rechazados no entran a la ruta
+      if (routeNewPending) { selectedRouteIndexes = []; routeNewPending = false; }
+      toggleSelectRoutePoint(idx);
+    }
+
+    // Saca de la ruta los puntos ya entregados/rechazados; si no queda ninguno, la ruta desaparece
+    function pruneDoneRoutePoints() {
+      if (!selectedRouteIndexes.length) return false;
+      const keep = selectedRouteIndexes.filter(i => { const c = currentClientsData[i]; return c && !DONE_STATES.includes(c.estado); });
+      if (keep.length === selectedRouteIndexes.length) return false;
+      selectedRouteIndexes = keep;
+      saveRoutePointsToLocalStorage();
+      updateTraceButton();
+      return true;
+    }
+
+    function scheduleRouteDraw() { clearTimeout(routeDrawTimer); routeDrawTimer = setTimeout(drawRouteGuidePath, 250); }
+
     function updateTraceButton() {
-      const l = document.getElementById('btnTraceLabel'); if (!l) return;
-      const inRoute = selectedClientIndex !== null && selectedRouteIndexes.includes(selectedClientIndex);
-      l.innerText = inRoute ? 'Quitar de ruta' : 'Trazar ruta';
-    }
-    function flashTraceLabel(t) {
-      const l = document.getElementById('btnTraceLabel'); if (!l) return;
-      l.innerText = t; setTimeout(updateTraceButton, 1600);
+      const b = document.getElementById('btnTraceRoute'), l = document.getElementById('btnTraceLabel'), h = document.getElementById('routeHint');
+      if (!b || !l) return;
+      if (routeMode) {
+        b.className = TRACE_BTN_ACTIVE;
+        l.innerText = 'Terminar ruta' + (selectedRouteIndexes.length && !routeNewPending ? ' (' + selectedRouteIndexes.length + ')' : '');
+      } else {
+        b.className = TRACE_BTN_IDLE;
+        l.innerText = 'Trazar ruta';
+      }
+      if (h) h.classList.toggle('hidden', !routeMode);
     }
 
     function clearRoutePath() {
+      routeMode = false; routeNewPending = false;
       selectedRouteIndexes = [];
       saveRoutePointsToLocalStorage();
       drawRouteGuidePath();
@@ -778,7 +818,10 @@
         if (!circle) {
           circle = L.circleMarker([c.lat, c.lon], style);
           const idx = c._idx;
-          circle.on('click', () => { selectClientForSidePanel(idx, true); });
+          circle.on('click', () => {
+            if (routeMode) { handleRouteModeClick(idx); selectClientForSidePanel(idx, true, false, true); }
+            else selectClientForSidePanel(idx, true);
+          });
           driverLayerGroup.addLayer(circle);
           pointCircles.set(idx, circle);
         } else {
@@ -844,7 +887,7 @@
         : parseFloat(c.subtotal || 0);
     }
 
-    function selectClientForSidePanel(idx, focus, scrollToMap) {
+    function selectClientForSidePanel(idx, focus, scrollToMap, noPan) {
       const c = currentClientsData[idx];
       if (!c) return;
       selectedClientIndex = idx;
@@ -907,7 +950,7 @@
           ${c.obs ? `<p class="text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded mt-1 text-[11px]"><i class="fa-solid fa-circle-exclamation"></i> ${esc(c.obs)}</p>` : ''}
         </div>`;
 
-      const stale = c.items && c.items.length > 0 && c.items.some(it => !it.codArticulo) && c.items.every(it => /^\d+$/.test(String(it.articulo).trim()));
+      const stale = isStaleItems(c);
       const staleHtml = stale ? '<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg p-2 font-bold text-[11px]">⚠️ Esta boleta quedó guardada solo con códigos (carga antigua). En Vista Admin vuelve a cargar los Comprobantes para ver los nombres.</div>' : '';
       const content = document.getElementById('sidePanelContent');
       const prevTop = content.scrollTop;
@@ -933,7 +976,7 @@
         setTimeout(() => {
           if (!driverLMap) return;
           driverLMap.invalidateSize();
-          if (focus && c.lat && c.lon) driverLMap.panTo([c.lat, c.lon], { animate: true });
+          if (focus && !noPan && c.lat && c.lon) driverLMap.panTo([c.lat, c.lon], { animate: true });
         }, 80);
       }
     }
@@ -989,6 +1032,7 @@
 
       client.estado = status;
       client.obs = customObs;
+      if (pruneDoneRoutePoints()) drawRouteGuidePath();   // si se entregó, sale de la ruta trazada
 
       await saveClientsToFirebase();
       renderDriverLMapPoints();
@@ -1047,7 +1091,7 @@
       if (driverMapHasRoute()) { driverLMap.removeControl(routePolyline); routePolyline = null; }
       if (driverLayerGroup) driverLayerGroup.clearLayers();
       pointCircles.clear(); if (labelLayer) labelLayer.clearLayers();
-      stopGps(true); gpsFollow = false;
+      stopGps(true); gpsFollow = false; routeMode = false; routeNewPending = false;
       currentClientsData = []; filteredClientsData = [];
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
@@ -1191,6 +1235,18 @@
       if (pts.length && adminLMap) adminLMap.fitBounds(pts, { padding: [40, 40], maxZoom: 16 });
     }
 
+    function isStaleItems(c) {
+      return !!(c.items && c.items.length > 0 && c.items.some(it => !it.codArticulo) && c.items.every(it => /^\d+$/.test(String(it.articulo).trim())));
+    }
+    function updateStaleBanner() {
+      const el = document.getElementById('staleBanner'); if (!el) return;
+      let n = 0;
+      Object.values(adminAllRoutesMap).forEach(list => list.forEach(c => { if (isStaleItems(c)) n++; }));
+      if (!n) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+      el.classList.remove('hidden');
+      el.innerHTML = '⚠️ ' + n + ' clientes tienen la boleta guardada solo con códigos (carga antigua). Sube tu archivo en "2. Cargar Comprobantes" para que salgan los nombres de producto.';
+    }
+
     // ---------- VISTA ADMIN ----------
     function initAdminLMap() {
       if (!adminLMap) {
@@ -1212,6 +1268,7 @@
 
         if (snapshot.empty) {
           keysDiv.innerHTML = '<span class="text-slate-400 font-normal">No hay rutas cargadas.</span>';
+          updateStaleBanner();
           if (adminLayerGroup) adminLayerGroup.clearLayers();
           updateAdminFinancialsAndCounts([]);
           return;
@@ -1230,6 +1287,7 @@
           opt.value = routeId; opt.innerText = `Ruta #${routeId}`;
           selectElem.appendChild(opt);
         });
+        updateStaleBanner();
         if (selectedAdminRouteKey !== 'ALL' && !adminAllRoutesMap[selectedAdminRouteKey]) selectedAdminRouteKey = 'ALL';
         selectElem.value = selectedAdminRouteKey;
         selectAdminRoute(selectedAdminRouteKey);
