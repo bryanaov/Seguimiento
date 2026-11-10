@@ -54,6 +54,30 @@
     }
     .map-expanded #mapShell { height: auto !important; flex: 1 1 0%; min-height: 0; }
 
+    /* ===== Celular: boleta como panel inferior, barra compacta, zoom más grande ===== */
+    #sheetHandle { display: none; }
+    @media (max-width: 767px) {
+      #mapShell { height: 74vh !important; height: 74dvh !important; }
+      .map-expanded #mapShell { height: auto !important; }
+      #floatingSidePanel { position: fixed !important; left: 0; right: 0; bottom: 0; width: 100% !important; z-index: 10001;
+        border-radius: 20px 20px 0 0 !important; border-width: 1px 0 0 0 !important; box-shadow: 0 -10px 30px rgba(15,23,42,.28); max-height: 94vh; max-height: 94dvh; }
+      #floatingSidePanel[data-level="0"] { height: auto !important; }
+      #floatingSidePanel[data-level="0"] #sidePanelContent { display: none; }
+      #floatingSidePanel[data-level="1"] { height: 66vh !important; height: 66dvh !important; }
+      #sidePanelActions { padding-top: 0.4rem !important; }
+      #sidePanelActions button { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+      #sidePanelActions button > span.block { display: inline !important; font-size: 1rem !important; margin-right: 4px; }
+      #sidePanelActions .grid button { font-size: 10.5px !important; }
+      #sidePanelActions > button { padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
+      #floatingSidePanel[data-level="2"] { height: 92vh !important; height: 92dvh !important; }
+      #sheetHandle { display: flex; }
+      #sidePanelActions { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+      #mapToolbar { width: 100%; overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; padding-bottom: 2px; }
+      #mapToolbar::-webkit-scrollbar { display: none; }
+      #mapToolbar > * { flex-shrink: 0; white-space: nowrap; }
+      .leaflet-control-zoom a { width: 42px !important; height: 42px !important; line-height: 42px !important; font-size: 24px !important; }
+    }
+
     input[type=number]::-webkit-inner-spin-button, 
     input[type=number]::-webkit-outer-spin-button { opacity: 1; }
   </style>
@@ -61,25 +85,25 @@
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans select-none">
 
   <!-- ENCABEZADO -->
-  <header class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50 border-b border-slate-800">
+  <header class="bg-slate-900 text-white p-2.5 sm:p-4 shadow-lg sticky top-0 z-50 border-b border-slate-800">
     <div class="max-w-7xl mx-auto flex justify-between items-center">
       <div class="flex items-center gap-3">
         <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-md">
           <i class="fa-solid fa-bolt text-lg"></i>
         </div>
         <div>
-          <h1 class="text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-            COURIER TP <span class="text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD</span>
+          <h1 class="text-base sm:text-lg font-black tracking-tight leading-tight flex items-center gap-2">
+            COURIER TP <span class="hidden sm:inline-flex text-[10px] bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase font-bold">Google Maps HD</span>
           </h1>
           <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Plataforma Logística y Control de Boletas</p>
         </div>
       </div>
       <div class="flex gap-2">
         <button onclick="switchTab('driver')" id="btnTabDriver" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition shadow-sm flex items-center gap-1.5">
-          <i class="fa-solid fa-mobile-screen-button"></i> Modo Chofer
+          <i class="fa-solid fa-mobile-screen-button"></i> <span><span class="hidden sm:inline">Modo </span>Chofer</span>
         </button>
         <button onclick="requestAdminAccess()" id="btnTabAdmin" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition border border-slate-700 flex items-center gap-1.5">
-          <i class="fa-solid fa-user-shield text-indigo-400"></i> Vista Admin
+          <i class="fa-solid fa-user-shield text-indigo-400"></i> <span><span class="hidden sm:inline">Vista </span>Admin</span>
         </button>
       </div>
     </div>
@@ -155,24 +179,24 @@
         <div id="mapCard" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col gap-3 scroll-mt-20">
           <div class="flex justify-between items-center flex-wrap gap-2 shrink-0">
             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa General de Entregas (Toca un punto para gestionar)
+              <i class="fa-solid fa-map-location-dot text-indigo-600"></i> Mapa de Entregas<span class="hidden sm:inline font-medium text-slate-500"> (toca un punto para gestionar)</span>
             </h4>
-            <div class="flex items-center gap-2 flex-wrap">
+            <div id="mapToolbar" class="flex items-center gap-2 flex-wrap">
               <button onclick="toggleRouteMode()" id="btnTraceRoute" class="px-3 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 hover:bg-blue-700 transition shadow-sm">
                 <i class="fa-solid fa-route"></i> <span id="btnTraceLabel">Trazar ruta</span>
               </button>
               <button onclick="clearRoutePath()" title="Borrar ruta trazada" class="px-3 py-1.5 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 flex items-center gap-1.5 hover:bg-rose-100 transition">
-                <i class="fa-solid fa-trash-can"></i> Borrar ruta
+                <i class="fa-solid fa-trash-can"></i> <span class="hidden sm:inline">Borrar ruta</span>
               </button>
               <button onclick="toggleGpsFollow()" id="btnGps" class="px-3 py-1.5 bg-blue-50 text-blue-700 font-bold text-xs rounded-xl border border-blue-200 flex items-center gap-1.5 hover:bg-blue-100 transition">
                 <i class="fa-solid fa-location-crosshairs"></i> <span id="btnGpsLabel">Mi GPS</span>
               </button>
               <button onclick="toggleMapExpand()" id="btnExpandMap" class="px-3 py-1.5 bg-indigo-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 hover:bg-indigo-700 transition shadow-sm">
-                <i id="btnExpandIcon" class="fa-solid fa-expand"></i> <span id="btnExpandLabel">Ampliar Mapa</span>
+                <i id="btnExpandIcon" class="fa-solid fa-expand"></i> <span id="btnExpandLabel" class="hidden sm:inline">Ampliar Mapa</span>
               </button>
               <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
                 <input type="checkbox" id="chkHideVisited" onchange="applyDriverFilters()" class="w-4 h-4 text-indigo-600 rounded">
-                <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar Visitados</label>
+                <label for="chkHideVisited" class="text-xs font-bold text-slate-700 cursor-pointer select-none">Ocultar<span class="hidden sm:inline"> Visitados</span></label>
               </div>
             </div>
           </div>
@@ -185,17 +209,22 @@
               <div id="driverLeafletMapContainer" class="absolute inset-0 bg-slate-100 rounded-xl border border-slate-200 z-0"></div>
             </div>
 
-            <aside id="floatingSidePanel" class="hidden shrink-0 w-full md:w-[360px] h-[52%] md:h-full bg-white rounded-xl border border-slate-300 shadow-lg flex-col overflow-hidden">
+            <aside id="floatingSidePanel" data-level="1" class="hidden shrink-0 md:w-[360px] md:h-full bg-white rounded-xl border border-slate-300 shadow-lg flex-col overflow-hidden">
+              <div id="sheetHandle" onclick="cycleSheet()" class="items-center justify-center pt-2 pb-1 shrink-0 cursor-pointer"><span class="block w-12 h-1.5 rounded-full bg-slate-300"></span></div>
               <div class="flex justify-between items-center px-3 py-2 border-b border-slate-100 shrink-0 bg-slate-50">
                 <h4 class="font-black text-slate-900 text-sm flex items-center gap-2">
                   <i class="fa-solid fa-file-invoice-dollar text-indigo-600"></i> Detalle de Boleta
                 </h4>
-                <button onclick="closeSidePanel()" class="text-xs font-bold text-rose-600 hover:text-rose-800 px-2 py-1 rounded bg-rose-50 border border-rose-200 transition">
-                  <i class="fa-solid fa-xmark"></i> Cerrar
-                </button>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="setSheetLevel(Math.min(2, sheetLevel + 1))" title="Ver más grande" class="md:hidden w-10 h-8 text-slate-600 rounded bg-white border border-slate-300"><i class="fa-solid fa-chevron-up"></i></button>
+                  <button onclick="setSheetLevel(Math.max(0, sheetLevel - 1))" title="Ver más chico" class="md:hidden w-10 h-8 text-slate-600 rounded bg-white border border-slate-300"><i class="fa-solid fa-chevron-down"></i></button>
+                  <button onclick="closeSidePanel()" class="text-xs font-bold text-rose-600 hover:text-rose-800 px-2 py-1.5 rounded bg-rose-50 border border-rose-200 transition">
+                    <i class="fa-solid fa-xmark"></i> Cerrar
+                  </button>
+                </div>
               </div>
               <div id="sidePanelHead" class="px-3 pt-2 shrink-0"></div>
-              <div id="sidePanelContent" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2 text-xs"></div>
+              <div id="sidePanelContent" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-3 text-xs"></div>
               <div id="sidePanelActions" class="px-3 py-2 border-t border-slate-200 shrink-0 bg-white space-y-1.5"></div>
             </aside>
           </div>
@@ -325,6 +354,7 @@
     let gpsWatchId = null, gpsActive = false, gpsFollow = false, meMarker = null, meAccuracy = null;
     let lastGpsSent = 0, lastGpsPos = null, wakeLock = null;
     let routeMode = false, routeNewPending = false, routeDrawTimer = null;
+    let sheetLevel = 1, sheetPrevLevel = 1;
     let adminTruckLayer = null, trucksUnsub = null, trucksTimer = null; const truckMarkers = {}; let trucksData = {};
 
     // ---------- UTILIDADES ----------
@@ -647,9 +677,9 @@
 
     function initDriverLMap() {
       if (!driverLMap) {
-        driverLMap = L.map('driverLeafletMapContainer', { zoomControl: false, renderer: L.canvas({ tolerance: 8 }) }).setView([-16.3988, -71.5350], 14);
+        driverLMap = L.map('driverLeafletMapContainer', { zoomControl: false, renderer: L.canvas({ tolerance: 10 }), maxZoom: 22, zoomSnap: 0.5, zoomDelta: 1, wheelPxPerZoomLevel: 80 }).setView([-16.3988, -71.5350], 14);
         L.control.zoom({ position: 'topright' }).addTo(driverLMap);
-        L.tileLayer(GOOGLE_TILES, { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], updateWhenZooming: false, keepBuffer: 3 }).addTo(driverLMap);
+        L.tileLayer(GOOGLE_TILES, { maxZoom: 22, maxNativeZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], updateWhenZooming: false, keepBuffer: 3 }).addTo(driverLMap);
         driverLayerGroup = L.layerGroup().addTo(driverLMap);
         labelLayer = L.layerGroup().addTo(driverLMap);
         driverLMap.on('moveend zoomend', scheduleLabels);
@@ -674,11 +704,11 @@
 
     function centerDriverMapOnPoints() {
       const bounds = filteredClientsData.filter(c => c.lat && c.lon).map(c => [c.lat, c.lon]);
-      if (bounds.length > 0 && driverLMap) driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
+      if (bounds.length > 0 && driverLMap) driverLMap.fitBounds(bounds, { padding: [25, 25], maxZoom: 19 });
     }
     function zoomToPendingPoints() {
       const bounds = currentClientsData.filter(c => c.lat && c.lon && c.estado === 'PENDIENTE').map(c => [c.lat, c.lon]);
-      if (bounds.length > 0 && driverLMap) driverLMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
+      if (bounds.length > 0 && driverLMap) driverLMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 19 });
     }
 
     function applyDriverFilters() {
@@ -707,7 +737,8 @@
     // "Trazar ruta" activa el modo; "Terminar ruta" lo apaga y la ruta queda fija y guardada
     function toggleRouteMode() {
       routeMode = !routeMode;
-      routeNewPending = routeMode;      // la ruta anterior se mantiene hasta que toques el primer punto de la nueva
+      routeNewPending = routeMode;
+      if (isMobile()) { if (routeMode) { sheetPrevLevel = sheetLevel; setSheetLevel(0); } else setSheetLevel(sheetPrevLevel); }      // la ruta anterior se mantiene hasta que toques el primer punto de la nueva
       updateTraceButton();
     }
 
@@ -746,6 +777,7 @@
     }
 
     function clearRoutePath() {
+      if (routeMode && isMobile()) setSheetLevel(sheetPrevLevel);
       routeMode = false; routeNewPending = false;
       selectedRouteIndexes = [];
       saveRoutePointsToLocalStorage();
@@ -808,7 +840,7 @@
         else if (c.estado === 'REPASO') { fillColor = '#6366F1'; opacity = 0.8; }
 
         const style = {
-          radius: isFocus ? 10 : (inRoute ? 8 : 6),
+          radius: (isFocus ? 10 : (inRoute ? 8 : 6)) + (isMobile() ? 1.5 : 0),
           fillColor: fillColor,
           color: isFocus ? '#0f172a' : (inRoute ? '#1e3a8a' : '#ffffff'),
           weight: (isFocus || inRoute) ? 3 : 1.5,
@@ -857,8 +889,8 @@
       const z = driverLMap.getZoom();
       if (z < 14) return;                                   // lejos: solo puntos, sin etiquetas
       const view = driverLMap.getBounds().pad(0.05);
-      const size = z >= 18 ? 14 : (z >= 17 ? 12.5 : (z >= 16 ? 11.5 : 10));
-      const cell = z >= 16 ? 0 : (z >= 15 ? 24 : 36);       // zoom 14-15: una etiqueta por celda
+      const size = (z >= 18 ? 14 : (z >= 17 ? 12.5 : (z >= 16 ? 11.5 : 10))) + (isMobile() ? 1.5 : 0);
+      const cell = z >= 18 ? 0 : (z >= 17 ? 16 : (z >= 16 ? 20 : (z >= 15 ? 26 : 38)));       // zoom 14-15: una etiqueta por celda
       const showName = z >= 19;                             // muy cerca: número + nombre del cliente
       const used = new Set();
       filteredClientsData
@@ -905,28 +937,27 @@
           if (c.estado === 'PARCIAL') {
             extraControls = `
               <div class="mt-2 bg-orange-50 p-2 rounded border border-orange-200 flex items-center justify-between gap-2">
-                <span class="text-[10px] font-bold text-orange-700">Cant. Rechazada:</span>
+                <span class="text-[13px] font-bold text-orange-700">Cant. Rechazada:</span>
                 <input type="number" step="0.001" min="0" max="${item.cantidad}" value="${item.cantRechazada || 0}"
                   onchange="updateItemPartialQuantity(${c._idx}, ${i}, this.value)"
-                  class="w-16 px-1.5 py-1 text-xs border border-orange-300 rounded font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-orange-500">
+                  class="w-24 px-2 py-1.5 text-base border border-orange-300 rounded font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-orange-500">
               </div>`;
           }
 
           const isBonif = item.subtotalOriginal === 0;
           const subtotalStyle = isBonif ? 'text-indigo-600' : (c.estado === 'RECHAZADO' || item.subtotalActual === 0 ? 'text-rose-600 line-through' : 'text-emerald-700');
-          const labelBadge = isBonif ? '<span class="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-bold ml-1">BONIF</span>' : '';
-          const codeLine = item.codArticulo ? `<p class="text-[10px] text-slate-400 font-mono">Cód: ${esc(item.codArticulo)}</p>` : '';
+          const labelBadge = isBonif ? '<span class="bg-indigo-100 text-indigo-700 text-[11px] px-1.5 py-0.5 rounded font-bold ml-1">BONIF</span>' : '';
+          const codeLine = item.codArticulo ? `<p class="text-[12px] text-slate-500 font-mono mt-0.5">Cód: ${esc(item.codArticulo)}</p>` : '';
           const rechLine = item.cantRechazada > 0 ? ` · Rechaz.: <b class="text-rose-600">${item.cantRechazada}</b>` : '';
 
           return `
-          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-            <div class="flex justify-between items-start gap-2">
+          <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-start gap-3">
               <div class="flex-1 min-w-0">
-                <p class="font-bold text-slate-800 leading-tight break-words">${esc(item.articulo)} ${labelBadge}</p>
-                ${codeLine}
-                <p class="text-[11px] text-slate-500 mt-0.5">Pedida: <b class="text-slate-700">${item.cantidad}</b>${rechLine}</p>
+                <p class="font-extrabold text-slate-900 text-[16px] leading-snug break-words">${esc(item.articulo)} ${labelBadge}</p>
+                <p class="text-[14px] text-slate-600 mt-0.5 flex flex-wrap items-baseline gap-x-3">${item.codArticulo ? `<span class="text-[12px] text-slate-500 font-mono">Cód: ${esc(item.codArticulo)}</span>` : ''}<span>Pedida: <b class="text-slate-900 text-[16px]">${item.cantidad}</b>${rechLine}</span></p>
               </div>
-              <p class="text-[12px] font-black whitespace-nowrap ${subtotalStyle}">S/ ${money(item.subtotalActual)}</p>
+              <p class="text-[16px] font-black whitespace-nowrap ${subtotalStyle}">S/ ${money(item.subtotalActual)}</p>
             </div>
             ${extraControls}
           </div>`;
@@ -954,18 +985,18 @@
       const staleHtml = stale ? '<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg p-2 font-bold text-[11px]">⚠️ Esta boleta quedó guardada solo con códigos (carga antigua). En Vista Admin vuelve a cargar los Comprobantes para ver los nombres.</div>' : '';
       const content = document.getElementById('sidePanelContent');
       const prevTop = content.scrollTop;
-      content.innerHTML = `${staleHtml}<p class="font-bold text-slate-400 text-[10px] uppercase tracking-wider">Boleta de Productos:</p>${itemsHtml}`;
+      content.innerHTML = `${staleHtml}<p class="font-bold text-slate-500 text-[12px] uppercase tracking-wider">Boleta de productos${c.items && c.items.length ? ' (' + c.items.length + ')' : ''}</p>${itemsHtml}`;
       content.scrollTop = (lastPanelIdx === idx) ? prevTop : 0;
       lastPanelIdx = idx;
 
       document.getElementById('sidePanelActions').innerHTML = `
-        <div class="grid grid-cols-4 gap-1.5">
-          <button onclick="updateClientCompleteStatus(${c._idx}, 'ENTREGADO')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded-lg transition text-[10px] leading-tight"><span class="block text-sm">✅</span>ENTREGADO</button>
-          <button onclick="updateClientCompleteStatus(${c._idx}, 'RECHAZADO')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-1.5 rounded-lg transition text-[10px] leading-tight"><span class="block text-sm">❌</span>RECHAZAR</button>
-          <button onclick="updateClientCompleteStatus(${c._idx}, 'PARCIAL')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-1.5 rounded-lg transition text-[10px] leading-tight"><span class="block text-sm">🟧</span>PARCIAL</button>
-          <button onclick="updateClientCompleteStatus(${c._idx}, 'REPASO')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 rounded-lg transition text-[10px] leading-tight"><span class="block text-sm">🔁</span>REPASO</button>
+        <div class="grid grid-cols-4 gap-2">
+          <button onclick="updateClientCompleteStatus(${c._idx}, 'ENTREGADO')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition text-[11px] leading-tight"><span class="block text-lg">✅</span>ENTREGADO</button>
+          <button onclick="updateClientCompleteStatus(${c._idx}, 'RECHAZADO')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-[11px] leading-tight"><span class="block text-lg">❌</span>RECHAZAR</button>
+          <button onclick="updateClientCompleteStatus(${c._idx}, 'PARCIAL')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-xl transition text-[11px] leading-tight"><span class="block text-lg">🟧</span>PARCIAL</button>
+          <button onclick="updateClientCompleteStatus(${c._idx}, 'REPASO')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition text-[11px] leading-tight"><span class="block text-lg">🔁</span>REPASO</button>
         </div>
-        <button onclick="updateClientCompleteStatus(${c._idx}, 'PENDIENTE')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-1.5 rounded-lg transition text-[10px] uppercase tracking-wide">⏳ Marcar Pendiente (Restablecer)</button>`;
+        <button onclick="updateClientCompleteStatus(${c._idx}, 'PENDIENTE')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-[11px] uppercase tracking-wide">⏳ Marcar Pendiente (Restablecer)</button>`;
 
       updateTraceButton();
       if (scrollToMap && !mapExpanded) {
@@ -976,7 +1007,12 @@
         setTimeout(() => {
           if (!driverLMap) return;
           driverLMap.invalidateSize();
-          if (focus && !noPan && c.lat && c.lon) driverLMap.panTo([c.lat, c.lon], { animate: true });
+          if (focus && !noPan && c.lat && c.lon) {
+            const z = scrollToMap ? Math.max(driverLMap.getZoom(), 17) : driverLMap.getZoom();
+            driverLMap.setView([c.lat, c.lon], z, { animate: !isMobile() });
+            if (isMobile()) keepSelectedAboveSheet();
+            if (isMobile()) setTimeout(keepSelectedAboveSheet, 700);
+          }
         }, 80);
       }
     }
@@ -1041,6 +1077,28 @@
       selectClientForSidePanel(idx);
     }
 
+    // ---------- PANEL DE BOLETA EN CELULAR (3 tamaños) ----------
+    function isMobile() { return window.matchMedia('(max-width: 767px)').matches; }
+    function setSheetLevel(n) {            // 0 = compacto (sin productos), 1 = normal, 2 = casi pantalla completa
+      sheetLevel = n;
+      const p = document.getElementById('floatingSidePanel'); if (p) p.dataset.level = String(n);
+      setTimeout(() => { if (driverLMap) { driverLMap.invalidateSize(); keepSelectedAboveSheet(); } }, 120);
+    }
+    function cycleSheet() { setSheetLevel(sheetLevel >= 2 ? 0 : sheetLevel + 1); }
+    // Mueve el mapa para que el cliente seleccionado quede visible arriba del panel
+    function keepSelectedAboveSheet() {
+      if (!isMobile() || !driverLMap || selectedClientIndex === null) return;
+      const c = currentClientsData[selectedClientIndex];
+      const panel = document.getElementById('floatingSidePanel');
+      if (!c || !c.lat || !c.lon || panel.classList.contains('hidden')) return;
+      const mapRect = document.getElementById('driverLeafletMapContainer').getBoundingClientRect();
+      const visTop = Math.max(mapRect.top, 0), visBottom = Math.min(mapRect.bottom, panel.getBoundingClientRect().top);
+      if (visBottom - visTop < 120) return;
+      const pt = driverLMap.latLngToContainerPoint([c.lat, c.lon]);
+      const dy = pt.y - ((visTop + visBottom) / 2 - mapRect.top);
+      if (Math.abs(dy) > 8) driverLMap.panBy([0, dy], { animate: false });
+    }
+
     function closeSidePanel() {
       selectedClientIndex = null; lastPanelIdx = null;
       updateTraceButton();
@@ -1091,7 +1149,7 @@
       if (driverMapHasRoute()) { driverLMap.removeControl(routePolyline); routePolyline = null; }
       if (driverLayerGroup) driverLayerGroup.clearLayers();
       pointCircles.clear(); if (labelLayer) labelLayer.clearLayers();
-      stopGps(true); gpsFollow = false; routeMode = false; routeNewPending = false;
+      stopGps(true); gpsFollow = false; routeMode = false; routeNewPending = false; sheetLevel = 1; sheetPrevLevel = 1; document.getElementById('floatingSidePanel').dataset.level = '1';
       currentClientsData = []; filteredClientsData = [];
       document.getElementById('driverRouteContainer').classList.add('hidden');
       document.getElementById('driverLoginCard').classList.remove('hidden');
@@ -1152,7 +1210,7 @@
       if (!gpsActive) startGps();
       if (gpsFollow) { gpsFollow = false; setGpsLabel(gpsActive ? 'GPS: activo' : 'Mi GPS'); return; }
       gpsFollow = true;
-      if (meMarker && driverLMap) driverLMap.setView(meMarker.getLatLng(), Math.max(driverLMap.getZoom(), 17));
+      if (meMarker && driverLMap) driverLMap.setView(meMarker.getLatLng(), Math.max(driverLMap.getZoom(), 18));
       setGpsLabel(meMarker ? 'GPS: siguiendo' : 'GPS: buscando…');
     }
 
@@ -1250,8 +1308,8 @@
     // ---------- VISTA ADMIN ----------
     function initAdminLMap() {
       if (!adminLMap) {
-        adminLMap = L.map('adminLeafletMapContainer', { preferCanvas: true }).setView([-16.3988, -71.5350], 12);
-        L.tileLayer(GOOGLE_TILES, { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(adminLMap);
+        adminLMap = L.map('adminLeafletMapContainer', { preferCanvas: true, maxZoom: 22 }).setView([-16.3988, -71.5350], 12);
+        L.tileLayer(GOOGLE_TILES, { maxZoom: 22, maxNativeZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }).addTo(adminLMap);
         adminLayerGroup = L.layerGroup().addTo(adminLMap);
         adminTruckLayer = L.layerGroup().addTo(adminLMap);
       }
