@@ -69,6 +69,7 @@
       #sidePanelActions button > span.block { display: inline !important; font-size: 1rem !important; margin-right: 4px; }
       #sidePanelActions .grid button { font-size: 10.5px !important; }
       #sidePanelActions > button { padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
+      #floatingSidePanel[data-boleta="0"][data-level="1"] { height: auto !important; }
       #floatingSidePanel[data-level="2"] { height: 92vh !important; height: 92dvh !important; }
       #sheetHandle { display: flex; }
       #sidePanelActions { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
@@ -355,6 +356,32 @@
     let lastGpsSent = 0, lastGpsPos = null, wakeLock = null;
     let routeMode = false, routeNewPending = false, routeDrawTimer = null;
     let sheetLevel = 1, sheetPrevLevel = 1;
+
+    // ---- Cantidades como en el Excel: entero = paquetes, decimales (x1000) = unidades sueltas
+    function splitQty(q) {
+      const t = Math.round((Number(q) || 0) * 1000);
+      return { paq: Math.floor(t / 1000), und: t % 1000 };
+    }
+    function fmtQtyExcel(q) { return (Math.round((Number(q) || 0) * 1000) / 1000).toFixed(3); }
+    function fmtQtyText(q) {
+      const { paq, und } = splitQty(q);
+      const parts = [];
+      if (paq) parts.push(paq + (paq === 1 ? ' paquete' : ' paquetes'));
+      if (und) parts.push(und + (und === 1 ? ' unidad' : ' unidades'));
+      return parts.length ? parts.join(' + ') : '0';
+    }
+
+    // ---- Ver/ocultar la boleta de productos (se recuerda)
+    let showBoleta = false;
+    try { showBoleta = localStorage.getItem('courier_show_boleta') === '1'; } catch (e) {}
+    function toggleBoleta() {
+      showBoleta = !showBoleta;
+      try { localStorage.setItem('courier_show_boleta', showBoleta ? '1' : '0'); } catch (e) {}
+      if (selectedClientIndex !== null) {
+        selectClientForSidePanel(selectedClientIndex, false, false, true);
+        setSheetLevel(sheetLevel);
+      }
+    }
     let adminTruckLayer = null, trucksUnsub = null, trucksTimer = null; const truckMarkers = {}; let trucksData = {};
 
     // ---------- UTILIDADES ----------
@@ -935,12 +962,21 @@
         itemsHtml = c.items.map((item, i) => {
           let extraControls = '';
           if (c.estado === 'PARCIAL') {
+            const r = splitQty(item.cantRechazada || 0), mx = splitQty(item.cantidad);
             extraControls = `
-              <div class="mt-2 bg-orange-50 p-2 rounded border border-orange-200 flex items-center justify-between gap-2">
-                <span class="text-[13px] font-bold text-orange-700">Cant. Rechazada:</span>
-                <input type="number" step="0.001" min="0" max="${item.cantidad}" value="${item.cantRechazada || 0}"
-                  onchange="updateItemPartialQuantity(${c._idx}, ${i}, this.value)"
-                  class="w-24 px-2 py-1.5 text-base border border-orange-300 rounded font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-orange-500">
+              <div class="mt-2 bg-orange-50 p-2 rounded-lg border border-orange-200">
+                <p class="text-[13px] font-bold text-orange-700 mb-1.5">Cantidad a rechazar:</p>
+                <div class="flex items-end gap-2">
+                  <label class="flex-1 text-[11px] font-bold text-slate-600">Paquetes
+                    <input id="rq-p-${i}" type="number" inputmode="numeric" min="0" max="${mx.paq}" value="${r.paq}"
+                      onchange="updateItemPartialQty(${c._idx}, ${i})"
+                      class="w-full mt-0.5 px-2 py-2 text-base border border-orange-300 rounded-lg font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-orange-500"></label>
+                  <label class="flex-1 text-[11px] font-bold text-slate-600">Unidades
+                    <input id="rq-u-${i}" type="number" inputmode="numeric" min="0" max="999" value="${r.und}"
+                      onchange="updateItemPartialQty(${c._idx}, ${i})"
+                      class="w-full mt-0.5 px-2 py-2 text-base border border-orange-300 rounded-lg font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-orange-500"></label>
+                  <button onclick="rejectWholeItem(${c._idx}, ${i})" class="shrink-0 bg-rose-600 text-white font-bold text-[12px] px-3 py-2.5 rounded-lg">Todo</button>
+                </div>
               </div>`;
           }
 
@@ -948,14 +984,14 @@
           const subtotalStyle = isBonif ? 'text-indigo-600' : (c.estado === 'RECHAZADO' || item.subtotalActual === 0 ? 'text-rose-600 line-through' : 'text-emerald-700');
           const labelBadge = isBonif ? '<span class="bg-indigo-100 text-indigo-700 text-[11px] px-1.5 py-0.5 rounded font-bold ml-1">BONIF</span>' : '';
           const codeLine = item.codArticulo ? `<p class="text-[12px] text-slate-500 font-mono mt-0.5">Cód: ${esc(item.codArticulo)}</p>` : '';
-          const rechLine = item.cantRechazada > 0 ? ` · Rechaz.: <b class="text-rose-600">${item.cantRechazada}</b>` : '';
+          const rechLine = item.cantRechazada > 0 ? `<br><span class="text-rose-600 font-bold">Rechaza: ${fmtQtyText(item.cantRechazada)}</span>` : '';
 
           return `
           <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
             <div class="flex justify-between items-start gap-3">
               <div class="flex-1 min-w-0">
                 <p class="font-extrabold text-slate-900 text-[16px] leading-snug break-words">${esc(item.articulo)} ${labelBadge}</p>
-                <p class="text-[14px] text-slate-600 mt-0.5 flex flex-wrap items-baseline gap-x-3">${item.codArticulo ? `<span class="text-[12px] text-slate-500 font-mono">Cód: ${esc(item.codArticulo)}</span>` : ''}<span>Pedida: <b class="text-slate-900 text-[16px]">${item.cantidad}</b>${rechLine}</span></p>
+                <p class="text-[14px] text-slate-600 mt-0.5 flex flex-wrap items-baseline gap-x-3">${item.codArticulo ? `<span class="text-[12px] text-slate-500 font-mono">Cód: ${esc(item.codArticulo)}</span>` : ''}<span>Pedida: <b class="text-slate-900 text-[16px]">${fmtQtyExcel(item.cantidad)}</b> <span class="text-[13px] text-slate-500">(${fmtQtyText(item.cantidad)})</span>${rechLine}</span></p>
               </div>
               <p class="text-[16px] font-black whitespace-nowrap ${subtotalStyle}">S/ ${money(item.subtotalActual)}</p>
             </div>
@@ -985,7 +1021,16 @@
       const staleHtml = stale ? '<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg p-2 font-bold text-[11px]">⚠️ Esta boleta quedó guardada solo con códigos (carga antigua). En Vista Admin vuelve a cargar los Comprobantes para ver los nombres.</div>' : '';
       const content = document.getElementById('sidePanelContent');
       const prevTop = content.scrollTop;
-      content.innerHTML = `${staleHtml}<p class="font-bold text-slate-500 text-[12px] uppercase tracking-wider">Boleta de productos${c.items && c.items.length ? ' (' + c.items.length + ')' : ''}</p>${itemsHtml}`;
+      const nItems = c.items && c.items.length ? c.items.length : 0;
+      const showProducts = showBoleta || c.estado === 'PARCIAL';
+      panel.dataset.boleta = showProducts ? '1' : '0';
+      const toggleBtn = c.estado === 'PARCIAL'
+        ? `<p class="font-bold text-orange-700 text-[13px] bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">🟧 Parcial: indica qué productos y cuántas unidades se rechazan (${nItems} productos)</p>`
+        : `<button onclick="toggleBoleta()" class="w-full flex items-center justify-between gap-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl px-3 py-2.5 font-bold text-slate-700 text-[14px]">
+             <span>${showBoleta ? '🙈 Ocultar boleta de productos' : '👁 Ver boleta de productos'} (${nItems})</span>
+             <span class="w-11 h-6 rounded-full ${showBoleta ? 'bg-emerald-500' : 'bg-slate-400'} relative shrink-0"><span class="absolute top-0.5 ${showBoleta ? 'left-[22px]' : 'left-0.5'} w-5 h-5 rounded-full bg-white shadow"></span></span>
+           </button>`;
+      content.innerHTML = `${staleHtml}${toggleBtn}${showProducts ? itemsHtml : ''}`;
       content.scrollTop = (lastPanelIdx === idx) ? prevTop : 0;
       lastPanelIdx = idx;
 
@@ -1017,12 +1062,21 @@
       }
     }
 
+    async function updateItemPartialQty(clientIdx, itemIdx) {
+      const p = parseInt((document.getElementById('rq-p-' + itemIdx) || {}).value, 10) || 0;
+      const u = parseInt((document.getElementById('rq-u-' + itemIdx) || {}).value, 10) || 0;
+      return updateItemPartialQuantity(clientIdx, itemIdx, Math.max(0, p) + Math.max(0, u) / 1000);
+    }
+    async function rejectWholeItem(clientIdx, itemIdx) {
+      const it = currentClientsData[clientIdx] && currentClientsData[clientIdx].items[itemIdx];
+      if (it) await updateItemPartialQuantity(clientIdx, itemIdx, it.cantidad);
+    }
     async function updateItemPartialQuantity(clientIdx, itemIdx, rejectedQtyStr) {
       const client = currentClientsData[clientIdx];
       if (!client || !client.items[itemIdx]) return;
       const item = client.items[itemIdx];
 
-      let rejectedQty = parseFloat(rejectedQtyStr) || 0;
+      let rejectedQty = Math.round((parseFloat(rejectedQtyStr) || 0) * 1000) / 1000;
       if (rejectedQty < 0) rejectedQty = 0;
       if (rejectedQty > item.cantidad) rejectedQty = item.cantidad;
 
@@ -1063,7 +1117,13 @@
           });
         }
       }
-      else if (status === 'PARCIAL') { customObs = "Entrega Incompleta"; }
+      else if (status === 'PARCIAL') {
+        customObs = "Entrega Incompleta";
+        // si venía de un rechazo total, se restablece la boleta para elegir qué se rechaza
+        if ((client.estado === 'RECHAZADO' || client.estado === 'CERRADO') && client.items) {
+          client.items.forEach(item => { item.cantRechazada = 0; item.subtotalActual = item.subtotalOriginal; item.estadoItem = 'OK'; });
+        }
+      }
       else if (status === 'REPASO') { customObs = "Repaso"; }
 
       client.estado = status;
